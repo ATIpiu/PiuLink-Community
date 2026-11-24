@@ -1,0 +1,6 @@
+Required Notice: Copyright © 2026 ATIPiu Labs / Ryan.
+
+Independent original PiuLink components are distributed under the PolyForm Noncommercial License 1.0.0. The license text accompanies this notice. Components derived from Moonlight or Sunshine and the code incorporated into them are distributed under GNU GPL v3. Third-party components retain their own notices and licenses.
+
+Project source, license scope, engine pins, patches and corresponding build scripts:
+https://github.com/ATIpiu/PiuLink-Community

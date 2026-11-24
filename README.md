@@ -4,7 +4,12 @@ PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑
 
 ## 下载与连接
 
-本次[公开预览版](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)提供完整项目源码快照及 Linux x86-64 邀请服务。Windows、Android、macOS 和 iPhone 在此版本提供源码与构建说明。以下步骤适用于已安装或已从源码构建的 Host 和 Client。
+| 使用设备 | 安装包 |
+| --- | --- |
+| 在 Windows x64 电脑上控制另一台主机 | [下载 Windows Client 0.2.31 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/client-preview-2026.11.25/PiuLink-Client-0.2.31-win-x64.msi) |
+| 在 Android 手机、平板或电视上控制主机 | [下载 Android 0.3.185 · 通用签名 APK](https://github.com/ATIpiu/PiuLink-Community/releases/download/client-preview-2026.11.25/PiuLink-Android-0.3.185-nonRoot-universal-release.apk) |
+
+Windows 控制端 MSI 为未签名预览版。两个客户端都需要连接已安装 Host 或兼容 Sunshine 的电脑。[版本说明和 SHA-256](https://github.com/ATIpiu/PiuLink-Community/releases/tag/client-preview-2026.11.25) · [自建 Linux 邀请服务](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)
 
 1. 在要被控制的电脑上安装 **Host**，在操作设备上安装 **Client**。Android 手机、平板与电视使用同一个签名版 `nonRoot-universal-release.apk`。
 2. 第一次连接建议让两台设备使用同一局域网。在客户端发现或手动添加电脑，按提示在 Host 确认配对。

@@ -10,4 +10,4 @@ PiuLink Android 使用标准 Moonlight 串流链路连接自己的电脑，提�
 
 ## 获取与构建
 
-本次预览提供可自行构建的 Android 源码。通用签名包使用 `nonRoot-universal-release.apk` 后缀，应用 ID 为 `labs.atipiu.piulink`。[Android 源码](../../piulink-android/README.md) · [开发指南](../../docs/DEVELOPMENT.md)
+[下载 Android 0.3.185 通用 APK](https://github.com/ATIpiu/PiuLink-Community/releases/download/client-preview-2026.11.25/PiuLink-Android-0.3.185-nonRoot-universal-release.apk)。该包经过正式签名，包名为 `labs.atipiu.piulink`，手机、平板与电视共用。[Android 源码](../../piulink-android/README.md) · [开发指南](../../docs/DEVELOPMENT.md)

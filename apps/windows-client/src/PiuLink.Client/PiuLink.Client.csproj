@@ -10,7 +10,7 @@
     <RootNamespace>PiuLink.Client</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\..\..\windows-host\src\PiuLink.Host\Assets\PiuLink.ico</ApplicationIcon>
-    <Version>0.2.30</Version>
+    <Version>0.2.31</Version>
     <Authors>Ryan</Authors>
     <Company>ATIPiu Labs</Company>
     <Product>PiuLink Client</Product>
@@ -42,6 +42,10 @@
              Link="moonlight-qt\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="../../../../licenses/PiuLink-Notice.txt;../../../../licenses/PolyForm-Noncommercial-1.0.0.txt"
+             Link="licenses/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <Import Project="../../../../packages/direct-tunnel/WindowsTransport.targets" />
 </Project>

@@ -67,5 +67,9 @@
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="../../../../licenses/PiuLink-Notice.txt;../../../../licenses/PolyForm-Noncommercial-1.0.0.txt"
+             Link="licenses/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <Import Project="../../../../packages/direct-tunnel/WindowsTransport.targets" />
 </Project>

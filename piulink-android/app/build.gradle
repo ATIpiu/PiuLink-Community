@@ -21,8 +21,19 @@ def releaseSigningConfigured = !releaseStoreFilePath.isBlank() &&
         !releaseStorePassword.isBlank() &&
         !releaseKeyAlias.isBlank() &&
         !releaseKeyPassword.isBlank()
+// Include the licenses for the Android derivative and its bundled native libraries.
+def bundleLicenses = tasks.register('bundleAndroidLicenses', Sync) {
+    into(layout.buildDirectory.dir('generated/piulink-license-assets'))
+    into('licenses') {
+        from(rootProject.file('LICENSE.txt')) { rename { 'GPL-3.0.txt' } }
+        from(rootProject.file('../licenses/OpenSSL-1.1.1q.txt'))
+        from(rootProject.file('../licenses/Opus-1.5.2.txt'))
+        from(file('src/main/jni/moonlight-core/moonlight-common-c/enet/LICENSE')) { rename { 'enet.txt' } }
+    }
+}
 android {
     sourceSets.main.assets.srcDir('../../packages/direct-tunnel/licenses')
+    sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/piulink-license-assets'))
     ndkVersion "27.0.12077973"
     testBuildType "release"
 
@@ -34,8 +45,8 @@ android {
         minSdk 26
         targetSdk 36
 
-        versionName "0.3.184"
-        versionCode = 204
+        versionName "0.3.185"
+        versionCode = 205
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes
@@ -238,6 +249,8 @@ configurations.configureEach {
         force 'io.netty:netty-transport-native-unix-common:4.1.137.Final'
     }
 }
+
+tasks.named('preBuild').configure { dependsOn(bundleLicenses) }
 
 tasks.register('verifyReleaseSigningConfiguration') {
     group = 'verification'
