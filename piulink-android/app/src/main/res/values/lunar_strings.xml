@@ -1,0 +1,25 @@
+<resources>
+    <string name="lunar_desktop">Desktop</string>
+    <string name="lunar_library_tools">Search and filter apps</string>
+    <string name="lunar_muted">Muted</string>
+    <string name="lunar_live_mic">Mic on</string>
+    <string name="settings_quality">Picture &amp; network</string>
+    <string name="settings_quality_auto">Automatic bitrate</string>
+    <string name="settings_quality_manual">%1$s Mbps</string>
+    <string name="settings_sound">Audio</string>
+    <string name="settings_touch">Touch</string>
+    <string name="settings_touch_trackpad">Trackpad</string>
+    <string name="settings_touch_direct">Direct touch</string>
+    <string name="settings_devices_group">Devices &amp; controls</string>
+    <string name="settings_client_group">App &amp; connection</string>
+    <string name="settings_hardware_pad">Controllers</string>
+    <string name="settings_overlay_pad">On-screen gamepad</string>
+    <string name="settings_host_label">Host</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_advanced_label">Advanced</string>
+    <string name="settings_connection_guide">Connection guide</string>
+    <string name="settings_on_state">On</string>
+    <string name="settings_off_state">Off</string>
+    <string name="settings_detail_display_hint">Adjust monitors, resolution and refresh rate from Screen settings while streaming.</string>
+    <string name="settings_quality_fixed">Fixed bitrate</string>
+</resources>

@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>PiuLink.Host</AssemblyName>
+    <RootNamespace>PiuLink.Host</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WPF owns startup; no WinForms ApplicationConfiguration.Initialize is called.
+         Establish DPI awareness in the manifest before WPF creates any HWND. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+    <ApplicationIcon>Assets\PiuLink.ico</ApplicationIcon>
+    <Version>0.2.115</Version>
+    <Authors>Ryan</Authors>
+    <Company>ATIPiu Labs</Company>
+    <Product>PiuLink Host</Product>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../../packages/windows-ui/DesktopClipboard.cs" Link="Services/DesktopClipboard.cs" />
+    <Compile Include="..\..\..\..\packages\windows-ui\WindowChrome.cs" Link="Themes\WindowChrome.cs" />
+    <Page Include="..\..\..\..\packages\windows-ui\PiuLinkTheme.xaml" Link="Themes\PiuLinkTheme.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+    <ProjectReference Include="..\PiuLink.Host.Core\PiuLink.Host.Core.csproj" />
+    <Compile Include="../../../../packages/rendezvous/*.cs" Link="Rendezvous/%(Filename)%(Extension)" />
+    <!-- Preserve the production endpoint in artifact metadata for the install
+         audit required by project memory. The open-source Host has no activation check. -->
+    <AssemblyMetadata Include="PiuLinkProductionActivationUrl" Value="https://piulink.atipiu.org:8443" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Embed shell artwork into the WPF assembly. The windows must remain
+         launchable even if an installer upgrade omits or removes Assets. -->
+    <Content Include="..\..\installers\licenses\NAudio-MIT.txt" Link="third_party\NAudio\LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Resource Include="Assets\PiuLink.ico" />
+    <Resource Include="Assets\PiuLink-256.png" />
+  </ItemGroup>
+  <PropertyGroup>
+    <PiuLinkEngineDirectory Condition="'$(PiuLinkEngineDirectory)' == ''"></PiuLinkEngineDirectory>
+  </PropertyGroup>
+  <Target Name="ValidateEmbeddedEngine" BeforeTargets="PrepareForBuild" Condition="'$(PiuLinkEngineDirectory)' != ''">
+    <Error Condition="!Exists('$(PiuLinkEngineDirectory)\sunshine.exe') Or !Exists('$(PiuLinkEngineDirectory)\tools\sunshinesvc.exe') Or !Exists('$(PiuLinkEngineDirectory)\piulink-engine.json')" Text="The embedded engine must be a complete staged PiuLink engine build." />
+  </Target>
+  <ItemGroup Condition="'$(PiuLinkEngineDirectory)' != ''">
+    <Content Include="$(PiuLinkEngineDirectory)\**\*" Exclude="$(PiuLinkEngineDirectory)\config\**;$(PiuLinkEngineDirectory)\**\*.log" Link="engine\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(PiuLinkEngineDirectory)' == ''">
+    <Content Include="..\..\installers\manifests\sunshine-windows-x64.json"
+             Link="third_party\sunshine\manifest.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\installers\licenses\Sunshine-GPL-3.0.txt"
+             Link="third_party\sunshine\Sunshine-GPL-3.0.txt"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\installers\licenses\Sunshine-NOTICE.md"
+             Link="third_party\sunshine\Sunshine-NOTICE.md"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\installers\cache\Sunshine-Windows-AMD64-installer.msi"
+             Condition="Exists('..\..\installers\cache\Sunshine-Windows-AMD64-installer.msi')"
+             Link="third_party\sunshine\Sunshine-Windows-AMD64-installer.msi"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Import Project="../../../../packages/direct-tunnel/WindowsTransport.targets" />
+</Project>

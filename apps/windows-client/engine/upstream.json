@@ -1,0 +1,23 @@
+{
+  "name": "PiuLink Moonlight Qt engine",
+  "upstreamRepository": "https://github.com/moonlight-stream/moonlight-qt.git",
+  "upstreamRelease": "v6.1.0",
+  "upstreamCommit": "f786e94c7b2f943e24e65d7d74deb539b827fc84",
+  "moonlightCommonCommit": "8599b6042a4ba27749b0f94134dd614b4328a9bc",
+  "qtVersion": "6.7.3",
+  "qtArchitecture": "msvc2019_64",
+  "msvcMinimumVersion": "14.40",
+  "piulinkRevision": 10,
+  "releaseReady": false,
+  "license": "GPL-3.0-only",
+  "patches": [
+    "patches/0001-integrated-qt-client.patch",
+    "patches/0004-fetch-paired-app-list.patch"
+  ],
+  "dependencyPatches": [
+    {
+      "directory": "moonlight-common-c/moonlight-common-c",
+      "patch": "patches/0002-integrated-control-protocol.patch"
+    }
+  ]
+}

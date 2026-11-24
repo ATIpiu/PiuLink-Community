@@ -1,0 +1,256 @@
+diff --git a/cmake/prep/constants.cmake b/cmake/prep/constants.cmake
+index b80be1e..a47a42a 100644
+--- a/cmake/prep/constants.cmake
++++ b/cmake/prep/constants.cmake
+@@ -2,4 +2,8 @@
+ set(SUNSHINE_SOURCE_ASSETS_DIR "${CMAKE_SOURCE_DIR}/src_assets")
+ 
+ # enable system tray, we will disable this later if we cannot find the required package config on linux
+-set(SUNSHINE_TRAY 1)
++if(SUNSHINE_ENABLE_TRAY)
++    set(SUNSHINE_TRAY 1)
++else()
++    set(SUNSHINE_TRAY 0)
++endif()
+diff --git a/src/nvenc/nvenc_base.cpp b/src/nvenc/nvenc_base.cpp
+index ab8aa7a..316540f 100644
+--- a/src/nvenc/nvenc_base.cpp
++++ b/src/nvenc/nvenc_base.cpp
+@@ -97,6 +97,29 @@ namespace nvenc {
+     // Use destroy_encoder() instead
+   }
+ 
++  bool nvenc_base::reconfigure_bitrate(uint32_t kbps) {
++    if (!encoder || kbps < 500 || kbps > 150000 || !saved_init.frameRateNum) return false;
++    auto candidate = saved_config;
++    auto old_rate = candidate.rcParams.averageBitRate;
++    candidate.rcParams.averageBitRate = kbps * 1000;
++    candidate.rcParams.maxBitRate = kbps * 1000;
++    if (old_rate && candidate.rcParams.vbvBufferSize)
++      candidate.rcParams.vbvBufferSize = (uint64_t) candidate.rcParams.vbvBufferSize * kbps * 1000 / old_rate;
++    NV_ENC_RECONFIGURE_PARAMS params {NV_ENC_RECONFIGURE_PARAMS_VER};
++    params.reInitEncodeParams = saved_init;
++    params.reInitEncodeParams.encodeConfig = &candidate;
++    // Reset rate-control state and make the first frame after reconfiguration an IDR.
++    // Without this, NVENC can accept the bitrate update but leave AV1/HEVC clients
++    // displaying the last pre-reconfiguration frame indefinitely.
++    params.resetEncoder = 1;
++    params.forceIDR = 1;
++    // Called only by the encoding thread between frames. No encoder teardown or reconnect.
++    if (nvenc_failed(nvenc->nvEncReconfigureEncoder(encoder, &params))) return false;
++    saved_config = candidate;
++    BOOST_LOG(info) << "PiuLink live bitrate applied: " << kbps << " Kbps";
++    return true;
++  }
++
+   bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_t &client_config, const nvenc_colorspace_t &colorspace, NV_ENC_BUFFER_FORMAT buffer_format) {
+     if (!nvenc && !init_library()) {
+       return false;
+@@ -427,6 +445,10 @@ namespace nvenc {
+       return false;
+     }
+ 
++    saved_config = enc_config;
++    saved_init = init_params;
++    saved_init.encodeConfig = &saved_config;
++
+     if (async_event_handle) {
+       NV_ENC_EVENT_PARAMS event_params = {NV_ENC_EVENT_PARAMS_VER};
+       event_params.completionEvent = async_event_handle;
+diff --git a/src/nvenc/nvenc_base.h b/src/nvenc/nvenc_base.h
+index bb2cc3f..8bc173e 100644
+--- a/src/nvenc/nvenc_base.h
++++ b/src/nvenc/nvenc_base.h
+@@ -49,6 +49,7 @@ namespace nvenc {
+      *        Derived classes classes call it in the destructor.
+      */
+     void destroy_encoder();
++    bool reconfigure_bitrate(uint32_t kbps);
+ 
+     /**
+      * @brief Encode the next frame using platform-specific input surface.
+@@ -131,6 +132,8 @@ namespace nvenc {
+                                          ///< Can be set in constructor or `init_library()`, must override `wait_for_async_event()`.
+ 
+   private:
++    NV_ENC_INITIALIZE_PARAMS saved_init {};
++    NV_ENC_CONFIG saved_config {};
+     NV_ENC_OUTPUT_PTR output_bitstream = nullptr;
+ 
+     struct {
+diff --git a/src/nvhttp.cpp b/src/nvhttp.cpp
+index 4db8c6e..51d2a60 100644
+--- a/src/nvhttp.cpp
++++ b/src/nvhttp.cpp
+@@ -702,6 +702,7 @@ namespace nvhttp {
+     tree.put("root.hostname", config::nvhttp.sunshine_name);
+ 
+     tree.put("root.appversion", VERSION);
++    tree.put("root.piulink_control", "1");
+     tree.put("root.GfeVersion", GFE_VERSION);
+     tree.put("root.uniqueid", http::unique_id);
+     tree.put("root.HttpsPort", net::map_port(PORT_HTTPS));
+@@ -868,7 +869,8 @@ namespace nvhttp {
+     host_audio = util::from_view(get_arg(args, "localAudioPlayMode"));
+     auto launch_session = make_launch_session(host_audio, args);
+ 
+-    if (rtsp_stream::session_count() == 0) {
++    const bool piulink_prepared = util::from_view(get_arg(args, "piulinkPrepared"));
++    if (rtsp_stream::session_count() == 0 && !piulink_prepared) {
+       // The display should be restored in case something fails as there are no other sessions.
+       revert_display_configuration = true;
+ 
+@@ -971,12 +973,13 @@ namespace nvhttp {
+     // so we should use it if it's present in the args and there are
+     // no active sessions we could be interfering with.
+     const bool no_active_sessions {rtsp_stream::session_count() == 0};
++    const bool piulink_prepared = util::from_view(get_arg(args, "piulinkPrepared"));
+     if (no_active_sessions && args.find("localAudioPlayMode"s) != std::end(args)) {
+       host_audio = util::from_view(get_arg(args, "localAudioPlayMode"));
+     }
+     const auto launch_session = make_launch_session(host_audio, args);
+ 
+-    if (no_active_sessions) {
++    if (no_active_sessions && !piulink_prepared) {
+       // We want to prepare display only if there are no active sessions at
+       // the moment. This should be done before probing encoders as it could
+       // change the active displays.
+diff --git a/src/stream.cpp b/src/stream.cpp
+index 8b303ef..062d405 100644
+--- a/src/stream.cpp
++++ b/src/stream.cpp
+@@ -340,8 +340,11 @@ namespace stream {
+     control_server_t control_server;
+   };
+ 
++  namespace session { extern std::atomic_uint running_sessions; }
+   struct session_t {
+     config_t config;
++    bool piulink_cursor_hidden = false;
++    bool piulink_previous_cursor = true;
+ 
+     safe::mail_t mail;
+ 
+@@ -919,7 +922,41 @@ namespace stream {
+     return 0;
+   }
+ 
++  void send_piulink_ack(session_t *session, uint32_t operation, uint32_t value) {
++    struct { control_header_v2 header; uint32_t operation; uint32_t value; } plaintext {};
++    plaintext.header.type = 0x55A1;
++    plaintext.header.payloadLength = 8;
++    plaintext.operation = util::endian::little(operation);
++    plaintext.value = util::endian::little(value);
++    std::array<std::uint8_t, sizeof(control_encrypted_t) + crypto::cipher::round_to_pkcs7_padded(sizeof(plaintext)) + crypto::cipher::tag_size> encrypted;
++    auto payload = encode_control(session, util::view(plaintext), encrypted);
++    if (session->control.peer) session->broadcast_ref->control_server.send(payload, session->control.peer);
++  }
++
+   void controlBroadcastThread(control_server_t *server) {
++    server->map(0x55A0, [](session_t *session, const std::string_view &payload) {
++      if (payload.size() != 8 || session->config.controlProtocolType != 13) return;
++      uint32_t words[2];
++      std::memcpy(words, payload.data(), sizeof(words));
++      auto operation = util::endian::little(words[0]);
++      auto value = util::endian::little(words[1]);
++      if (operation == 0) send_piulink_ack(session, 0, 3);
++      else if (operation == 1) {
++        // Auto bitrate may grow beyond the initial budget, up to the protocol ceiling.
++        if (value < 500 || value > 150000) {
++          send_piulink_ack(session, 1, 0);
++          return;
++        }
++        session->mail->event<uint32_t>("piulink_bitrate")->raise(value);
++      } else if (operation == 2 && value <= 1) {
++        if (session::running_sessions != 1) { send_piulink_ack(session, 2, 0); return; }
++        if (value == 1 && !session->piulink_cursor_hidden) session->piulink_previous_cursor = display_cursor;
++        if (value == 1) display_cursor = false;
++        else if (session->piulink_cursor_hidden) display_cursor = session->piulink_previous_cursor;
++        session->piulink_cursor_hidden = value == 1;
++        send_piulink_ack(session, 2, value == 1 ? 1 : 2);
++      }
++    });
+     server->map(packetTypes[IDX_PERIODIC_PING], [](session_t *session, const std::string_view &payload) {
+       BOOST_LOG(verbose) << "type [IDX_PERIODIC_PING]"sv;
+     });
+@@ -1112,6 +1149,13 @@ namespace stream {
+           if (!session->control.peer) {
+             has_session_awaiting_peer = true;
+           } else {
++            if (session->piulink_cursor_hidden && session::running_sessions != 1) {
++              session->piulink_cursor_hidden = false;
++              display_cursor = session->piulink_previous_cursor;
++              send_piulink_ack(session, 2, 0);
++            }
++            auto bitrate_ack = session->mail->event<uint32_t>("piulink_bitrate_ack");
++            if (bitrate_ack->peek()) send_piulink_ack(session, 1, *bitrate_ack->pop());
+             auto &feedback_queue = session->control.feedback_queue;
+             while (feedback_queue->peek()) {
+               auto feedback_msg = feedback_queue->pop();
+@@ -1937,6 +1981,7 @@ namespace stream {
+       // Reset input on session stop to avoid stuck repeated keys
+       BOOST_LOG(debug) << "Resetting Input..."sv;
+       input::reset(session.input);
++      if (session.piulink_cursor_hidden) display_cursor = session.piulink_previous_cursor;
+ 
+       // If this is the last session, invoke the platform callbacks
+       if (--running_sessions == 0) {
+diff --git a/src/video.cpp b/src/video.cpp
+index 00af66c..e694640 100644
+--- a/src/video.cpp
++++ b/src/video.cpp
+@@ -384,6 +384,9 @@ namespace video {
+ 
+   class nvenc_encode_session_t: public encode_session_t {
+   public:
++    bool reconfigure_bitrate(uint32_t kbps) override {
++      return device && device->nvenc && device->nvenc->reconfigure_bitrate(kbps);
++    }
+     nvenc_encode_session_t(std::unique_ptr<platf::nvenc_encode_device_t> encode_device):
+         device(std::move(encode_device)) {
+     }
+@@ -2052,6 +2055,8 @@ namespace video {
+     double minimum_fps_target = (config::video.minimum_fps_target > 0.0) ? config::video.minimum_fps_target : (config.framerate / 2);
+     std::chrono::duration<double, std::milli> max_frametime {1000.0 / minimum_fps_target};
+     BOOST_LOG(info) << "Minimum FPS target set to ~"sv << minimum_fps_target << "fps ("sv << max_frametime.count() << "ms)"sv;
++    auto live_bitrate = mail->event<uint32_t>("piulink_bitrate");
++    auto live_bitrate_ack = mail->event<uint32_t>("piulink_bitrate_ack");
+ 
+     auto shutdown_event = mail->event<bool>(mail::shutdown);
+     auto packets = mail::man->queue<packet_t>(mail::video_packets);
+@@ -2081,6 +2086,10 @@ namespace video {
+         break;
+       }
+ 
++      if (live_bitrate->peek()) {
++        auto requested = live_bitrate->pop();
++        live_bitrate_ack->raise(session->reconfigure_bitrate(*requested) ? *requested : 0);
++      }
+       bool requested_idr_frame = false;
+ 
+       while (invalidate_ref_frames_events->peek()) {
+diff --git a/src/video.h b/src/video.h
+index 8fa2585..0b66670 100644
+--- a/src/video.h
++++ b/src/video.h
+@@ -209,6 +209,7 @@ namespace video {
+ 
+   struct encode_session_t {
+     virtual ~encode_session_t() = default;
++    virtual bool reconfigure_bitrate(uint32_t kbps) { return false; }
+ 
+     virtual int convert(platf::img_t &img) = 0;
+ 
+diff --git a/vite.config.js b/vite.config.js
+index 568aae4..568dd2c 100644
+--- a/vite.config.js
++++ b/vite.config.js
+@@ -55,7 +55,7 @@ export default defineConfig({
+         ViteEjsPlugin({ header }),
+         // The Codecov vite plugin should be after all other plugins
+         codecovVitePlugin({
+-            enableBundleAnalysis: true,
++            enableBundleAnalysis: false,
+             bundleName: "sunshine",
+             uploadToken: process.env.CODECOV_TOKEN,
+             gitService: "github",

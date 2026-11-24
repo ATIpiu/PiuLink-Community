@@ -1,0 +1,40 @@
+diff --git a/src/confighttp.cpp b/src/confighttp.cpp
+index 2f703dbc..6126660a 100644
+--- a/src/confighttp.cpp
++++ b/src/confighttp.cpp
+@@ -18,6 +18,7 @@
+ #include <boost/asio/ssl/context.hpp>
+ #include <boost/filesystem.hpp>
+ #include <nlohmann/json.hpp>
++#include <display_device/json.h>
+ #include <Simple-Web-Server/crypto.hpp>
+ #include <Simple-Web-Server/server_https.hpp>
+ 
+@@ -1209,6 +1210,19 @@ namespace confighttp {
+    *
+    * @api_examples{/api/logs| GET| null}
+    */
++  void getPiuLinkState(const resp_https_t &response, const req_https_t &request) {
++    if (!authenticate(response, request)) return;
++    const auto devices = display_device::enumerate_devices();
++    nlohmann::json state;
++    state["activeStreams"] = rtsp_stream::session_count();
++    state["currentApplicationId"] = proc::proc.running();
++    state["displays"] = nlohmann::json::parse(display_device::toJson(devices));
++    state["observedAt"] = std::chrono::duration_cast<std::chrono::milliseconds>(
++      std::chrono::system_clock::now().time_since_epoch()).count();
++    response->write(SimpleWeb::StatusCode::success_ok, state.dump(),
++      {{"Content-Type", "application/json"}, {"Cache-Control", "no-store"}});
++  }
++
+   void getLogs(const resp_https_t &response, const req_https_t &request) {
+     if (!authenticate(response, request)) {
+       return;
+@@ -1780,6 +1794,7 @@ namespace confighttp {
+     server.resource["^/api/password$"]["POST"] = savePassword;
+     server.resource["^/api/pin$"]["POST"] = savePin;
+     server.resource["^/api/logs$"]["GET"] = getLogs;
++    server.resource["^/api/piulink/state$"]["GET"] = getPiuLinkState;
+     server.resource["^/api/reset-display-device-persistence$"]["POST"] = resetDisplayDevicePersistence;
+     server.resource["^/api/restart$"]["POST"] = restart;
+     server.resource["^/api/vigembus/status$"]["GET"] = getViGEmBusStatus;

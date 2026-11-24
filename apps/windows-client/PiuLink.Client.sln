@@ -1,0 +1,36 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PiuLink.Client.Core", "..\..\packages\client-core\src\PiuLink.Client.Core\PiuLink.Client.Core.csproj", "{953360C7-CA4B-4A75-9059-D3E761E94D43}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PiuLink.Client", "src\PiuLink.Client\PiuLink.Client.csproj", "{42F83BEC-6718-40E7-94AE-03727D70A409}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PiuLink.Client.Core.Tests", "..\..\packages\client-core\tests\PiuLink.Client.Core.Tests\PiuLink.Client.Core.Tests.csproj", "{E48FE9CA-C6A7-4B01-BF17-DA333EA436A0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PiuLink.Client.Cli", "src\PiuLink.Client.Cli\PiuLink.Client.Cli.csproj", "{C747978B-083F-4D90-93EC-C1F1577C944D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{953360C7-CA4B-4A75-9059-D3E761E94D43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{953360C7-CA4B-4A75-9059-D3E761E94D43}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{953360C7-CA4B-4A75-9059-D3E761E94D43}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{953360C7-CA4B-4A75-9059-D3E761E94D43}.Release|Any CPU.Build.0 = Release|Any CPU
+		{42F83BEC-6718-40E7-94AE-03727D70A409}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{42F83BEC-6718-40E7-94AE-03727D70A409}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{42F83BEC-6718-40E7-94AE-03727D70A409}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{42F83BEC-6718-40E7-94AE-03727D70A409}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E48FE9CA-C6A7-4B01-BF17-DA333EA436A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E48FE9CA-C6A7-4B01-BF17-DA333EA436A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E48FE9CA-C6A7-4B01-BF17-DA333EA436A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E48FE9CA-C6A7-4B01-BF17-DA333EA436A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C747978B-083F-4D90-93EC-C1F1577C944D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C747978B-083F-4D90-93EC-C1F1577C944D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C747978B-083F-4D90-93EC-C1F1577C944D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C747978B-083F-4D90-93EC-C1F1577C944D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

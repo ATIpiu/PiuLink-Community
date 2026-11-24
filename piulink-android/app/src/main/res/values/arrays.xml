@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="resolution_names">
+        <item>@string/resolution_360p</item>
+        <item>@string/resolution_480p</item>
+        <item>@string/resolution_720p</item>
+        <item>@string/resolution_1080p</item>
+        <item>@string/resolution_1440p</item>
+        <item>@string/resolution_4k</item>
+    </string-array>
+
+    <!-- Keep this in sync with PreferenceConfiguration.isNativeResolution()! -->
+    <string-array name="resolution_values" translatable="false">
+        <item>640x360</item>
+        <item>854x480</item>
+        <item>1280x720</item>
+        <item>1920x1080</item>
+        <item>2560x1440</item>
+        <item>3840x2160</item>
+    </string-array>
+
+    <string-array name="fps_names">
+        <item>@string/fps_30</item>
+        <item>@string/fps_60</item>
+        <item>@string/fps_90</item>
+        <item>@string/fps_120</item>
+    </string-array>
+    <string-array name="fps_values" translatable="false">
+        <item>30</item>
+        <item>60</item>
+        <item>90</item>
+        <item>120</item>
+    </string-array>
+
+    <string-array name="audio_config_names">
+        <item>@string/audioconf_stereo</item>
+        <item>@string/audioconf_51surround</item>
+        <item>@string/audioconf_71surround</item>
+    </string-array>
+    <string-array name="audio_config_values" translatable="false">
+        <item>2</item>
+        <item>51</item>
+        <item>71</item>
+    </string-array>
+
+    <!-- Don't forget to update locales_config.xml when you modify this! -->
+    <string-array name="language_names" translatable="false">
+        <item>System / Follow system</item>
+        <item>English</item>
+        <item>中文（简体）</item>
+        <item>繁體中文</item>
+        <item>Русский</item>
+        <item>Español</item>
+        <item>Português (Brasil)</item>
+        <item>Deutsch</item>
+        <item>日本語</item>
+        <item>Français</item>
+        <item>Polski</item>
+        <item>한국어</item>
+        <item>Türkçe</item>
+    </string-array>
+    <string-array name="language_values" translatable="false">
+        <item>default</item>
+        <item>en</item>
+        <item>zh-CN</item>
+        <item>zh-TW</item>
+        <item>ru</item>
+        <item>es</item>
+        <item>pt-BR</item>
+        <item>de</item>
+        <item>ja</item>
+        <item>fr</item>
+        <item>pl</item>
+        <item>ko</item>
+        <item>tr</item>
+    </string-array>
+
+    <string-array name="video_format_names">
+        <item>@string/videoformat_auto</item>
+        <item>@string/videoformat_av1always</item>
+        <item>@string/videoformat_hevcalways</item>
+        <item>@string/videoformat_h264always</item>
+    </string-array>
+    <string-array name="video_format_values" translatable="false">
+        <item>auto</item>
+        <item>forceav1</item>
+        <item>forceh265</item>
+        <item>neverh265</item>
+    </string-array>
+
+    <string-array name="video_frame_pacing_names">
+        <item>@string/pacing_latency</item>
+        <item>@string/pacing_balanced</item>
+        <item>@string/pacing_balanced_alt</item>
+        <item>@string/pacing_smoothness</item>
+    </string-array>
+    <string-array name="video_frame_pacing_values" translatable="false">
+        <item>latency</item>
+        <item>balanced</item>
+        <item>cap-fps</item>
+        <item>smoothness</item>
+    </string-array>
+
+    <string-array name="analog_scrolling_names">
+        <item>@string/analogscroll_none</item>
+        <item>@string/analogscroll_right</item>
+        <item>@string/analogscroll_left</item>
+    </string-array>
+    <string-array name="analog_scrolling_values" translatable="false">
+        <item>none</item>
+        <item>right</item>
+        <item>left</item>
+    </string-array>
+
+    <string-array name="shortcut_rail_action_names">
+        <item>@string/shortcut_action_window_next</item>
+        <item>@string/shortcut_action_window_previous</item>
+        <item>@string/shortcut_action_task_view</item>
+        <item>@string/shortcut_action_show_desktop</item>
+        <item>@string/shortcut_action_close_window</item>
+        <item>@string/shortcut_action_task_manager</item>
+        <item>@string/shortcut_action_copy</item>
+        <item>@string/shortcut_action_paste</item>
+        <item>@string/shortcut_action_undo</item>
+        <item>@string/shortcut_action_escape</item>
+        <item>@string/shortcut_action_keyboard</item>
+        <item>@string/shortcut_action_voice_input</item>
+    </string-array>
+    <string-array name="shortcut_rail_action_values" translatable="false">
+        <item>window_next</item>
+        <item>window_previous</item>
+        <item>task_view</item>
+        <item>show_desktop</item>
+        <item>close_window</item>
+        <item>task_manager</item>
+        <item>copy</item>
+        <item>paste</item>
+        <item>undo</item>
+        <item>escape</item>
+        <item>keyboard</item>
+        <item>voice_input</item>
+    </string-array>
+    <string-array name="shortcut_rail_default_values" translatable="false">
+        <item>window_next</item>
+        <item>task_view</item>
+        <item>show_desktop</item>
+        <item>keyboard</item>
+        <item>voice_input</item>
+    </string-array>
+    <string-array name="background_stream_duration_names">
+        <item>@string/background_duration_5</item>
+        <item>@string/background_duration_15</item>
+        <item>@string/background_duration_30</item>
+        <item>@string/background_duration_60</item>
+        <item>@string/background_duration_never</item>
+    </string-array>
+    <string-array name="background_stream_duration_values" translatable="false">
+        <item>5</item><item>15</item><item>30</item><item>60</item><item>0</item>
+    </string-array>
+    <string-array name="auto_bitrate_mode_names">
+        <item>@string/auto_bitrate_mode_quality</item>
+        <item>@string/auto_bitrate_mode_balanced</item>
+        <item>@string/auto_bitrate_mode_stable</item>
+    </string-array>
+    <string-array name="auto_bitrate_mode_values" translatable="false">
+        <item>quality</item><item>balanced</item><item>stable</item>
+    </string-array>
+</resources>

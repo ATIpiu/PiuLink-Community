@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title description">
+  <title id="title">PiuLink Android TV banner</title>
+  <desc id="description">PiuLink portal mark and wordmark on a dark background.</desc>
+  <rect width="1280" height="720" fill="#050505" />
+  <circle cx="244" cy="360" r="196" fill="#111111" />
+  <g transform="translate(80 196) scale(0.32)" fill="none" stroke="#FFFFFF" stroke-width="88" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 448 350 L 304 266 C 244 231 186 274 186 342 V 682 C 186 750 244 793 304 758 L 448 674 Z" />
+    <path d="M 576 350 L 720 266 C 780 231 838 274 838 342 V 682 C 838 750 780 793 720 758 L 576 674 Z" />
+  </g>
+  <path d="M 223.36 351.52 H 264.32 V 368.16 H 223.36 Z" fill="#FFFFFF" />
+  <text x="510" y="350" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="112" font-weight="700" letter-spacing="-3">PiuLink</text>
+  <text x="516" y="414" fill="#CFCFCF" font-family="Segoe UI, Arial, sans-serif" font-size="32">Stream your PC on the screen you choose.</text>
+</svg>

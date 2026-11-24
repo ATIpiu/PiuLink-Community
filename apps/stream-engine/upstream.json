@@ -1,0 +1,33 @@
+{
+  "repository": "https://github.com/LizardByte/Sunshine.git",
+  "tag": "v2026.516.143833",
+  "commit": "14ffa6fdaa53f7b51512be2b3d24f3939695403c",
+  "engineVersion": "2026.516.143833-piulink.14",
+  "protocolVersion": 2,
+  "releaseReady": false,
+  "patches": [
+    "patches/0001-piulink-control.patch",
+    "patches/0002-content-adaptive-encoding.patch",
+    "patches/0003-nonblocking-tls-close.patch",
+    "patches/0004-trusted-auto-pair-tickets.patch",
+    "patches/0006-live-display-state.patch",
+    "patches/0007-authenticated-display-lease.patch",
+    "patches/0009-stream-health-telemetry.patch",
+    "patches/0010-local-pin-approval.patch",
+    "patches/0011-service-restart-delay.patch",
+    "patches/0012-session-capture-output.patch",
+    "patches/0013-live-capture-switch.patch",
+    "patches/0014-sdr-white-level.patch",
+    "patches/0015-engine-bugfixes.patch"
+  ],
+  "dependencyPatches": [
+    {
+      "directory": "third-party/Simple-Web-Server",
+      "patch": "patches/0005-explicit-socket-close.patch"
+    },
+    {
+      "directory": "third-party/Simple-Web-Server",
+      "patch": "patches/0008-tls-peer-metadata.patch"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/bg_shortcut_rail_handle"
+    android:insetLeft="@dimen/stream_edge_handle_inset" />

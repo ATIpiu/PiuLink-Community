@@ -1,0 +1,316 @@
+diff --git a/src/confighttp.cpp b/src/confighttp.cpp
+index 321166c3..dbfb1b75 100644
+--- a/src/confighttp.cpp
++++ b/src/confighttp.cpp
+@@ -1217,13 +1217,17 @@ namespace confighttp {
+       const auto input = nlohmann::json::parse(request->content.string());
+       const auto id = input.at("requestId").get<std::string>();
+       const auto owner = input.at("owner").get<std::string>();
+-      if (id.size() != 36 || owner.size() != 64 || rtsp_stream::session_count() != 0)
++      const bool live = input.value("action", "") == "capture";
++      if (id.size() != 36 || owner.size() != 64 || (!live && rtsp_stream::session_count() != 0))
+         throw std::invalid_argument("Invalid or busy display lease");
+       const auto output = input.value("output", "");
+       if (!output.empty() && (!input.value("ready", false) || output.size() > 64 ||
+           display_device::map_output_name(output).empty()))
+         throw std::invalid_argument("Capture output is unavailable");
+-      if (input.value("action", "") == "abort") nvhttp::revoke_display_lease(id, owner);
++      if (live) {
++        if (output.empty() || !nvhttp::switch_live_capture(id, owner, output))
++          throw std::invalid_argument("Could not switch capture in the active display session");
++      } else if (input.value("action", "") == "abort") nvhttp::revoke_display_lease(id, owner);
+       else nvhttp::register_display_lease(id, owner, input.value("mode", ""), input.value("ready", false), output);
+       send_response(response, nlohmann::json {{"status", true}, {"output", output}});
+     } catch (const std::exception &error) { bad_request(response, request, error.what()); }
+diff --git a/src/live_capture.h b/src/live_capture.h
+new file mode 100644
+index 00000000..0b92e629
+--- /dev/null
++++ b/src/live_capture.h
+@@ -0,0 +1,52 @@
++#pragma once
++
++#include <atomic>
++#include <chrono>
++#include <condition_variable>
++#include <mutex>
++#include <string>
++
++namespace video {
++  // Owned by one authenticated launch and its capture thread. Other streams never share it.
++  class live_capture_t {
++    std::mutex mutex;
++    std::condition_variable changed;
++    std::string desired, opened;
++    bool initialized = false;
++  public:
++    std::atomic_bool pending {false};
++    explicit live_capture_t(const std::string &initial): desired(initial) {}
++    std::string target() {
++      std::lock_guard lock {mutex};
++      return desired;
++    }
++    void captured(const std::string &output) {
++      std::lock_guard lock {mutex};
++      opened = output;
++      initialized = true;
++      pending = desired != opened;
++      changed.notify_all();
++    }
++    bool reject(const std::string &output) {
++      std::lock_guard lock {mutex};
++      if (!initialized || opened == output) return false;
++      if (desired == output) desired = opened;
++      pending = true;
++      changed.notify_all();
++      return true;
++    }
++    bool select(const std::string &output) {
++      std::unique_lock lock {mutex};
++      if (!initialized || pending) return false;
++      if (output == opened) return true;
++      desired = output;
++      pending = true;
++      changed.wait_for(lock, std::chrono::seconds(4), [&] { return opened == output || desired != output; });
++      if (opened == output) return true;
++      if (desired != output) return false;  // The capture thread has already started recovery.
++      desired = opened;
++      pending = true;
++      return false;
++    }
++  };
++}
+diff --git a/src/nvhttp.cpp b/src/nvhttp.cpp
+index 812e806d..f9f7fed1 100644
+--- a/src/nvhttp.cpp
++++ b/src/nvhttp.cpp
+@@ -41,6 +41,7 @@
+ #include "utility.h"
+ #include "uuid.h"
+ #include "video.h"
++#include "live_capture.h"
+ 
+ using namespace std::literals;
+ 
+@@ -878,6 +879,7 @@ namespace nvhttp {
+   static std::string display_lease_id, display_lease_owner;
+   static bool display_lease_ready = false;
+   static std::string display_lease_mode, display_lease_output;
++  static std::weak_ptr<video::live_capture_t> active_capture;
+   static std::chrono::steady_clock::time_point display_lease_expires;
+ 
+   static void persist_display_lease() {
+@@ -923,6 +925,16 @@ namespace nvhttp {
+     persist_display_lease();
+   }
+ 
++  bool switch_live_capture(const std::string &id, const std::string &owner, const std::string &output) {
++    std::lock_guard lock {display_lease_mutex};
++    auto capture = active_capture.lock();
++    if (!capture || !display_lease_ready || id != display_lease_id || owner != display_lease_owner ||
++        rtsp_stream::session_count() != 1 || !capture->select(output)) return false;
++    display_lease_output = output;
++    persist_display_lease();
++    return true;
++  }
++
+   void revoke_display_lease(const std::string &request_id, const std::string &owner) {
+     std::lock_guard lock {display_lease_mutex};
+     if (display_lease_id == request_id && display_lease_owner == owner) {
+@@ -995,7 +1007,10 @@ namespace nvhttp {
+       tree.put("root.<xmlattr>.status_message", "Display preparation expired or belongs to another paired client");
+       return;
+     }
+-    if (piulink_prepared) launch_session->prepared_output = display_lease_output;
++    if (piulink_prepared) {
++      launch_session->capture_route = std::make_shared<video::live_capture_t>(display_lease_output);
++      active_capture = launch_session->capture_route;
++    }
+     if (rtsp_stream::session_count() == 0 && !piulink_prepared) {
+       // The display should be restored in case something fails as there are no other sessions.
+       revert_display_configuration = true;
+@@ -1111,7 +1126,10 @@ namespace nvhttp {
+       host_audio = util::from_view(get_arg(args, "localAudioPlayMode"));
+     }
+     const auto launch_session = make_launch_session(host_audio, args);
+-    if (piulink_prepared) launch_session->prepared_output = display_lease_output;
++    if (piulink_prepared) {
++      launch_session->capture_route = std::make_shared<video::live_capture_t>(display_lease_output);
++      active_capture = launch_session->capture_route;
++    }
+ 
+     if (no_active_sessions && !piulink_prepared) {
+       // We want to prepare display only if there are no active sessions at
+diff --git a/src/nvhttp.h b/src/nvhttp.h
+index 084aa6c9..0106870c 100644
+--- a/src/nvhttp.h
++++ b/src/nvhttp.h
+@@ -23,6 +23,7 @@
+ namespace nvhttp {
+   void register_display_lease(const std::string &request_id, const std::string &owner, const std::string &mode, bool ready, const std::string &output);
+   void revoke_display_lease(const std::string &request_id, const std::string &owner);
++  bool switch_live_capture(const std::string &request_id, const std::string &owner, const std::string &output);
+ 
+   /**
+    * @brief The protocol version.
+diff --git a/src/rtsp.cpp b/src/rtsp.cpp
+index 4eeeb6b6..57f6180c 100644
+--- a/src/rtsp.cpp
++++ b/src/rtsp.cpp
+@@ -962,7 +962,7 @@ namespace rtsp_stream {
+     args.try_emplace("x-nv-video[0].clientRefreshRateX100"sv, "0"sv);
+ 
+     stream::config_t config;
+-    config.monitor.prepared_output = session.prepared_output;
++    config.monitor.capture_route = session.capture_route;
+ 
+     std::int64_t configuredBitrateKbps;
+     config.audio.flags[audio::config_t::HOST_AUDIO] = session.host_audio;
+diff --git a/src/rtsp.h b/src/rtsp.h
+index d4616e01..ae3599c3 100644
+--- a/src/rtsp.h
++++ b/src/rtsp.h
+@@ -11,6 +11,8 @@
+ #include "crypto.h"
+ #include "thread_safe.h"
+ 
++namespace video { class live_capture_t; }
++
+ namespace rtsp_stream {
+   constexpr auto RTSP_SETUP_PORT = 21;
+ 
+@@ -25,7 +27,7 @@ namespace rtsp_stream {
+ 
+     bool host_audio;
+     std::string unique_id;
+-    std::string prepared_output;  // From the authenticated Host display lease.
++    std::shared_ptr<video::live_capture_t> capture_route;
+     int width;
+     int height;
+     int fps;
+diff --git a/src/video.cpp b/src/video.cpp
+index fd4199c8..dbb3ce11 100644
+--- a/src/video.cpp
++++ b/src/video.cpp
+@@ -30,6 +30,7 @@ extern "C" {
+ #include "platform/common.h"
+ #include "sync.h"
+ #include "video.h"
++#include "live_capture.h"
+ 
+ #ifdef _WIN32
+ extern "C" {
+@@ -1305,12 +1306,14 @@ namespace video {
+     // get the most up-to-date list available monitors
+     std::vector<std::string> display_names;
+     int display_p = -1;
+-    const auto prepared_output = capture_ctxs.front().config.prepared_output;
++    const auto route = capture_ctxs.front().config.capture_route;
++    auto prepared_output = route ? route->target() : std::string {};
+     if (!refresh_displays(encoder.platform_formats->dev_type, display_names, display_p, prepared_output)) return;
+     auto disp = platf::display(encoder.platform_formats->dev_type, display_names[display_p], capture_ctxs.front().config);
+     if (!disp) {
+       return;
+     }
++    if (route) route->captured(prepared_output);
+     display_wp = disp;
+ 
+     constexpr auto capture_buffer_size = 12;
+@@ -1440,7 +1443,7 @@ namespace video {
+           capture_ctxs.emplace_back(std::move(*capture_ctx_queue->pop()));
+         }
+ 
+-        if (switch_display_event->peek()) {
++        if (switch_display_event->peek() || (route && route->pending)) {
+           artificial_reinit = true;
+           return false;
+         }
+@@ -1496,18 +1499,25 @@ namespace video {
+               disp.reset();
+ 
+               // Refresh display names since a display removal might have caused the reinitialization
+-              if (!refresh_displays(encoder.platform_formats->dev_type, display_names, display_p, prepared_output)) return;
++              if (route) prepared_output = route->target();
++              if (!refresh_displays(encoder.platform_formats->dev_type, display_names, display_p, prepared_output)) {
++                if (route && route->reject(prepared_output)) continue;
++                return;
++              }
+ 
+               // Process any pending display switch with the new list of displays
+               if (switch_display_event->peek()) {
+-                display_p = std::clamp(*switch_display_event->pop(), 0, (int) display_names.size() - 1);
++                auto index = *switch_display_event->pop();
++                if (!route) display_p = std::clamp(index, 0, (int) display_names.size() - 1);
+               }
+ 
+               // reset_display() will sleep between retries
+               reset_display(disp, encoder.platform_formats->dev_type, display_names[display_p], capture_ctxs.front().config);
+               if (disp) {
++                if (route) route->captured(prepared_output);
+                 break;
+               }
++              if (route) route->reject(prepared_output);
+             }
+             if (!disp) {
+               return;
+@@ -2334,20 +2344,28 @@ namespace video {
+       synced_session_ctxs.emplace_back(std::make_unique<sync_session_ctx_t>(std::move(*ctx)));
+     }
+ 
++    const auto route = synced_session_ctxs.front()->config.capture_route;
+     while (encode_session_ctx_queue.running()) {
+       // Refresh display names since a display removal might have caused the reinitialization
+-      if (!refresh_displays(encoder.platform_formats->dev_type, display_names, display_p, synced_session_ctxs.front()->config.prepared_output)) return encode_e::error;
++      const auto target = route ? route->target() : std::string {};
++      if (!refresh_displays(encoder.platform_formats->dev_type, display_names, display_p, target)) {
++        if (route && route->reject(target)) continue;
++        return encode_e::error;
++      }
+ 
+       // Process any pending display switch with the new list of displays
+       if (switch_display_event->peek()) {
+-        display_p = std::clamp(*switch_display_event->pop(), 0, (int) display_names.size() - 1);
++        auto index = *switch_display_event->pop();
++        if (!route) display_p = std::clamp(index, 0, (int) display_names.size() - 1);
+       }
+ 
+       // reset_display() will sleep between retries
+       reset_display(disp, encoder.platform_formats->dev_type, display_names[display_p], synced_session_ctxs.front()->config);
+       if (disp) {
++        if (route) route->captured(target);
+         break;
+       }
++      if (route) route->reject(target);
+     }
+ 
+     if (!disp) {
+@@ -2436,7 +2454,7 @@ namespace video {
+           ++pos;
+         })
+ 
+-        if (switch_display_event->peek()) {
++        if (switch_display_event->peek() || (route && route->pending)) {
+           ec = platf::capture_e::reinit;
+           return false;
+         }
+diff --git a/src/video.h b/src/video.h
+index 222c52c9..92a7769d 100644
+--- a/src/video.h
++++ b/src/video.h
+@@ -18,6 +18,7 @@ extern "C" {
+ struct AVPacket;
+ 
+ namespace video {
++  class live_capture_t;
+ 
+   /* Encoding configuration requested by remote client */
+   struct config_t {
+@@ -43,7 +44,7 @@ namespace video {
+     int chromaSamplingType;  // 0 - 4:2:0, 1 - 4:4:4
+ 
+     int enableIntraRefresh;  // 0 - disabled, 1 - enabled
+-    std::string prepared_output;  // Stable display ID, empty for an ordinary session.
++    std::shared_ptr<live_capture_t> capture_route;
+   };
+ 
+   platf::mem_type_e map_base_dev_type(AVHWDeviceType type);

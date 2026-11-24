@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>../../src/PiuLink.Host/app.manifest</ApplicationManifest>
+    <!-- Test the same manifest-driven DPI context as the WPF host. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/PiuLink.Host.Core/PiuLink.Host.Core.csproj" />
+    <Compile Include="../../src/PiuLink.Host/Services/PhysicalDisplayRecoveryPolicy.cs" Link="PhysicalDisplayRecoveryPolicy.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/DesktopRecoveryTracker.cs" Link="DesktopRecoveryTracker.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/DisplayTopologyService.cs" Link="DisplayTopologyService.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/DisplayTopologyService.Session.cs" Link="DisplayTopologyService.Session.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/WindowsCredentialStore.cs" Link="WindowsCredentialStore.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/WindowPlacementService.cs" Link="WindowPlacementService.cs" />
+  </ItemGroup>
+</Project>

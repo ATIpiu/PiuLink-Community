@@ -1,0 +1,102 @@
+diff --git a/src/stream.cpp b/src/stream.cpp
+index 56e3bd68..11f9fc7e 100644
+--- a/src/stream.cpp
++++ b/src/stream.cpp
+@@ -1340,11 +1340,30 @@ namespace stream {
+     }
+ 
+     auto ratecontrol_next_frame_start = std::chrono::steady_clock::now();
+-
+-    while (auto packet = packets->pop()) {
++    auto diagnostic_window_start = ratecontrol_next_frame_start;
++    uint64_t diagnostic_video_frames = 0;
++    uint64_t diagnostic_udp_packets = 0;
++    uint64_t diagnostic_udp_bytes = 0;
++    uint64_t diagnostic_send_failures = 0;
++
++    while (!shutdown_event->peek()) {
++      auto packet = packets->pop(1s);
+       if (shutdown_event->peek()) {
+         break;
+       }
++      const auto diagnostic_now = std::chrono::steady_clock::now();
++      if (diagnostic_now - diagnostic_window_start >= 5s) {
++        const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(diagnostic_now - diagnostic_window_start).count();
++        BOOST_LOG(info) << "PiuLink video send health: video_frames="sv << diagnostic_video_frames
++                        << " udp_packets="sv << diagnostic_udp_packets << " udp_bytes="sv << diagnostic_udp_bytes
++                        << " send_failures="sv << diagnostic_send_failures << " elapsed_ms="sv << elapsed_ms;
++        diagnostic_window_start = diagnostic_now;
++        diagnostic_video_frames = diagnostic_udp_packets = diagnostic_udp_bytes = diagnostic_send_failures = 0;
++      }
++      if (!packet) {
++        continue;
++      }
++      ++diagnostic_video_frames;
+ 
+       frame_network_latency_logger.first_point_now();
+ 
+@@ -1587,7 +1606,10 @@ namespace stream {
+ 
+               frame_send_batch_latency_logger.first_point_now();
+               // Use a batched send if it's supported on this platform
+-              if (!platf::send_batch(batch_info)) {
++              if (platf::send_batch(batch_info)) {
++                diagnostic_udp_packets += current_batch_size;
++                diagnostic_udp_bytes += current_batch_size * (shards.prefixsize + shards.blocksize);
++              } else {
+                 // Batched send is not available, so send each packet individually
+                 BOOST_LOG(verbose) << "Falling back to unbatched send"sv;
+                 for (auto y = 0; y < current_batch_size; y++) {
+@@ -1602,7 +1624,12 @@ namespace stream {
+                     session->localAddress,
+                   };
+ 
+-                  platf::send(send_info);
++                  if (platf::send(send_info)) {
++                    ++diagnostic_udp_packets;
++                    diagnostic_udp_bytes += shards.prefixsize + shards.blocksize;
++                  } else {
++                    ++diagnostic_send_failures;
++                  }
+                 }
+               }
+               frame_send_batch_latency_logger.second_point_now_and_log();
+diff --git a/src/video.cpp b/src/video.cpp
+index 1e0f1231..101b6522 100644
+--- a/src/video.cpp
++++ b/src/video.cpp
+@@ -2070,6 +2070,9 @@ namespace video {
+     auto packets = mail::man->queue<packet_t>(mail::video_packets);
+     auto idr_events = mail->event<bool>(mail::idr);
+     auto invalidate_ref_frames_events = mail->event<std::pair<int64_t, int64_t>>(mail::invalidate_ref_frames);
++    auto diagnostic_window_start = std::chrono::steady_clock::now();
++    uint64_t diagnostic_captured_frames = 0;
++    uint64_t diagnostic_encoded_frames = 0;
+ 
+     {
+       // Load a dummy image into the AVFrame to ensure we have something to encode
+@@ -2124,6 +2127,7 @@ namespace video {
+       // Encode at a minimum FPS to avoid image quality issues with static content
+       if (!requested_idr_frame || images->peek()) {
+         if (auto img = images->pop(max_frametime)) {
++          ++diagnostic_captured_frames;
+           frame_timestamp = img->frame_timestamp;
+           if (session->convert(*img)) {
+             BOOST_LOG(error) << "Could not convert image"sv;
+@@ -2138,7 +2142,15 @@ namespace video {
+         BOOST_LOG(error) << "Could not encode video packet"sv;
+         return;
+       }
+-
++      ++diagnostic_encoded_frames;
++      const auto diagnostic_now = std::chrono::steady_clock::now();
++      if (diagnostic_now - diagnostic_window_start >= 5s) {
++        const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(diagnostic_now - diagnostic_window_start).count();
++        BOOST_LOG(info) << "PiuLink video encode health: captured_frames="sv << diagnostic_captured_frames
++                        << " encoded_frames="sv << diagnostic_encoded_frames << " elapsed_ms="sv << elapsed_ms;
++        diagnostic_window_start = diagnostic_now;
++        diagnostic_captured_frames = diagnostic_encoded_frames = 0;
++      }
+       if (auto applied = session->take_content_adaptive_bitrate_update()) {
+         live_bitrate_ack->raise(*applied);
+       }

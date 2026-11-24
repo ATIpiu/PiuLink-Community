@@ -1,0 +1,287 @@
+diff --git a/src/nvenc/nvenc_base.cpp b/src/nvenc/nvenc_base.cpp
+index 316540f..b74357e 100644
+--- a/src/nvenc/nvenc_base.cpp
++++ b/src/nvenc/nvenc_base.cpp
+@@ -98,6 +98,28 @@ namespace nvenc {
+   }
+ 
+   bool nvenc_base::reconfigure_bitrate(uint32_t kbps) {
++    content_rate_controller.set_ceiling(kbps);
++    return apply_bitrate(kbps);
++  }
++
++  bool nvenc_base::set_content_adaptive_rate(bool enabled) {
++    const auto restore_kbps = content_rate_controller.ceiling_kbps();
++    content_rate_controller.set_enabled(enabled);
++    content_adaptive_bitrate_update = saved_config.rcParams.averageBitRate / 1000;
++    if (!enabled && restore_kbps && saved_config.rcParams.averageBitRate / 1000 != restore_kbps) {
++      return apply_bitrate(restore_kbps);
++    }
++    BOOST_LOG(info) << "PiuLink content-adaptive encoding " << (enabled ? "enabled" : "disabled");
++    return true;
++  }
++
++  std::optional<uint32_t> nvenc_base::take_content_adaptive_bitrate_update() {
++    auto update = content_adaptive_bitrate_update;
++    content_adaptive_bitrate_update.reset();
++    return update;
++  }
++
++  bool nvenc_base::apply_bitrate(uint32_t kbps) {
+     if (!encoder || kbps < 500 || kbps > 150000 || !saved_init.frameRateNum) return false;
+     auto candidate = saved_config;
+     auto old_rate = candidate.rcParams.averageBitRate;
+@@ -116,6 +131,7 @@ namespace nvenc {
+     // Called only by the encoding thread between frames. No encoder teardown or reconnect.
+     if (nvenc_failed(nvenc->nvEncReconfigureEncoder(encoder, &params))) return false;
+     saved_config = candidate;
++    content_rate_controller.applied(kbps);
+     BOOST_LOG(info) << "PiuLink live bitrate applied: " << kbps << " Kbps";
+     return true;
+   }
+@@ -453,6 +469,7 @@ namespace nvenc {
+     saved_config = enc_config;
+     saved_init = init_params;
+     saved_init.encodeConfig = &saved_config;
++    content_rate_controller.reset(client_config.bitrate, init_params.frameRateNum / std::max(1u, init_params.frameRateDen));
+ 
+     if (async_event_handle) {
+       NV_ENC_EVENT_PARAMS event_params = {NV_ENC_EVENT_PARAMS_VER};
+@@ -643,6 +667,13 @@ namespace nvenc {
+ 
+     encoder_state.frame_size_logger.collect_and_log(encoded_frame.data.size() / 1000.);
+ 
++    if (auto target = content_rate_controller.observe(encoded_frame.data.size(), lock_bitstream.frameAvgQP, encoded_frame.idr)) {
++      if (apply_bitrate(*target)) {
++        content_adaptive_bitrate_update = *target;
++        BOOST_LOG(debug) << "PiuLink content-adaptive target: " << *target << " Kbps";
++      }
++    }
++
+     return encoded_frame;
+   }
+ 
+diff --git a/src/nvenc/nvenc_base.h b/src/nvenc/nvenc_base.h
+index 8bc173e..77e762b 100644
+--- a/src/nvenc/nvenc_base.h
++++ b/src/nvenc/nvenc_base.h
+@@ -11,6 +11,7 @@
+ #include "nvenc_colorspace.h"
+ #include "nvenc_config.h"
+ #include "nvenc_encoded_frame.h"
++#include "piulink_content_rate.h"
+ #include "src/logging.h"
+ #include "src/video.h"
+ 
+@@ -50,6 +51,8 @@ namespace nvenc {
+      */
+     void destroy_encoder();
+     bool reconfigure_bitrate(uint32_t kbps);
++    bool set_content_adaptive_rate(bool enabled);
++    std::optional<uint32_t> take_content_adaptive_bitrate_update();
+ 
+     /**
+      * @brief Encode the next frame using platform-specific input surface.
+@@ -132,8 +135,11 @@ namespace nvenc {
+                                          ///< Can be set in constructor or `init_library()`, must override `wait_for_async_event()`.
+ 
+   private:
++    bool apply_bitrate(uint32_t kbps);
+     NV_ENC_INITIALIZE_PARAMS saved_init {};
+     NV_ENC_CONFIG saved_config {};
++    piulink::content_rate_controller_t content_rate_controller;
++    std::optional<uint32_t> content_adaptive_bitrate_update;
+     NV_ENC_OUTPUT_PTR output_bitstream = nullptr;
+ 
+     struct {
+diff --git a/src/nvenc/piulink_content_rate.h b/src/nvenc/piulink_content_rate.h
+new file mode 100644
+index 0000000..bcb9826
+--- /dev/null
++++ b/src/nvenc/piulink_content_rate.h
+@@ -0,0 +1,98 @@
++#pragma once
++
++#include <algorithm>
++#include <cstddef>
++#include <cstdint>
++#include <optional>
++
++namespace nvenc::piulink {
++  class content_rate_controller_t {
++  public:
++    void reset(uint32_t ceiling_kbps, uint32_t framerate) {
++      ceiling_kbps_ = current_kbps_ = ceiling_kbps;
++      framerate_ = std::max(1u, framerate);
++      quiet_frames_ = active_frames_ = quality_pressure_frames_ = cooldown_frames_ = 0;
++      ema_permille_ = 1000;
++      ema_output_kbps_ = ceiling_kbps;
++      ema_qp_x100_ = 0;
++      reduced_ = false;
++    }
++
++    void set_enabled(bool enabled) {
++      enabled_ = enabled;
++      quiet_frames_ = active_frames_ = quality_pressure_frames_ = cooldown_frames_ = 0;
++      reduced_ = false;
++    }
++
++    bool enabled() const { return enabled_; }
++    uint32_t ceiling_kbps() const { return ceiling_kbps_; }
++    uint32_t output_kbps() const { return static_cast<uint32_t>(ema_output_kbps_); }
++    uint32_t average_qp_x100() const { return static_cast<uint32_t>(ema_qp_x100_); }
++
++    void set_ceiling(uint32_t kbps) {
++      ceiling_kbps_ = current_kbps_ = kbps;
++      quiet_frames_ = active_frames_ = quality_pressure_frames_ = 0;
++      cooldown_frames_ = framerate_;
++      ema_output_kbps_ = kbps;
++      reduced_ = false;
++    }
++
++    void applied(uint32_t kbps) {
++      current_kbps_ = kbps;
++      reduced_ = kbps < ceiling_kbps_;
++    }
++
++    // frame_avg_qp is NVENC's actual per-frame average QP. A value of zero is
++    // treated as unavailable, keeping this controller compatible with traces.
++    std::optional<uint32_t> observe(std::size_t encoded_bytes, uint32_t frame_avg_qp, bool idr) {
++      if (!enabled_ || !ceiling_kbps_ || !current_kbps_ || idr) return std::nullopt;
++
++      const auto sample_kbps = std::min<uint64_t>(ceiling_kbps_ * 2ULL,
++        (uint64_t) encoded_bytes * 8 * framerate_ / 1000);
++      ema_output_kbps_ = (ema_output_kbps_ * 7 + sample_kbps) / 8;
++      const auto expected_bytes = std::max<uint64_t>(1, (uint64_t) current_kbps_ * 1000 / 8 / framerate_);
++      const auto sample_permille = std::min<uint64_t>(2000, (uint64_t) encoded_bytes * 1000 / expected_bytes);
++      ema_permille_ = (ema_permille_ * 7 + sample_permille) / 8;
++
++      if (frame_avg_qp) {
++        const auto qp = std::min<uint64_t>(5100, frame_avg_qp * 100ULL);
++        ema_qp_x100_ = ema_qp_x100_ ? (ema_qp_x100_ * 7 + qp) / 8 : qp;
++      }
++      if (cooldown_frames_) { --cooldown_frames_; return std::nullopt; }
++
++      const bool quality_pressure = ema_qp_x100_ >= 3600;
++      quality_pressure_frames_ = quality_pressure ? quality_pressure_frames_ + 1 : 0;
++      if (ema_permille_ <= 220 && !quality_pressure) {
++        ++quiet_frames_; active_frames_ = 0;
++      } else if (ema_permille_ >= 520) {
++        ++active_frames_; quiet_frames_ = 0;
++      } else {
++        quiet_frames_ = active_frames_ = 0;
++      }
++
++      if (!reduced_ && quiet_frames_ >= framerate_ * 5) {
++        quiet_frames_ = 0;
++        const auto safe_floor = std::max<uint32_t>(4000, ceiling_kbps_ * 60 / 100);
++        const auto demand = static_cast<uint32_t>(std::min<uint64_t>(ceiling_kbps_, ema_output_kbps_ * 125 / 100));
++        const auto target = std::clamp(demand, std::min(safe_floor, ceiling_kbps_), ceiling_kbps_);
++        const auto benefit = std::max<uint32_t>(1000, ceiling_kbps_ * 15 / 100);
++        if (current_kbps_ > target && current_kbps_ - target >= benefit) {
++          cooldown_frames_ = framerate_ * 2;
++          return target;
++        }
++      }
++      if (reduced_ && (active_frames_ >= 3 || quality_pressure_frames_ >= 2)) {
++        active_frames_ = quality_pressure_frames_ = 0;
++        cooldown_frames_ = framerate_;
++        return ceiling_kbps_;
++      }
++      return std::nullopt;
++    }
++
++  private:
++    bool enabled_ = false, reduced_ = false;
++    uint32_t ceiling_kbps_ = 0, current_kbps_ = 0, framerate_ = 60;
++    uint32_t quiet_frames_ = 0, active_frames_ = 0, quality_pressure_frames_ = 0, cooldown_frames_ = 0;
++    uint64_t ema_permille_ = 1000, ema_output_kbps_ = 0, ema_qp_x100_ = 0;
++  };
++}  // namespace nvenc::piulink
+diff --git a/src/stream.cpp b/src/stream.cpp
+index 062d405..56e3bd6 100644
+--- a/src/stream.cpp
++++ b/src/stream.cpp
+@@ -940,7 +940,7 @@ namespace stream {
+       std::memcpy(words, payload.data(), sizeof(words));
+       auto operation = util::endian::little(words[0]);
+       auto value = util::endian::little(words[1]);
+-      if (operation == 0) send_piulink_ack(session, 0, 3);
++      if (operation == 0) send_piulink_ack(session, 0, 7);
+       else if (operation == 1) {
+         // Auto bitrate may grow beyond the initial budget, up to the protocol ceiling.
+         if (value < 500 || value > 150000) {
+@@ -955,6 +955,8 @@ namespace stream {
+         else if (session->piulink_cursor_hidden) display_cursor = session->piulink_previous_cursor;
+         session->piulink_cursor_hidden = value == 1;
+         send_piulink_ack(session, 2, value == 1 ? 1 : 2);
++      } else if (operation == 3 && value <= 1) {
++        session->mail->event<uint32_t>("piulink_content_adaptive")->raise(value);
+       }
+     });
+     server->map(packetTypes[IDX_PERIODIC_PING], [](session_t *session, const std::string_view &payload) {
+@@ -1156,6 +1158,8 @@ namespace stream {
+             }
+             auto bitrate_ack = session->mail->event<uint32_t>("piulink_bitrate_ack");
+             if (bitrate_ack->peek()) send_piulink_ack(session, 1, *bitrate_ack->pop());
++            auto adaptive_ack = session->mail->event<uint32_t>("piulink_content_adaptive_ack");
++            if (adaptive_ack->peek()) send_piulink_ack(session, 3, *adaptive_ack->pop());
+             auto &feedback_queue = session->control.feedback_queue;
+             while (feedback_queue->peek()) {
+               auto feedback_msg = feedback_queue->pop();
+diff --git a/src/video.cpp b/src/video.cpp
+index e694640..2a5dbb9 100644
+--- a/src/video.cpp
++++ b/src/video.cpp
+@@ -387,6 +387,12 @@ namespace video {
+     bool reconfigure_bitrate(uint32_t kbps) override {
+       return device && device->nvenc && device->nvenc->reconfigure_bitrate(kbps);
+     }
++    bool set_content_adaptive_rate(bool enabled) override {
++      return device && device->nvenc && device->nvenc->set_content_adaptive_rate(enabled);
++    }
++    std::optional<uint32_t> take_content_adaptive_bitrate_update() override {
++      return device && device->nvenc ? device->nvenc->take_content_adaptive_bitrate_update() : std::nullopt;
++    }
+     nvenc_encode_session_t(std::unique_ptr<platf::nvenc_encode_device_t> encode_device):
+         device(std::move(encode_device)) {
+     }
+@@ -2057,6 +2060,8 @@ namespace video {
+     BOOST_LOG(info) << "Minimum FPS target set to ~"sv << minimum_fps_target << "fps ("sv << max_frametime.count() << "ms)"sv;
+     auto live_bitrate = mail->event<uint32_t>("piulink_bitrate");
+     auto live_bitrate_ack = mail->event<uint32_t>("piulink_bitrate_ack");
++    auto content_adaptive = mail->event<uint32_t>("piulink_content_adaptive");
++    auto content_adaptive_ack = mail->event<uint32_t>("piulink_content_adaptive_ack");
+ 
+     auto shutdown_event = mail->event<bool>(mail::shutdown);
+     auto packets = mail::man->queue<packet_t>(mail::video_packets);
+@@ -2090,6 +2095,10 @@ namespace video {
+         auto requested = live_bitrate->pop();
+         live_bitrate_ack->raise(session->reconfigure_bitrate(*requested) ? *requested : 0);
+       }
++      if (content_adaptive->peek()) {
++        auto requested = content_adaptive->pop();
++        content_adaptive_ack->raise(session->set_content_adaptive_rate(*requested != 0) ? (*requested + 1) : 0);
++      }
+       bool requested_idr_frame = false;
+ 
+       while (invalidate_ref_frames_events->peek()) {
+@@ -2129,1 +2141,5 @@ namespace video {
++      if (auto applied = session->take_content_adaptive_bitrate_update()) {
++        live_bitrate_ack->raise(*applied);
++      }
++
+       session->request_normal_frame();
+diff --git a/src/video.h b/src/video.h
+index 0b66670..6086e8f 100644
+--- a/src/video.h
++++ b/src/video.h
+@@ -210,6 +210,8 @@ namespace video {
+   struct encode_session_t {
+     virtual ~encode_session_t() = default;
+     virtual bool reconfigure_bitrate(uint32_t kbps) { return false; }
++    virtual bool set_content_adaptive_rate(bool enabled) { return false; }
++    virtual std::optional<uint32_t> take_content_adaptive_bitrate_update() { return std::nullopt; }
+ 
+     virtual int convert(platf::img_t &img) = 0;
+ 

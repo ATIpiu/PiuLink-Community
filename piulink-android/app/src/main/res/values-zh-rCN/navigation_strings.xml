@@ -1,0 +1,9 @@
+<resources>
+    <string name="nav_computers">电脑</string>
+    <string name="settings_overview_hint">显示器、分辨率和帧率已统一到串流内“屏幕设置”，并按电脑分别记忆。这里仅设置码率、编码和其他全局串流策略。</string>
+    <string name="home_my_computers">我的电脑</string>
+    <string name="home_add_computer">添加电脑</string>
+    <string name="home_apps">应用库</string>
+    <string name="home_apps_named">查看 %1$s 的应用列表</string>
+    <string name="home_tap_to_pair">%1$s · 点按配对</string>
+</resources>

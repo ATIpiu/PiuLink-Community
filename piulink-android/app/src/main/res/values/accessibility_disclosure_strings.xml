@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_disclosure_title">Use keyboard shortcut forwarding?</string>
+    <string name="accessibility_disclosure_intro">PiuLink requests Android Accessibility access only to forward PC keyboard shortcuts that Android normally handles.</string>
+    <string name="accessibility_disclosure_access_heading">What PiuLink can access</string>
+    <string name="accessibility_disclosure_access_body">While a streaming session is active and shortcut interception is turned on, PiuLink can receive hardware key presses, including system shortcuts such as Alt+Tab and the Windows key. It does not read screen content or accessibility events.</string>
+    <string name="accessibility_disclosure_use_heading">How the key presses are used</string>
+    <string name="accessibility_disclosure_use_body">Key presses are sent directly to the paired PC you selected so that PC can respond. PiuLink does not store them or send them to PiuLink servers.</string>
+    <string name="accessibility_disclosure_optional">This access is optional. You can stream without it and let Android continue handling system shortcuts.</string>
+    <string name="accessibility_disclosure_continue">Agree and continue</string>
+    <string name="accessibility_disclosure_not_now">Not now</string>
+</resources>

@@ -1,0 +1,6 @@
+<resources>
+<string name="ssh_computer_setup_hint">The address follows this computer automatically. Account defaults are managed in PiuLink Host.</string>
+<string name="ssh_reading_host">Reading the computer’s SSH account…</string>
+<string name="ssh_host_update_needed">Unable to read this computer’s SSH account. Keep PiuLink Host open and update it to a version that supports automatic SSH accounts, then retry.</string>
+<string name="ssh_windows_password_hint">Enter the Windows account password for the username above. A Windows Hello PIN, fingerprint or face unlock cannot be used here. If Host uses a different SSH account, enter that account’s password. PiuLink does not save this password.</string>
+</resources>

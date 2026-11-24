@@ -1,0 +1,40 @@
+"""Prepare the PiuLink iPhone Xcode project from its exact upstream revision."""
+import argparse
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+
+UPSTREAM = "https://github.com/moonlight-stream/moonlight-ios.git"
+REVISION = "02dc9780496eeeac6d01c8bbdccb8b6fe71ef28a"
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("output", type=Path, help="new directory for the editable Xcode project")
+    dest = parser.parse_args().output.resolve()
+    if dest.exists():
+        parser.error(f"Choose a new directory to preserve existing work: {dest}")
+    sources = Path(__file__).resolve().parent
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=dest.parent) as temp:
+        checkout = Path(temp) / "src"
+        subprocess.run(["git", "init", "-q", str(checkout)], check=True)
+
+        def git(*args):
+            subprocess.run(["git", "-C", str(checkout), *args], check=True)
+
+        git("remote", "add", "origin", UPSTREAM)
+        git("fetch", "--depth=1", "origin", REVISION)
+        git("checkout", "--detach", REVISION)
+        git("submodule", "update", "--init", "--recursive", "--depth", "1")
+        git("apply", str(sources / "piulink-ios.patch"))
+        git("apply", str(sources / "rendezvous.patch"))
+        shutil.copyfile(sources / "PiuLink.png", checkout / "Limelight/Images.xcassets/AppIcon.appiconset/PiuLink.png")
+        checkout.rename(dest)
+    print(dest / "Moonlight.xcodeproj")
+
+
+if __name__ == "__main__":
+    main()

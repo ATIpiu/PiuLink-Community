@@ -1,0 +1,7 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+    <TextView android:id="@+id/detailChoiceValue" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:maxWidth="110dp" android:maxLines="2" android:ellipsize="end" android:gravity="end"
+        android:paddingEnd="5dp" android:textSize="13sp" android:textColor="@color/piulink_text_secondary" />
+    <ImageView android:layout_width="14dp" android:layout_height="14dp" android:src="@drawable/ic_section_next" android:importantForAccessibility="no" />
+</LinearLayout>

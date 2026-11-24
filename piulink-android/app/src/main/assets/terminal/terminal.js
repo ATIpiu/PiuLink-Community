@@ -1,0 +1,13 @@
+'use strict';
+const term = new Terminal({cursorBlink:true,fontSize:15,scrollback:3000,theme:{background:'#101112',foreground:'#f4f1ec'},allowProposedApi:false});
+const fit = new FitAddon.FitAddon();
+term.loadAddon(fit);
+term.open(document.getElementById('terminal'));
+term.onData(data => PiuTerminal.input(data));
+term.onResize(size => PiuTerminal.resize(size.cols,size.rows));
+new ResizeObserver(() => fit.fit()).observe(document.getElementById('terminal'));
+window.receive = (encoded, frameId) => term.write(Uint8Array.from(atob(encoded), c => c.charCodeAt(0)), () => PiuTerminal.drained(frameId));
+window.resetTerminal = () => {term.reset();fit.fit();PiuTerminal.resize(term.cols,term.rows);term.focus();};
+window.focusTerminal = () => term.focus();
+fit.fit();
+PiuTerminal.ready();

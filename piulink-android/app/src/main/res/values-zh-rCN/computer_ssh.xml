@@ -1,0 +1,6 @@
+<resources>
+<string name="ssh_computer_setup_hint">地址自动跟随这台电脑，默认 SSH 账号在 PiuLink Host 中设置。</string>
+<string name="ssh_reading_host">正在读取电脑的 SSH 账号…</string>
+<string name="ssh_host_update_needed">无法读取这台电脑的 SSH 账号。请保持 PiuLink Host 运行，并更新到支持自动 SSH 账号的版本后重试。</string>
+<string name="ssh_windows_password_hint">请输入上方用户名对应的 Windows 账户密码，不是 Windows Hello PIN、指纹或人脸识别。如果 Host 设置了其他 SSH 账号，请使用那个账号的密码。PiuLink 不会保存此密码。</string>
+</resources>

@@ -1,0 +1,5 @@
+<resources>
+    <item name="app_grid_view" type="layout">@layout/app_grid_view_remote</item>
+    <item name="app_grid_item" type="layout">@layout/app_grid_item_remote</item>
+    <item name="view_shortcut_handle" type="layout">@layout/view_shortcut_handle_remote</item>
+</resources>

@@ -1,0 +1,8 @@
+<resources>
+    <string name="setup_pc_body">在 Windows 电脑上打开 PiuLink Host，并保持电脑唤醒。电视和电脑接入同一个家庭网络即可，可以用网线或 Wi-Fi。</string>
+    <string name="setup_lan_discover">查找局域网电脑</string>
+    <string name="setup_ts_body">从外网连接时，将电视和电脑接入同一个 Tailscale 网络。在电视上允许 VPN 连接，再返回这里。</string>
+    <string name="setup_ts_missing">这台电视尚未安装 Tailscale。</string>
+    <string name="setup_ts_installed">电视已安装 Tailscale。请打开它确认已登录并连接。</string>
+    <string name="setup_pair_body">选择电脑，或输入电脑的网络地址。如果电视显示配对码，在电脑的 PiuLink Host 中输入。电视会记住这次配对。</string>
+</resources>

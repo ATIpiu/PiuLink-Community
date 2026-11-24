@@ -1,0 +1,7 @@
+<resources>
+    <string name="setup_pc_body">Open PiuLink Host on your Windows PC and keep it awake. Connect the TV and PC to the same home network using Ethernet or Wi-Fi.</string>
+    <string name="setup_lan_discover">Find a PC on this network</string>
+    <string name="setup_ts_body">For remote access, connect the TV and computer to the same Tailscale network. Approve the VPN request on the TV, then return here.</string>
+    <string name="setup_ts_missing">Tailscale is not installed on this TV.</string>
+    <string name="setup_pair_body">Choose your computer or enter its network address. If a PIN appears on the TV, enter it in PiuLink Host on the computer. The TV will remember this pairing.</string>
+</resources>

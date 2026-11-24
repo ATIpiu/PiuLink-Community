@@ -1,0 +1,4 @@
+<CheckedTextView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@android:id/text1"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="52dp" android:gravity="center_vertical|start"
+    android:paddingStart="22dp" android:paddingEnd="22dp" android:paddingVertical="9dp" android:textSize="16sp"
+    android:textColor="@color/piulink_text_primary" android:checkMark="@drawable/detail_choice_mark" android:background="?android:attr/selectableItemBackground" />

@@ -1,0 +1,49 @@
+# PiuLink
+
+PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑，远程使用桌面和应用，也可以用手柄玩游戏。主机端基于 Sunshine，客户端兼容 Moonlight。分辨率、画面比例和帧率取决于显示器、编解码硬件和网络条件。
+
+## 下载与连接
+
+本次[公开预览版](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)提供完整项目源码快照及 Linux x86-64 邀请服务。Windows、Android、macOS 和 iPhone 在此版本提供源码与构建说明。以下步骤适用于已安装或已从源码构建的 Host 和 Client。
+
+1. 在要被控制的电脑上安装 **Host**，在操作设备上安装 **Client**。Android 手机、平板与电视使用同一个签名版 `nonRoot-universal-release.apk`。
+2. 第一次连接建议让两台设备使用同一局域网。在客户端发现或手动添加电脑，按提示在 Host 确认配对。
+3. 选择「桌面」或已配置的游戏、应用开始串流。Windows Host 与各客户端均可直接启动，局域网使用无需 PiuLink 账号。
+4. 异地使用可手动添加可达地址、使用自己配置的 Tailscale，或在支持的版本上使用 Host 生成的私有邀请。邀请服务用于发现地址和协商直连，目前属实验功能。PiuLink 不提供音视频中转。
+
+## 各平台能做什么
+
+| 平台 | 用途与进展 |
+| --- | --- |
+| Windows Host | 捕获桌面和应用、配对客户端、选择实体或虚拟屏、恢复显示布局。支持配对设备传文件和兼容录音设备上的麦克风回传。 |
+| Windows Client | 管理主机、启动桌面与游戏、设置串流画质，提供图形界面和命令行。 |
+| Android 手机、平板、电视 | 桌面和游戏串流、键鼠、触控、手柄。手机和平板另有桌面快捷栏、文件互传、麦克风回传和 SSH 终端。 |
+| Linux Host / Client | 主机端支持 X11 与无头配置；图形客户端通过已安装的 Moonlight Qt 启动串流。具体环境要求见平台说明。 |
+| macOS / iPhone | macOS 客户端为预览版，依赖 Moonlight.app。iPhone 提供上游固定版本与补丁的源码套件，需在 Mac 上构建和签名。 |
+
+Windows 主链路和 Android 已有真机串流验证。直连邀请在部分家庭网络上仍会超时；使用已知地址或局域网发现可以独立于邀请服务连接。当前集成引擎标记为开发版本。
+
+## 源码与构建
+
+| 入口 | 内容 |
+| --- | --- |
+| [Windows Host](apps/windows-host/README.md) · [串流引擎](apps/stream-engine/README.md) | 主机源码、引擎固定版本及补丁、安装器和验证脚本 |
+| [Windows Client](apps/windows-client/README.md) · [命令行](docs/CLI.md) | Windows 客户端、Qt 引擎集成、配对与串流命令 |
+| [Android](apps/android/README.md) | 随仓库提供的 Android 源码、原生依赖和签名构建入口 |
+| [Linux Host](apps/linux-host/README.md) · [Linux Client](apps/linux-client/README.md) · [macOS](apps/macos-client/README.md) · [iPhone](apps/ios-client/README.md) | 平台要求、实现及打包入口 |
+| [共享客户端库](packages/client-core/README.md) · [直连传输](packages/direct-tunnel) · [邀请服务](services/rendezvous) | 主机记录、连接协议、客户端与服务端实现 |
+
+在 Windows 安装 .NET 8 SDK、PowerShell 7 和 Go（直连传输使用 Go 1.26.6 工具链）后，从仓库根目录执行：
+
+```powershell
+pwsh ./tools/Check-Project.ps1
+pwsh ./tools/Check-Project.ps1 -Build -Tests
+```
+
+第一条检查项目引用和文档链接，第二条编译并运行现有 .NET 测试。Android 和原生核心、enet 源码已一同收录。详见[开发指南](docs/DEVELOPMENT.md)。
+
+## 许可与发布
+
+PiuLink 自有独立组件按 **PolyForm Noncommercial 1.0.0** 授权，可以按许可进行非商业使用、修改和分享。Moonlight、Sunshine 的衍生程序及其对应源码按 GPLv3 分发，第三方组件沿用各自许可。[各组件的许可范围](LICENSE.md)
+
+在 [GitHub Releases](https://github.com/ATIpiu/PiuLink-Community/releases) 下载版本附件和 `SHA256SUMS`。源码目录、平台版本及发布约定见[源码与 Release 说明](docs/PUBLICATION.md)。

@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>PiuLink.Client</AssemblyName>
+    <RootNamespace>PiuLink.Client</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\..\windows-host\src\PiuLink.Host\Assets\PiuLink.ico</ApplicationIcon>
+    <Version>0.2.30</Version>
+    <Authors>Ryan</Authors>
+    <Company>ATIPiu Labs</Company>
+    <Product>PiuLink Client</Product>
+    <PiuLinkNativeEngineDirectory Condition="'$(PiuLinkNativeEngineDirectory)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\artifacts\windows-engine\PiuLink-Native-0.1.0-x64</PiuLinkNativeEngineDirectory>
+    <PiuLinkQtEngineDirectory Condition="'$(PiuLinkQtEngineDirectory)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\artifacts\windows-engine\PiuLink-Moonlight-6.1.0-piulink.10-x64</PiuLinkQtEngineDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../../packages/windows-ui/DesktopClipboard.cs" Link="Services/DesktopClipboard.cs" />
+    <Compile Include="..\..\..\..\packages\windows-ui\WindowChrome.cs" Link="Themes\WindowChrome.cs" />
+    <Page Include="..\..\..\..\packages\windows-ui\PiuLinkTheme.xaml" Link="Themes\PiuLinkTheme.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\packages\client-core\src\PiuLink.Client.Core\PiuLink.Client.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="..\..\..\windows-host\src\PiuLink.Host\Assets\PiuLink.ico"
+              Link="Assets\PiuLink.ico" />
+    <Resource Include="..\..\..\windows-host\src\PiuLink.Host\Assets\PiuLink-256.png"
+              Link="Assets\PiuLink-256.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(PiuLinkNativeEngineDirectory)\*.dll;$(PiuLinkNativeEngineDirectory)\*.md;$(PiuLinkNativeEngineDirectory)\*.txt"
+             Condition="Exists('$(PiuLinkNativeEngineDirectory)\PiuLink.Native.dll')"
+             Link="native\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(PiuLinkQtEngineDirectory)\**\*"
+             Condition="Exists('$(PiuLinkQtEngineDirectory)\PiuLink-Moonlight.exe')"
+             Link="moonlight-qt\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Import Project="../../../../packages/direct-tunnel/WindowsTransport.targets" />
+</Project>

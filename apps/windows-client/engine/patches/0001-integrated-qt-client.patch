@@ -1,0 +1,943 @@
+diff --git a/app/app.pro b/app/app.pro
+index 740f0103..c5ff400c 100644
+--- a/app/app.pro
++++ b/app/app.pro
+@@ -195,6 +195,7 @@ SOURCES += \
+     streaming/input/mouse.cpp \
+     streaming/input/reltouch.cpp \
+     streaming/session.cpp \
++    streaming/piulinkbridge.cpp \
+     streaming/audio/audio.cpp \
+     streaming/audio/renderers/sdlaud.cpp \
+     gui/computermodel.cpp \
+@@ -234,6 +235,7 @@ HEADERS += \
+     streaming/audio/renderers/sdl.h \
+     gui/computermodel.h \
+     gui/appmodel.h \
++    streaming/piulinkbridge.h \
+     streaming/video/decoder.h \
+     streaming/streamutils.h \
+     backend/autoupdatechecker.h \
+diff --git a/app/backend/nvhttp.cpp b/app/backend/nvhttp.cpp
+index 8d08e158..048adb5a 100644
+--- a/app/backend/nvhttp.cpp
++++ b/app/backend/nvhttp.cpp
+@@ -224,6 +224,10 @@ NvHTTP::startApp(QString verb,
+                                    "&remoteControllersBitmap="+QString::number(gamepadMask)+
+                                    "&gcmap="+QString::number(gamepadMask)+
+                                    "&gcpersist="+QString::number(persistGameControllersOnDisconnect ? 1 : 0)+
++                                   // PiuLink Host prepares the stream display through its own
++                                   // host lifecycle.  Mark this native Moonlight launch as ready
++                                   // so the engine does not run a second display-preparation pass.
++                                   "&piulinkPrepared="+QString::fromLatin1(QUrl::toPercentEncoding(qEnvironmentVariable("PIULINK_DISPLAY_LEASE")))+
+                                    LiGetLaunchUrlQueryParameters(),
+                                    LAUNCH_TIMEOUT_MS);
+ 
+diff --git a/app/cli/commandlineparser.cpp b/app/cli/commandlineparser.cpp
+index 0e50a75b..32606279 100644
+--- a/app/cli/commandlineparser.cpp
++++ b/app/cli/commandlineparser.cpp
+@@ -60,11 +60,16 @@ public:
+     void showMessage(QString message, MessageType type) const
+     {
+     #if defined(Q_OS_WIN32)
+-        UINT flags = MB_OK | MB_TOPMOST | MB_SETFOREGROUND;
+-        flags |= (type == Info ? MB_ICONINFORMATION : MB_ICONERROR);
+-        QString title = "Moonlight";
+-        MessageBoxW(nullptr, reinterpret_cast<const wchar_t *>(message.utf16()),
+-                    reinterpret_cast<const wchar_t *>(title.utf16()), flags);
++        // The WPF client runs pair/list as an engine command and owns the UI.
++        // A native MessageBox here blocks that parent process invisibly, so the
++        // managed caller opts into a strictly stdout/stderr-only contract.
++        if (!qEnvironmentVariableIsSet("PIULINK_QT_HEADLESS")) {
++            UINT flags = MB_OK | MB_TOPMOST | MB_SETFOREGROUND;
++            flags |= (type == Info ? MB_ICONINFORMATION : MB_ICONERROR);
++            QString title = "Moonlight";
++            MessageBoxW(nullptr, reinterpret_cast<const wchar_t *>(message.utf16()),
++                        reinterpret_cast<const wchar_t *>(title.utf16()), flags);
++        }
+     #endif
+         message = message.endsWith('\n') ? message : message + '\n';
+         fputs(qPrintable(message), type == Info ? stdout : stderr);
+@@ -360,6 +365,7 @@ void StreamCommandLineParser::parse(const QStringList &args, StreamingPreference
+     parser.addChoiceOption("display-mode", "display mode", m_WindowModeMap.keys());
+     parser.addChoiceOption("audio-config", "audio config", m_AudioConfigMap.keys());
+     parser.addToggleOption("multi-controller", "multiple controller support");
++    parser.addValueOption("gamepad-deadzone", "analog stick deadzone percentage (0-20)");
+     parser.addToggleOption("quit-after", "quit app after session");
+     parser.addToggleOption("absolute-mouse", "remote desktop optimized mouse control");
+     parser.addToggleOption("mouse-buttons-swap", "left and right mouse buttons swap");
+@@ -453,6 +459,14 @@ void StreamCommandLineParser::parse(const QStringList &args, StreamingPreference
+     // Resolve --multi-controller and --no-multi-controller options
+     preferences->multiController = parser.getToggleOptionValue("multi-controller", preferences->multiController);
+ 
++    // Resolve --gamepad-deadzone option
++    if (parser.isSet("gamepad-deadzone")) {
++        preferences->gamepadDeadzonePercent = parser.getIntOption("gamepad-deadzone");
++        if (!inRange(preferences->gamepadDeadzonePercent, 0, 20)) {
++            parser.showError("Gamepad deadzone must be between 0 and 20 percent");
++        }
++    }
++
+     // Resolve --quit-after and --no-quit-after options
+     preferences->quitAppAfter = parser.getToggleOptionValue("quit-after", preferences->quitAppAfter);
+ 
+diff --git a/app/cli/listapps.cpp b/app/cli/listapps.cpp
+index a5837430..bf29cb6e 100644
+--- a/app/cli/listapps.cpp
++++ b/app/cli/listapps.cpp
+@@ -7,7 +7,7 @@
+ #include <QCoreApplication>
+ #include <QTimer>
+ 
+-#define COMPUTER_SEEK_TIMEOUT 30000
++#define COMPUTER_SEEK_TIMEOUT 10000
+ #define APP_SEEK_TIMEOUT 10000
+ 
+ namespace CliListApps
+diff --git a/app/cli/pair.cpp b/app/cli/pair.cpp
+index 20121662..088a81d9 100644
+--- a/app/cli/pair.cpp
++++ b/app/cli/pair.cpp
+@@ -76,9 +76,10 @@ public:
+         case Event::ComputerFound:
+             if (m_State == StateSeekComputer) {
+                 if (event.computer->pairState == NvComputer::PS_PAIRED) {
+-                    m_State = StateFailure;
+-                    QString msg = QObject::tr("%1 is already paired").arg(event.computer->name);
+-                    emit q->failed(msg);
++                    m_State = StateComplete;
++                    fprintf(stdout, "%s\n", qPrintable(QObject::tr("%1 is already paired").arg(event.computer->name)));
++                    emit q->success();
++                    QCoreApplication::exit(0);
+                 }
+                 else {
+                     Q_ASSERT(!m_PredefinedPin.isEmpty());
+@@ -94,11 +95,15 @@ public:
+             if (m_State == StatePairing) {
+                 if (event.errorMessage.isEmpty()) {
+                     m_State = StateComplete;
++                    fprintf(stdout, "%s\n", qPrintable(QObject::tr("Pairing completed successfully")));
+                     emit q->success();
++                    QCoreApplication::exit(0);
+                 }
+                 else {
+                     m_State = StateFailure;
++                    fprintf(stderr, "%s\n", qPrintable(event.errorMessage));
+                     emit q->failed(event.errorMessage);
++                    QCoreApplication::exit(-1);
+                 }
+             }
+             break;
+@@ -106,7 +111,10 @@ public:
+         case Event::Timedout:
+             if (m_State == StateSeekComputer) {
+                 m_State = StateFailure;
+-                emit q->failed(QObject::tr("Failed to connect to %1").arg(m_ComputerName));
++                const QString message = QObject::tr("Failed to connect to %1").arg(m_ComputerName);
++                fprintf(stderr, "%s\n", qPrintable(message));
++                emit q->failed(message);
++                QCoreApplication::exit(-1);
+             }
+             break;
+         }
+diff --git a/app/main.cpp b/app/main.cpp
+index 6a8f1104..74cb525d 100644
+--- a/app/main.cpp
++++ b/app/main.cpp
+@@ -751,11 +751,11 @@ int main(int argc, char *argv[])
+         }
+     case GlobalCommandLineParser::PairRequested:
+         {
+-            initialView = "qrc:/gui/CliPair.qml";
+             PairCommandLineParser pairParser;
+             pairParser.parse(app.arguments());
+             auto launcher = new CliPair::Launcher(pairParser.getHost(), pairParser.getPredefinedPin(), &app);
+-            engine.rootContext()->setContextProperty("launcher", launcher);
++            launcher->execute(new ComputerManager(StreamingPreferences::get()));
++            hasGUI = false;
+             break;
+         }
+     case GlobalCommandLineParser::ListRequested:
+diff --git a/app/settings/streamingpreferences.cpp b/app/settings/streamingpreferences.cpp
+index bb34f626..1d5d7007 100644
+--- a/app/settings/streamingpreferences.cpp
++++ b/app/settings/streamingpreferences.cpp
+@@ -126,6 +126,7 @@ void StreamingPreferences::reload()
+     gameOptimizations = settings.value(SER_GAMEOPTS, true).toBool();
+     playAudioOnHost = settings.value(SER_HOSTAUDIO, false).toBool();
+     multiController = settings.value(SER_MULTICONT, true).toBool();
++    gamepadDeadzonePercent = 7;
+     enableMdns = settings.value(SER_MDNS, true).toBool();
+     quitAppAfter = settings.value(SER_QUITAPPAFTER, false).toBool();
+     absoluteMouseMode = settings.value(SER_ABSMOUSEMODE, false).toBool();
+diff --git a/app/settings/streamingpreferences.h b/app/settings/streamingpreferences.h
+index 3ca216ff..0effef49 100644
+--- a/app/settings/streamingpreferences.h
++++ b/app/settings/streamingpreferences.h
+@@ -153,6 +153,7 @@ public:
+     bool gameOptimizations;
+     bool playAudioOnHost;
+     bool multiController;
++    int gamepadDeadzonePercent;
+     bool enableMdns;
+     bool quitAppAfter;
+     bool absoluteMouseMode;
+diff --git a/app/streaming/input/gamepad.cpp b/app/streaming/input/gamepad.cpp
+index 502511f8..39b3bb9c 100644
+--- a/app/streaming/input/gamepad.cpp
++++ b/app/streaming/input/gamepad.cpp
+@@ -112,6 +112,50 @@ void SdlInputHandler::sendGamepadState(GamepadState* state)
+                                rsY);
+ }
+ 
++void SdlInputHandler::sendVirtualGamepadState(int buttons, short lsX, short lsY, short rsX, short rsY,
++                                              unsigned char lt, unsigned char rt)
++{
++    applyGamepadDeadzone(lsX, lsY);
++    applyGamepadDeadzone(rsX, rsY);
++    // The WPF touch overlay sends the canonical Xbox layout. Apply the same
++    // user preference as physical SDL controllers before the packet reaches
++    // the Host, so a Nintendo-labelled controller behaves consistently.
++    if (m_SwapFaceButtons) {
++        const int faceButtons = buttons & (A_FLAG | B_FLAG | X_FLAG | Y_FLAG);
++        buttons &= ~(A_FLAG | B_FLAG | X_FLAG | Y_FLAG);
++        if (faceButtons & A_FLAG) buttons |= B_FLAG;
++        if (faceButtons & B_FLAG) buttons |= A_FLAG;
++        if (faceButtons & X_FLAG) buttons |= Y_FLAG;
++        if (faceButtons & Y_FLAG) buttons |= X_FLAG;
++    }
++    // Slot zero is Moonlight's conventional first controller. Keep the
++    // virtual source visible to the Host even when no physical SDL controller
++    // is attached. Physical controllers continue to use their normal slots.
++    const uint16_t mask = static_cast<uint16_t>(m_GamepadMask | 0x1);
++    if (!m_VirtualGamepadAnnounced) {
++        const uint32_t supportedButtons = A_FLAG | B_FLAG | X_FLAG | Y_FLAG |
++            BACK_FLAG | SPECIAL_FLAG | PLAY_FLAG | LS_CLK_FLAG | RS_CLK_FLAG |
++            LB_FLAG | RB_FLAG | UP_FLAG | DOWN_FLAG | LEFT_FLAG | RIGHT_FLAG;
++        LiSendControllerArrivalEvent(0, mask, LI_CTYPE_XBOX, supportedButtons, LI_CCAP_ANALOG_TRIGGERS);
++        m_VirtualGamepadAnnounced = true;
++    }
++    LiSendMultiControllerEvent(0, mask, buttons, lt, rt, lsX, lsY, rsX, rsY);
++}
++
++void SdlInputHandler::applyGamepadDeadzone(short& x, short& y) const
++{
++    if (m_GamepadDeadzonePercent == 0) {
++        return;
++    }
++
++    const qint64 threshold = 32767LL * m_GamepadDeadzonePercent / 100;
++    const qint64 magnitudeSquared = static_cast<qint64>(x) * x + static_cast<qint64>(y) * y;
++    if (magnitudeSquared <= threshold * threshold) {
++        x = 0;
++        y = 0;
++    }
++}
++
+ void SdlInputHandler::sendGamepadBatteryState(GamepadState* state, SDL_JoystickPowerLevel level)
+ {
+     uint8_t batteryPercentage;
+@@ -202,7 +246,7 @@ void SdlInputHandler::handleControllerAxisEvent(SDL_ControllerAxisEvent* event)
+         switch (event->axis)
+         {
+             case SDL_CONTROLLER_AXIS_LEFTX:
+-                state->lsX = event->value;
++                state->rawLsX = event->value;
+                 break;
+             case SDL_CONTROLLER_AXIS_LEFTY:
+                 // Signed values have one more negative value than
+@@ -210,13 +254,13 @@ void SdlInputHandler::handleControllerAxisEvent(SDL_ControllerAxisEvent* event)
+                 // could actually cause the value to overflow and
+                 // wrap around to be negative again. Avoid that by
+                 // capping the value at 32767.
+-                state->lsY = -qMax(event->value, (short)-32767);
++                state->rawLsY = -qMax(event->value, (short)-32767);
+                 break;
+             case SDL_CONTROLLER_AXIS_RIGHTX:
+-                state->rsX = event->value;
++                state->rawRsX = event->value;
+                 break;
+             case SDL_CONTROLLER_AXIS_RIGHTY:
+-                state->rsY = -qMax(event->value, (short)-32767);
++                state->rawRsY = -qMax(event->value, (short)-32767);
+                 break;
+             case SDL_CONTROLLER_AXIS_TRIGGERLEFT:
+                 state->lt = (unsigned char)(event->value * 255UL / 32767);
+@@ -246,6 +290,13 @@ void SdlInputHandler::handleControllerAxisEvent(SDL_ControllerAxisEvent* event)
+         SDL_PeepEvents(&nextEvent, 1, SDL_GETEVENT, SDL_CONTROLLERAXISMOTION, SDL_CONTROLLERAXISMOTION);
+     }
+ 
++    state->lsX = state->rawLsX;
++    state->lsY = state->rawLsY;
++    state->rsX = state->rawRsX;
++    state->rsY = state->rawRsY;
++    applyGamepadDeadzone(state->lsX, state->lsY);
++    applyGamepadDeadzone(state->rsX, state->rsY);
++
+     // Only send the gamepad state to the host if it's not in mouse emulation mode
+     if (state->mouseEmulationTimer == 0) {
+         sendGamepadState(state);
+diff --git a/app/streaming/input/input.cpp b/app/streaming/input/input.cpp
+index 95db06e0..14f7d511 100644
+--- a/app/streaming/input/input.cpp
++++ b/app/streaming/input/input.cpp
+@@ -11,6 +11,7 @@
+ 
+ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, int streamHeight)
+     : m_MultiController(prefs.multiController),
++      m_GamepadDeadzonePercent(prefs.gamepadDeadzonePercent),
+       m_GamepadMouse(prefs.gamepadMouse),
+       m_SwapMouseButtons(prefs.swapMouseButtons),
+       m_ReverseScrollDirection(prefs.reverseScrollDirection),
+@@ -185,6 +186,7 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
+     // causing gamepads to unexpectedly disappear and reappear on the host
+     // during stream startup as we detect currently attached gamepads one at a time.
+     m_GamepadMask = getAttachedGamepadMask();
++    m_VirtualGamepadAnnounced = false;
+ 
+     SDL_zero(m_GamepadState);
+     SDL_zero(m_LastTouchDownEvent);
+diff --git a/app/streaming/input/input.h b/app/streaming/input/input.h
+index ec24070a..23aff624 100644
+--- a/app/streaming/input/input.h
++++ b/app/streaming/input/input.h
+@@ -33,6 +33,8 @@ struct GamepadState {
+ #endif
+ 
+     int buttons;
++    short rawLsX, rawLsY;
++    short rawRsX, rawRsY;
+     short lsX, lsY;
+     short rsX, rsY;
+     unsigned char lt, rt;
+@@ -85,6 +87,12 @@ public:
+ 
+     void handleJoystickArrivalEvent(SDL_JoyDeviceEvent* event);
+ 
++    // State injected by PiuLink's touch-friendly overlay. It travels through
++    // the same Moonlight controller protocol as an SDL controller, so no
++    // Windows virtual-device driver is needed on the client.
++    void sendVirtualGamepadState(int buttons, short lsX, short lsY, short rsX, short rsY,
++                                 unsigned char lt, unsigned char rt);
++
+     void sendText(QString& string);
+ 
+     void rumble(uint16_t controllerNumber, uint16_t lowFreqMotor, uint16_t highFreqMotor);
+@@ -139,6 +147,8 @@ private:
+ 
+     void sendGamepadState(GamepadState* state);
+ 
++    void applyGamepadDeadzone(short& x, short& y) const;
++
+     void sendGamepadBatteryState(GamepadState* state, SDL_JoystickPowerLevel level);
+ 
+     void handleAbsoluteFingerEvent(SDL_TouchFingerEvent* event);
+@@ -168,6 +178,7 @@ private:
+ 
+     SDL_Window* m_Window;
+     bool m_MultiController;
++    int m_GamepadDeadzonePercent;
+     bool m_GamepadMouse;
+     bool m_SwapMouseButtons;
+     bool m_ReverseScrollDirection;
+@@ -179,6 +190,7 @@ private:
+     bool m_PointerRegionLockToggledByUser;
+ 
+     int m_GamepadMask;
++    bool m_VirtualGamepadAnnounced;
+     GamepadState m_GamepadState[MAX_GAMEPADS];
+     QSet<short> m_KeysDown;
+     bool m_FakeCaptureActive;
+diff --git a/app/streaming/session.cpp b/app/streaming/session.cpp
+index 80fb921b..f9b204f5 100644
+--- a/app/streaming/session.cpp
++++ b/app/streaming/session.cpp
+@@ -1,4 +1,5 @@
+ #include "session.h"
++#include "piulinkbridge.h"
+ #include "settings/streamingpreferences.h"
+ #include "streaming/streamutils.h"
+ #include "backend/richpresencemanager.h"
+@@ -760,31 +761,23 @@ bool Session::initialize()
+             }
+         }
+ 
+-#if 0
+-        // TODO: Determine if AV1 is better depending on the decoder
+-        if (getDecoderAvailability(testWindow,
++        // PiuLink's outer client selects efficiency mode for Tailscale and
++        // high-resolution sessions. AV1 is preferred only when this exact
++        // resolution/FPS has a hardware decoder; host support is still
++        // negotiated normally and falls through to HEVC/H.264.
++        const bool piulinkPreferAv1 = qEnvironmentVariable("PIULINK_CODEC_POLICY") == "efficiency";
++        const auto av1DA = getDecoderAvailability(testWindow,
+                                    m_Preferences->videoDecoderSelection,
+                                    m_Preferences->enableYUV444 ?
+                                         (m_Preferences->enableHdr ? VIDEO_FORMAT_AV1_HIGH10_444 : VIDEO_FORMAT_AV1_HIGH8_444) :
+                                         (m_Preferences->enableHdr ? VIDEO_FORMAT_AV1_MAIN10 : VIDEO_FORMAT_AV1_MAIN8),
+                                    m_StreamConfig.width,
+                                    m_StreamConfig.height,
+-                                   m_StreamConfig.fps) != DecoderAvailability::Hardware) {
+-            // Deprioritize AV1 unless we can't hardware decode HEVC and have HDR enabled.
+-            // We want to keep AV1 at the top of the list for HDR with software decoding
+-            // because dav1d is higher performance than FFmpeg's HEVC software decoder.
+-            if (hevcDA == DecoderAvailability::Hardware || !m_Preferences->enableHdr) {
+-                m_SupportedVideoFormats.deprioritizeByMask(VIDEO_FORMAT_MASK_AV1);
+-            }
+-        }
+-#else
+-        // Deprioritize AV1 unless we can't hardware decode HEVC and have HDR enabled.
+-        // We want to keep AV1 at the top of the list for HDR with software decoding
+-        // because dav1d is higher performance than FFmpeg's HEVC software decoder.
+-        if (hevcDA == DecoderAvailability::Hardware || !m_Preferences->enableHdr) {
++                                   m_StreamConfig.fps);
++        if (!(piulinkPreferAv1 && av1DA == DecoderAvailability::Hardware) &&
++                (hevcDA == DecoderAvailability::Hardware || !m_Preferences->enableHdr)) {
+             m_SupportedVideoFormats.deprioritizeByMask(VIDEO_FORMAT_MASK_AV1);
+         }
+-#endif
+ 
+ #ifdef Q_OS_DARWIN
+         {
+@@ -1664,6 +1657,14 @@ void Session::flushWindowEvents()
+     SDL_PushEvent(&flushEvent);
+ }
+ 
++void Session::sendVirtualGamepadState(int buttons, short lsX, short lsY, short rsX, short rsY,
++                                      unsigned char lt, unsigned char rt)
++{
++    if (m_InputHandler != nullptr) {
++        m_InputHandler->sendVirtualGamepadState(buttons, lsX, lsY, rsX, rsY, lt, rt);
++    }
++}
++
+ class ExecThread : public QThread
+ {
+ public:
+@@ -1735,6 +1736,7 @@ void Session::execInternal()
+ 
+     // We're now active
+     s_ActiveSession = this;
++    PiuLinkBridgeStart(m_StreamConfig.bitrate);
+ 
+     // Initialize the gamepad code with our preferences
+     // NB: m_InputHandler must be initialize before starting the connection.
+@@ -2297,6 +2299,7 @@ void Session::execInternal()
+     }
+ 
+ DispatchDeferredCleanup:
++    PiuLinkBridgeStop();
+     // Uncapture the mouse and hide the window immediately,
+     // so we can return to the Qt GUI ASAP.
+     m_InputHandler->setCaptureActive(false);
+diff --git a/app/streaming/session.h b/app/streaming/session.h
+index 4547f1ba..3f5bac50 100644
+--- a/app/streaming/session.h
++++ b/app/streaming/session.h
+@@ -124,6 +124,9 @@ public:
+ 
+     void flushWindowEvents();
+ 
++    void sendVirtualGamepadState(int buttons, short lsX, short lsY, short rsX, short rsY,
++                                 unsigned char lt, unsigned char rt);
++
+ signals:
+     void stageStarting(QString stage);
+ 
+diff --git a/app/streaming/video/ffmpeg.cpp b/app/streaming/video/ffmpeg.cpp
+index 6e1f8065..470a5983 100644
+--- a/app/streaming/video/ffmpeg.cpp
++++ b/app/streaming/video/ffmpeg.cpp
+@@ -1,5 +1,6 @@
+ #include <Limelight.h>
+ #include "ffmpeg.h"
++#include "../piulinkbridge.h"
+ #include "streaming/session.h"
+ 
+ #include <h264_stream.h>
+@@ -699,12 +700,11 @@ void FFmpegVideoDecoder::addVideoStats(VIDEO_STATS& src, VIDEO_STATS& dst)
+ 
+ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, int length)
+ {
+-    int offset = 0;
+     const char* codecString;
+     int ret;
+ 
+-    // Start with an empty string
+-    output[offset] = 0;
++    if (length <= 0) return;
++    output[0] = 0;
+ 
+     switch (m_VideoFormat)
+     {
+@@ -774,85 +774,30 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
+         break;
+     }
+ 
+-    if (stats.receivedFps > 0) {
+-        if (m_VideoDecoderCtx != nullptr) {
+-            ret = snprintf(&output[offset],
+-                           length - offset,
+-                           "Video stream: %dx%d %.2f FPS (Codec: %s)\n",
+-                           m_VideoDecoderCtx->width,
+-                           m_VideoDecoderCtx->height,
+-                           stats.totalFps,
+-                           codecString);
+-            if (ret < 0 || ret >= length - offset) {
+-                SDL_assert(false);
+-                return;
+-            }
+-
+-            offset += ret;
+-        }
+-
+-        ret = snprintf(&output[offset],
+-                       length - offset,
+-                       "Incoming frame rate from network: %.2f FPS\n"
+-                       "Decoding frame rate: %.2f FPS\n"
+-                       "Rendering frame rate: %.2f FPS\n",
+-                       stats.receivedFps,
+-                       stats.decodedFps,
+-                       stats.renderedFps);
+-        if (ret < 0 || ret >= length - offset) {
+-            SDL_assert(false);
+-            return;
+-        }
+-
+-        offset += ret;
+-    }
+-
+-    if (stats.framesWithHostProcessingLatency > 0) {
+-        ret = snprintf(&output[offset],
+-                       length - offset,
+-                       "Host processing latency min/max/average: %.1f/%.1f/%.1f ms\n",
+-                       (float)stats.minHostProcessingLatency / 10,
+-                       (float)stats.maxHostProcessingLatency / 10,
+-                       (float)stats.totalHostProcessingLatency / 10 / stats.framesWithHostProcessingLatency);
+-        if (ret < 0 || ret >= length - offset) {
+-            SDL_assert(false);
+-            return;
+-        }
+-
+-        offset += ret;
+-    }
+-
+-    if (stats.renderedFrames != 0) {
+-        char rttString[32];
+-
+-        if (stats.lastRtt != 0) {
+-            snprintf(rttString, sizeof(rttString), "%u ms (variance: %u ms)", stats.lastRtt, stats.lastRttVariance);
+-        }
+-        else {
+-            snprintf(rttString, sizeof(rttString), "N/A");
+-        }
+-
+-        ret = snprintf(&output[offset],
+-                       length - offset,
+-                       "Frames dropped by your network connection: %.2f%%\n"
+-                       "Frames dropped due to network jitter: %.2f%%\n"
+-                       "Average network latency: %s\n"
+-                       "Average decoding time: %.2f ms\n"
+-                       "Average frame queue delay: %.2f ms\n"
+-                       "Average rendering time (including monitor V-sync latency): %.2f ms\n",
+-                       (float)stats.networkDroppedFrames / stats.totalFrames * 100,
+-                       (float)stats.pacerDroppedFrames / stats.decodedFrames * 100,
+-                       rttString,
+-                       (float)stats.totalDecodeTime / stats.decodedFrames,
+-                       (float)stats.totalPacerTime / stats.renderedFrames,
+-                       (float)stats.totalRenderTime / stats.renderedFrames);
+-        if (ret < 0 || ret >= length - offset) {
+-            SDL_assert(false);
+-            return;
+-        }
+-
+-        offset += ret;
+-    }
++    const auto network = PiuLinkBridgeGetNetworkStats();
++    const int width = m_VideoDecoderCtx ? m_VideoDecoderCtx->width : 0;
++    const int height = m_VideoDecoderCtx ? m_VideoDecoderCtx->height : 0;
++    const double loss = stats.totalFrames ?
++        stats.networkDroppedFrames * 100.0 / stats.totalFrames : 0;
++    const double jitterLoss = stats.decodedFrames ?
++        stats.pacerDroppedFrames * 100.0 / stats.decodedFrames : 0;
++    const double decodeMs = stats.decodedFrames ?
++        static_cast<double>(stats.totalDecodeTime) / stats.decodedFrames : 0;
++    const double renderMs = stats.renderedFrames ?
++        static_cast<double>(stats.totalRenderTime) / stats.renderedFrames : 0;
++
++    ret = snprintf(output, length,
++                   "%dx%d | %s | receive %.1f / render %.1f FPS\n"
++                   "Video RX %.1f Mbps | 60s low %.1f | auto target %.1f Mbps\n"
++                   "Host target %.1f Mbps | auto safety ceiling %.1f Mbps\n"
++                   "Loss %.2f%% | jitter %.2f%% | RTT %u +/- %u ms\n"
++                   "Decode %.2f ms | render %.2f ms",
++                   width, height, codecString, stats.receivedFps, stats.renderedFps,
++                   network.receivedKbps / 1000.0, network.historicalKbps / 1000.0,
++                   network.targetKbps / 1000.0, network.appliedKbps / 1000.0,
++                   network.ceilingKbps / 1000.0, loss, jitterLoss,
++                   stats.lastRtt, stats.lastRttVariance, decodeMs, renderMs);
++    if (ret < 0 || ret >= length) output[length - 1] = 0;
+ }
+ 
+ void FFmpegVideoDecoder::logVideoStats(VIDEO_STATS& stats, const char* title)
+@@ -1734,6 +1679,7 @@ int FFmpegVideoDecoder::submitDecodeUnit(PDECODE_UNIT du)
+     int err;
+ 
+     SDL_assert(!m_TestOnly);
++    PiuLinkBridgeAddReceivedBytes(du->fullLength);
+ 
+     // If this is the first frame, reject anything that's not an IDR frame
+     if (m_FramesIn == 0 && du->frameType != FRAME_TYPE_IDR) {
+@@ -1770,6 +1716,7 @@ int FFmpegVideoDecoder::submitDecodeUnit(PDECODE_UNIT du)
+ 
+         // Move this window into the last window slot and clear it for next window
+         SDL_memcpy(&m_LastWndVideoStats, &m_ActiveWndVideoStats, sizeof(m_ActiveWndVideoStats));
++        PiuLinkBridgePublishVideoStats(m_LastWndVideoStats, m_VideoFormat);
+         SDL_zero(m_ActiveWndVideoStats);
+         m_ActiveWndVideoStats.measurementStartTimestamp = SDL_GetTicks();
+     }
+diff --git a/app/streaming/video/overlaymanager.cpp b/app/streaming/video/overlaymanager.cpp
+index 168e5233..c5cb670d 100644
+--- a/app/streaming/video/overlaymanager.cpp
++++ b/app/streaming/video/overlaymanager.cpp
+@@ -10,7 +10,7 @@ OverlayManager::OverlayManager() :
+     memset(m_Overlays, 0, sizeof(m_Overlays));
+ 
+     m_Overlays[OverlayType::OverlayDebug].color = {0xD0, 0xD0, 0x00, 0xFF};
+-    m_Overlays[OverlayType::OverlayDebug].fontSize = 20;
++    m_Overlays[OverlayType::OverlayDebug].fontSize = 16;
+ 
+     m_Overlays[OverlayType::OverlayStatusUpdate].color = {0xCC, 0x00, 0x00, 0xFF};
+     m_Overlays[OverlayType::OverlayStatusUpdate].fontSize = 36;
+@@ -158,7 +158,7 @@ void OverlayManager::notifyOverlayUpdated(OverlayType type)
+         SDL_Surface* surface = TTF_RenderText_Blended_Wrapped(m_Overlays[type].font,
+                                                               m_Overlays[type].text,
+                                                               m_Overlays[type].color,
+-                                                              1024);
++                                                              type == OverlayType::OverlayDebug ? 680 : 1024);
+         SDL_AtomicSetPtr((void**)&m_Overlays[type].surface, surface);
+     }
+ 
+diff --git a/app/streaming/piulinkbridge.cpp b/app/streaming/piulinkbridge.cpp
+new file mode 100644
+--- /dev/null
++++ b/app/streaming/piulinkbridge.cpp
+@@ -0,0 +1,295 @@
++#include "piulinkbridge.h"
++#include "session.h"
++
++#include <Limelight.h>
++#include <SDL.h>
++
++#ifdef Q_OS_WIN32
++#include <windows.h>
++#include <algorithm>
++#include <atomic>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <deque>
++#include <string>
++#include <utility>
++#include <vector>
++
++namespace {
++struct BridgeStats {
++    double fps = 0;
++    double networkDroppedPercent = 0;
++    double jitterDroppedPercent = 0;
++    int rtt = 0;
++    int rttVariance = 0;
++    double decodeMs = 0;
++    double renderMs = 0;
++    char codec[32] = "unknown";
++};
++
++HANDLE pipeHandle = INVALID_HANDLE_VALUE;
++HANDLE workerHandle = nullptr;
++std::atomic<bool> stopping(false);
++std::atomic<long long> receivedBytes(0);
++std::atomic<int> latestReceivedKbps(0);
++std::atomic<int> historicalReceivedKbps(0);
++std::atomic<int> latestTargetKbps(0);
++std::atomic<int> latestAppliedKbps(0);
++std::deque<std::pair<ULONGLONG, int>> throughputHistory;
++CRITICAL_SECTION statsLock;
++BridgeStats latestStats;
++int ceilingKbps = 0;
++int autoTargetKbps = 0;
++bool adaptiveRequested = false;
++bool bitrateRequested = false;
++bool adaptiveConfigured = false;
++DWORD lastBitrateAttempt = 0;
++DWORD lastAdaptiveAttempt = 0;
++long long sequence = 0;
++
++const char* codecName(int format) {
++    switch (format) {
++    case VIDEO_FORMAT_H264: return "H.264";
++    case VIDEO_FORMAT_H264_HIGH8_444: return "H.264 4:4:4";
++    case VIDEO_FORMAT_H265: return "HEVC";
++    case VIDEO_FORMAT_H265_REXT8_444: return "HEVC 4:4:4";
++    case VIDEO_FORMAT_H265_MAIN10: return "HEVC 10-bit";
++    case VIDEO_FORMAT_H265_REXT10_444: return "HEVC 10-bit 4:4:4";
++    case VIDEO_FORMAT_AV1_MAIN8: return "AV1";
++    case VIDEO_FORMAT_AV1_HIGH8_444: return "AV1 4:4:4";
++    case VIDEO_FORMAT_AV1_MAIN10: return "AV1 10-bit";
++    case VIDEO_FORMAT_AV1_HIGH10_444: return "AV1 10-bit 4:4:4";
++    default: return "unknown";
++    }
++}
++
++bool parseValue(const std::string& line, const char* command, int& value) {
++    std::string marker = std::string("\"command\":\"") + command + "\"";
++    if (line.find(marker) == std::string::npos) return false;
++    auto valueAt = line.find("\"value\":");
++    if (valueAt == std::string::npos) return false;
++    value = std::atoi(line.c_str() + valueAt + 8);
++    return true;
++}
++
++bool parseNamedValue(const std::string& line, const char* name, int& value) {
++    std::string marker = std::string("\"") + name + "\":";
++    auto valueAt = line.find(marker);
++    if (valueAt == std::string::npos) return false;
++    char* end = nullptr;
++    const long parsed = std::strtol(line.c_str() + valueAt + marker.length(), &end, 10);
++    if (end == line.c_str() + valueAt + marker.length()) return false;
++    value = static_cast<int>(parsed);
++    return true;
++}
++
++bool parseVirtualGamepad(const std::string& line, int& buttons, int& leftX, int& leftY,
++                         int& rightX, int& rightY, int& leftTrigger, int& rightTrigger) {
++    return line.find("\"command\":\"setVirtualGamepad\"") != std::string::npos &&
++        parseNamedValue(line, "buttons", buttons) && parseNamedValue(line, "leftX", leftX) &&
++        parseNamedValue(line, "leftY", leftY) && parseNamedValue(line, "rightX", rightX) &&
++        parseNamedValue(line, "rightY", rightY) && parseNamedValue(line, "leftTrigger", leftTrigger) &&
++        parseNamedValue(line, "rightTrigger", rightTrigger);
++}
++
++void handleCommand(const std::string& line) {
++    int value;
++    if (parseValue(line, "setBitrateKbps", value) && value >= 500 && value <= 500000) {
++        autoTargetKbps = (std::min)(value, ceilingKbps);
++        bitrateRequested = true;
++        lastBitrateAttempt = GetTickCount();
++        LiSendPiuLinkControl(1, autoTargetKbps);
++    }
++    else if (parseValue(line, "setContentAdaptive", value) && (value == 0 || value == 1)) {
++        adaptiveRequested = value != 0;
++        adaptiveConfigured = true;
++        lastAdaptiveAttempt = GetTickCount();
++        LiSendPiuLinkControl(3, value);
++    }
++    else {
++        int buttons, leftX, leftY, rightX, rightY, leftTrigger, rightTrigger;
++        if (parseVirtualGamepad(line, buttons, leftX, leftY, rightX, rightY, leftTrigger, rightTrigger) &&
++            buttons >= 0 && buttons <= 0x00FFFFFF &&
++            leftX >= -32768 && leftX <= 32767 && leftY >= -32768 && leftY <= 32767 &&
++            rightX >= -32768 && rightX <= 32767 && rightY >= -32768 && rightY <= 32767 &&
++            leftTrigger >= 0 && leftTrigger <= 255 && rightTrigger >= 0 && rightTrigger <= 255) {
++            if (Session* session = Session::get()) {
++                session->sendVirtualGamepadState(buttons, static_cast<short>(leftX), static_cast<short>(leftY),
++                    static_cast<short>(rightX), static_cast<short>(rightY),
++                    static_cast<unsigned char>(leftTrigger), static_cast<unsigned char>(rightTrigger));
++            }
++        }
++    }
++}
++
++void sendTelemetry(DWORD elapsedMs) {
++    BridgeStats stats;
++    EnterCriticalSection(&statsLock);
++    stats = latestStats;
++    LeaveCriticalSection(&statsLock);
++
++    const auto bytes = receivedBytes.exchange(0);
++    const double receivedMbps = elapsedMs ? bytes * 8.0 / elapsedMs / 1000.0 : 0;
++    const int receivedKbps = static_cast<int>(receivedMbps * 1000.0 + 0.5);
++    const auto sampleTime = GetTickCount64();
++    while (!throughputHistory.empty() && sampleTime - throughputHistory.front().first >= 60000)
++        throughputHistory.pop_front();
++    if (receivedKbps > 0) throughputHistory.emplace_back(sampleTime, receivedKbps);
++    int lowerQuartileKbps = 0;
++    if (!throughputHistory.empty()) {
++        std::vector<int> rates;
++        rates.reserve(throughputHistory.size());
++        for (const auto& sample : throughputHistory) rates.push_back(sample.second);
++        std::sort(rates.begin(), rates.end());
++        lowerQuartileKbps = rates[(rates.size() - 1) / 4];
++    }
++    const int bitrateAck = LiGetPiuLinkAck(1);
++    const int adaptiveAck = LiGetPiuLinkAck(3);
++    const DWORD now = GetTickCount();
++    if (bitrateRequested && bitrateAck < 0 && now - lastBitrateAttempt >= 2000) {
++        lastBitrateAttempt = now;
++        LiSendPiuLinkControl(1, autoTargetKbps);
++    }
++    if (adaptiveConfigured && adaptiveAck < 0 && now - lastAdaptiveAttempt >= 2000) {
++        lastAdaptiveAttempt = now;
++        LiSendPiuLinkControl(3, adaptiveRequested ? 1 : 0);
++    }
++    const bool adaptiveConfirmed = adaptiveAck == (adaptiveRequested ? 2 : 1);
++    const int engineTarget = bitrateAck > 0 ? bitrateAck : autoTargetKbps;
++    latestReceivedKbps.store(receivedKbps);
++    historicalReceivedKbps.store(lowerQuartileKbps);
++    latestTargetKbps.store(autoTargetKbps);
++    latestAppliedKbps.store(engineTarget);
++    const char* adaptiveState = !adaptiveRequested ? (adaptiveConfirmed ? "off" : "pending")
++        : !adaptiveConfirmed ? "pending"
++        : engineTarget > 0 && engineTarget < autoTargetKbps ? "static-reduced" : "active-full";
++
++    char json[2048];
++    int length = std::snprintf(json, sizeof(json),
++        "{\"protocolVersion\":1,\"sequence\":%lld,\"state\":\"streaming\","
++        "\"codec\":\"%s\",\"negotiatedCeilingKbps\":%d,\"autoTargetKbps\":%d,"
++        "\"engineTargetKbps\":%d,\"receivedMbps\":%.3f,\"contentAdaptiveRequested\":%s,"
++        "\"contentAdaptiveConfirmed\":%s,\"contentAdaptiveState\":\"%s\","
++        "\"framesPerSecond\":%.3f,\"networkDroppedPercent\":%.3f,"
++        "\"jitterDroppedPercent\":%.3f,\"roundTripTimeMs\":%d,"
++        "\"roundTripVarianceMs\":%d,\"decodeTimeMs\":%.3f,\"renderTimeMs\":%.3f}\n",
++        ++sequence, stats.codec, ceilingKbps, autoTargetKbps, engineTarget, receivedMbps,
++        adaptiveRequested ? "true" : "false", adaptiveConfirmed ? "true" : "false", adaptiveState,
++        stats.fps, stats.networkDroppedPercent, stats.jitterDroppedPercent, stats.rtt,
++        stats.rttVariance, stats.decodeMs, stats.renderMs);
++    if (length > 0 && length < static_cast<int>(sizeof(json))) {
++        DWORD written;
++        WriteFile(pipeHandle, json, static_cast<DWORD>(length), &written, nullptr);
++    }
++}
++
++DWORD WINAPI workerProc(void*) {
++    char pipeName[256];
++    DWORD size = GetEnvironmentVariableA("PIULINK_ENGINE_PIPE", pipeName, sizeof(pipeName));
++    if (size == 0 || size >= sizeof(pipeName)) return 0;
++    std::string fullName = "\\\\.\\pipe\\" + std::string(pipeName);
++    for (int attempt = 0; attempt < 100 && !stopping; attempt++) {
++        pipeHandle = CreateFileA(fullName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
++                                 OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
++        if (pipeHandle != INVALID_HANDLE_VALUE) break;
++        Sleep(100);
++    }
++    if (pipeHandle == INVALID_HANDLE_VALUE) return 0;
++
++    std::string input;
++    DWORD lastTelemetry = GetTickCount();
++    while (!stopping) {
++        DWORD available = 0;
++        if (!PeekNamedPipe(pipeHandle, nullptr, 0, nullptr, &available, nullptr)) break;
++        if (available) {
++            char buffer[1024];
++            DWORD read = 0;
++            if (!ReadFile(pipeHandle, buffer, (std::min<DWORD>)(available, sizeof(buffer)), &read, nullptr)) break;
++            input.append(buffer, read);
++            size_t newline;
++            while ((newline = input.find('\n')) != std::string::npos) {
++                handleCommand(input.substr(0, newline));
++                input.erase(0, newline + 1);
++            }
++            if (input.size() > 65536) input.clear();
++        }
++        DWORD now = GetTickCount();
++        DWORD elapsed = now - lastTelemetry;
++        if (elapsed >= 1000) {
++            sendTelemetry(elapsed);
++            lastTelemetry = now;
++        }
++        Sleep(20);
++    }
++    CloseHandle(pipeHandle);
++    pipeHandle = INVALID_HANDLE_VALUE;
++    return 0;
++}
++}
++
++void PiuLinkBridgeStart(int initialBitrateKbps) {
++    if (workerHandle) return;
++    char automatic[2] = {};
++    const bool autoEnabled = GetEnvironmentVariableA("PIULINK_AUTO_BITRATE", automatic, sizeof(automatic)) == 1 && automatic[0] == '1';
++    ceilingKbps = autoEnabled ? 150000 : initialBitrateKbps;
++    autoTargetKbps = initialBitrateKbps;
++    adaptiveRequested = false;
++    bitrateRequested = false;
++    adaptiveConfigured = false;
++    lastBitrateAttempt = lastAdaptiveAttempt = 0;
++    sequence = 0;
++    receivedBytes = 0;
++    latestReceivedKbps = 0;
++    historicalReceivedKbps = 0;
++    latestTargetKbps = initialBitrateKbps;
++    latestAppliedKbps = initialBitrateKbps;
++    throughputHistory.clear();
++    stopping = false;
++    InitializeCriticalSection(&statsLock);
++    workerHandle = CreateThread(nullptr, 0, workerProc, nullptr, 0, nullptr);
++}
++
++void PiuLinkBridgeStop() {
++    if (!workerHandle) return;
++    stopping = true;
++    if (pipeHandle != INVALID_HANDLE_VALUE) CancelIoEx(pipeHandle, nullptr);
++    WaitForSingleObject(workerHandle, 3000);
++    CloseHandle(workerHandle);
++    workerHandle = nullptr;
++    DeleteCriticalSection(&statsLock);
++}
++
++void PiuLinkBridgeAddReceivedBytes(int bytes) { receivedBytes += bytes; }
++
++void PiuLinkBridgePublishVideoStats(const VIDEO_STATS& stats, int videoFormat) {
++    BridgeStats snapshot;
++    // The rolling one-second window is copied before Moonlight calculates its
++    // derived FPS fields. Calculate it here while the window timestamp and
++    // rendered-frame count are still available to the WPF telemetry bridge.
++    const DWORD elapsedMs = SDL_GetTicks() - stats.measurementStartTimestamp;
++    snapshot.fps = elapsedMs ? stats.renderedFrames * 1000.0 / elapsedMs : 0;
++    snapshot.networkDroppedPercent = stats.totalFrames ? stats.networkDroppedFrames * 100.0 / stats.totalFrames : 0;
++    snapshot.jitterDroppedPercent = stats.decodedFrames ? stats.pacerDroppedFrames * 100.0 / stats.decodedFrames : 0;
++    snapshot.rtt = stats.lastRtt;
++    snapshot.rttVariance = stats.lastRttVariance;
++    snapshot.decodeMs = stats.decodedFrames ? static_cast<double>(stats.totalDecodeTime) / stats.decodedFrames : 0;
++    snapshot.renderMs = stats.renderedFrames ? static_cast<double>(stats.totalRenderTime) / stats.renderedFrames : 0;
++    std::strncpy(snapshot.codec, codecName(videoFormat), sizeof(snapshot.codec) - 1);
++    EnterCriticalSection(&statsLock);
++    latestStats = snapshot;
++    LeaveCriticalSection(&statsLock);
++}
++
++PiuLinkBridgeNetworkStats PiuLinkBridgeGetNetworkStats() {
++    return {latestReceivedKbps.load(), historicalReceivedKbps.load(),
++            latestTargetKbps.load(), latestAppliedKbps.load(), ceilingKbps};
++}
++
++#else
++void PiuLinkBridgeStart(int) {}
++void PiuLinkBridgeStop() {}
++void PiuLinkBridgeAddReceivedBytes(int) {}
++void PiuLinkBridgePublishVideoStats(const VIDEO_STATS&, int) {}
++PiuLinkBridgeNetworkStats PiuLinkBridgeGetNetworkStats() { return {}; }
++#endif
+diff --git a/app/streaming/piulinkbridge.h b/app/streaming/piulinkbridge.h
+new file mode 100644
+--- /dev/null
++++ b/app/streaming/piulinkbridge.h
+@@ -0,0 +1,17 @@
++#pragma once
++
++#include "video/decoder.h"
++
++void PiuLinkBridgeStart(int initialBitrateKbps);
++void PiuLinkBridgeStop();
++void PiuLinkBridgeAddReceivedBytes(int bytes);
++void PiuLinkBridgePublishVideoStats(const VIDEO_STATS& stats, int videoFormat);
++
++struct PiuLinkBridgeNetworkStats {
++    int receivedKbps;
++    int historicalKbps;
++    int targetKbps;
++    int appliedKbps;
++    int ceilingKbps;
++};
++PiuLinkBridgeNetworkStats PiuLinkBridgeGetNetworkStats();

@@ -1,0 +1,1738 @@
+<Window x:Class="PiuLink.Host.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:i18n="clr-namespace:PiuLink.Host.Localization"
+        Title="PiuLink Host"
+        Icon="Assets/PiuLink.ico"
+        Height="780"
+        Width="1120"
+        MinHeight="680"
+        MinWidth="960"
+        Background="{StaticResource BackgroundBrush}"
+        Foreground="{StaticResource TextBrush}" WindowStartupLocation="CenterScreen"
+        UseLayoutRounding="True">
+  <Grid Background="{StaticResource BackgroundBrush}">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="220" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <!-- Calm, material sidebar: structural chrome stays visually behind the content. -->
+    <Border Grid.Column="0"
+            Background="{StaticResource SidebarBrush}"
+            BorderBrush="{StaticResource DividerBrush}"
+            BorderThickness="0,0,1,0">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="22,26,18,22">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="42" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Border Width="38" Height="38" CornerRadius="12">
+            <Image Source="Assets/PiuLink-256.png"
+                   Stretch="Uniform"
+                   SnapsToDevicePixels="True" />
+          </Border>
+          <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+            <TextBlock Text="PiuLink" FontFamily="{StaticResource DisplayFont}" FontSize="17" FontWeight="SemiBold" />
+            <TextBlock Text="{i18n:Loc Common.Host}" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,1,0,0" />
+          </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Margin="14,0">
+          <TextBlock Text="{i18n:Loc Nav.Section}" Style="{StaticResource EyebrowStyle}" Margin="12,0,0,7" />
+          <RadioButton x:Name="OverviewNavButton"
+                       GroupName="Navigation"
+                       IsChecked="True"
+                       Style="{StaticResource NavigationStyle}"
+                       Checked="OverviewNav_Checked">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="&#xE80F;"
+                         FontFamily="Segoe Fluent Icons"
+                         FontSize="15"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Text="{i18n:Loc Nav.Overview}"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </RadioButton>
+          <RadioButton x:Name="NetworkNavButton"
+                       GroupName="Navigation"
+                       Style="{StaticResource NavigationStyle}"
+                       Checked="NetworkNav_Checked">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="&#xE701;"
+                         FontFamily="Segoe Fluent Icons"
+                         FontSize="15"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Text="{i18n:Loc Nav.PrivateNetwork}"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </RadioButton>
+          <RadioButton x:Name="StreamingNavButton"
+                       GroupName="Navigation"
+                       Style="{StaticResource NavigationStyle}"
+                       Checked="StreamingNav_Checked">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="&#xE714;"
+                         FontFamily="Segoe Fluent Icons"
+                         FontSize="15"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Text="{i18n:Loc Nav.StreamingHost}"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </RadioButton>
+          <RadioButton x:Name="DisplaysNavButton"
+                       GroupName="Navigation"
+                       Style="{StaticResource NavigationStyle}"
+                       Checked="DisplaysNav_Checked">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="&#xE7F4;"
+                         FontFamily="Segoe Fluent Icons"
+                         FontSize="15"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Text="{i18n:Loc Nav.Displays}"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </RadioButton>
+          <RadioButton x:Name="VirtualDisplayNavButton"
+                       GroupName="Navigation"
+                       Style="{StaticResource NavigationStyle}"
+                       Checked="VirtualDisplayNav_Checked">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="&#xE8A9;"
+                         FontFamily="Segoe Fluent Icons"
+                         FontSize="15"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Text="{i18n:Loc Nav.VirtualDisplay}"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </RadioButton>
+          <RadioButton x:Name="WakeOnLanNavButton"
+                       GroupName="Navigation"
+                       Style="{StaticResource NavigationStyle}"
+                       Checked="WakeOnLanNav_Checked">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="&#xE7E8;"
+                         FontFamily="Segoe Fluent Icons"
+                         FontSize="15"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Text="{i18n:Loc Nav.WakeOnLan}"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </RadioButton>
+          <RadioButton x:Name="AdvancedSettingsNavButton"
+                       GroupName="Navigation"
+                       Style="{StaticResource NavigationStyle}"
+                       Checked="AdvancedSettingsNav_Checked">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="&#xE713;"
+                         FontFamily="Segoe Fluent Icons"
+                         FontSize="15"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Text="{i18n:Loc Nav.AdvancedSettings}"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </RadioButton>
+          <RadioButton x:Name="DiagnosticsNavButton"
+                       GroupName="Navigation"
+                       Style="{StaticResource NavigationStyle}"
+                       Checked="DiagnosticsNav_Checked">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="&#xE9D9;"
+                         FontFamily="Segoe Fluent Icons"
+                         FontSize="15"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Text="{i18n:Loc Nav.Diagnostics}"
+                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </RadioButton>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Margin="22,0,18,22">
+          <TextBlock Text="{i18n:Loc Language.Label}" Style="{StaticResource EyebrowStyle}" Margin="4,0,0,6" />
+          <ComboBox x:Name="LanguageSelector"
+                    MinHeight="36"
+                    Padding="9,6"
+                    Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource DividerBrush}"
+                    DisplayMemberPath="DisplayName"
+                    SelectedValuePath="Code"
+                    SelectionChanged="LanguageSelector_SelectionChanged"
+                    AutomationProperties.Name="{i18n:Loc Language.Label}" />
+          <TextBlock x:Name="VersionText" Text="ATIPiu Labs" Foreground="{StaticResource SubtleBrush}" FontSize="11" Margin="4,3,0,0" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Column="1">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <!-- Persistent toolbar gives immediate status and a single predictable refresh action. -->
+      <Grid Margin="34,26,34,20">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel>
+          <TextBlock x:Name="PageTitle" Text="{i18n:Loc Nav.Overview}" Style="{StaticResource PageTitleStyle}" />
+          <TextBlock x:Name="PageSubtitle"
+                     Text="{i18n:Loc Page.Overview.Subtitle}"
+                     Style="{StaticResource BodyMutedStyle}"
+                     Margin="0,3,0,0" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <Border Background="{StaticResource RaisedPanelBrush}" CornerRadius="18" Padding="13,8" Margin="0,0,10,0">
+            <StackPanel Orientation="Horizontal">
+              <Border x:Name="OverallStatusDot"
+                      Width="8" Height="8"
+                      CornerRadius="4"
+                      Background="{StaticResource SubtleBrush}"
+                      Margin="0,0,8,0"
+                      VerticalAlignment="Center" />
+              <TextBlock x:Name="OverallStatus"
+                         Text="{i18n:Loc Status.Checking}"
+                         FontSize="12"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+          <Button x:Name="RefreshButton"
+                  Content="↻"
+                  Style="{StaticResource IconButtonStyle}"
+                  FontFamily="{StaticResource SystemFont}"
+                  FontSize="20"
+                  ToolTip="{i18n:Loc Toolbar.RefreshDiagnostics}"
+                  AutomationProperties.Name="{i18n:Loc Toolbar.RefreshDiagnostics}"
+                  Click="Refresh_Click" />
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="1" Margin="34,0,34,28">
+        <!-- Page 1: common path first. -->
+        <ScrollViewer x:Name="OverviewPage"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="0,0,0,8">
+            <Border Style="{StaticResource CardStyle}" Padding="24" Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="330" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,28,0">
+                  <Border x:Name="HeroStatusGlyphSurface"
+                          Width="44" Height="44"
+                          CornerRadius="14"
+                          Background="{StaticResource ControlBrush}"
+                          HorizontalAlignment="Left"
+                          Margin="0,0,0,18">
+                    <TextBlock x:Name="HeroStatusGlyph"
+                               Text="…"
+                               Foreground="{StaticResource TextBrush}"
+                               FontFamily="{StaticResource DisplayFont}"
+                               FontSize="21"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                  </Border>
+                  <TextBlock x:Name="HeroStatusTitle"
+                             Text="Checking this PC"
+                             Foreground="{StaticResource TextBrush}"
+                             FontFamily="{StaticResource DisplayFont}"
+                             FontSize="28"
+                             FontWeight="SemiBold"
+                             TextWrapping="Wrap" />
+                  <TextBlock x:Name="HeroStatusDescription"
+                             Text="PiuLink is checking networking and streaming services."
+                             Foreground="{StaticResource MutedBrush}"
+                             FontSize="14"
+                             LineHeight="21"
+                             TextWrapping="Wrap"
+                             Margin="0,7,0,0" />
+                </StackPanel>
+                <Border Grid.Column="1"
+                        Background="{StaticResource RaisedPanelBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="17"
+                        Padding="18"
+                        VerticalAlignment="Center">
+                  <StackPanel>
+                    <TextBlock Text="CONNECTION INFO"
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="11"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="ConnectionText"
+                               Text="Waiting for diagnostics…"
+                               Foreground="{StaticResource TextBrush}"
+                               FontFamily="Cascadia Mono, Consolas"
+                               FontSize="13"
+                               LineHeight="20"
+                               TextWrapping="Wrap"
+                               Margin="0,9,0,14" />
+                    <Button x:Name="CopyButton"
+                            Content="Copy connection info"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            HorizontalAlignment="Left"
+                            Click="Copy_Click"
+                            IsEnabled="False" />
+                    <WrapPanel Margin="0,10,0,0">
+                      <Button x:Name="InviteButton" Content="开启直连邀请" Click="Invite_Click" Padding="9,4" />
+                      <Button x:Name="StopInviteButton" Content="关闭邀请" Click="StopInvite_Click" Padding="9,4" Margin="6,0,0,0" Visibility="Collapsed" />
+                      <Button x:Name="PunchApproval" Click="ApprovePunch_Click" Padding="9,4" Visibility="Collapsed" />
+                    </WrapPanel>
+                    <TextBlock x:Name="InviteStatus" Text="邀请链接可供多台客户端添加这台电脑。" Style="{StaticResource BodyMutedStyle}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    <TextBox x:Name="InviteLinkFallback" AutomationProperties.Name="直连邀请链接"
+                             Visibility="Collapsed" IsReadOnly="True" IsUndoEnabled="False"
+                             TextWrapping="Wrap" Margin="0,5,0,0" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </Border>
+
+            <Grid Margin="0,0,0,18">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.1*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="0.9*" />
+              </Grid.ColumnDefinitions>
+              <Border Style="{StaticResource CardStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="48" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Border Width="42" Height="42" CornerRadius="13" Background="{StaticResource RaisedPanelBrush}" VerticalAlignment="Top">
+                    <TextBlock Text="&#xE7F4;"
+                               FontFamily="Segoe Fluent Icons"
+                               FontSize="17"
+                               Foreground="{StaticResource PrimaryBrush}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="THIS PC" Style="{StaticResource EyebrowStyle}" />
+                    <TextBlock x:Name="DeviceText"
+                               Text="Detecting device…"
+                               Style="{StaticResource SectionTitleStyle}"
+                               Margin="0,6,0,0" />
+                    <TextBlock x:Name="SystemText"
+                               Text="Detecting Windows and CPU…"
+                               Style="{StaticResource BodyMutedStyle}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+              <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                <StackPanel>
+                  <TextBlock Text="DISPLAY ADAPTERS" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock x:Name="GpuText"
+                             Text="Detecting GPU…"
+                             FontSize="15"
+                             FontWeight="SemiBold"
+                             LineHeight="22"
+                             TextWrapping="Wrap"
+                             Margin="0,8,0,0" />
+                </StackPanel>
+              </Border>
+            </Grid>
+
+            <Grid Margin="0,0,0,18">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal">
+                      <Border x:Name="TailscaleDot"
+                              Width="9" Height="9"
+                              CornerRadius="5"
+                              Background="{StaticResource SubtleBrush}"
+                              Margin="0,0,8,0"
+                              VerticalAlignment="Center" />
+                      <TextBlock Text="TAILSCALE" Style="{StaticResource EyebrowStyle}" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Grid>
+                  <TextBlock x:Name="TailscaleStatus"
+                             Text="Checking…"
+                             Style="{StaticResource SectionTitleStyle}"
+                             Margin="0,10,0,0" />
+                  <TextBlock x:Name="TailscaleDetail"
+                             Text="Checking the private network service."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,17"
+                             MinHeight="42" />
+                  <Button x:Name="TailscaleActionButton"
+                          Content="Open Tailscale"
+                          HorizontalAlignment="Left"
+                          Click="OpenTailscale_Click" />
+                </StackPanel>
+              </Border>
+              <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                <StackPanel>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal">
+                      <Border x:Name="SunshineDot"
+                              Width="9" Height="9"
+                              CornerRadius="5"
+                              Background="{StaticResource SubtleBrush}"
+                              Margin="0,0,8,0"
+                              VerticalAlignment="Center" />
+                      <TextBlock Text="SUNSHINE" Style="{StaticResource EyebrowStyle}" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Grid>
+                  <TextBlock x:Name="SunshineStatus"
+                             Text="Checking…"
+                             Style="{StaticResource SectionTitleStyle}"
+                             Margin="0,10,0,0" />
+                  <TextBlock x:Name="SunshineDetail"
+                             Text="Checking the local streaming service."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,17"
+                             MinHeight="42" />
+                   <Button x:Name="SunshineActionButton"
+                           Content="Manage in PiuLink"
+                           HorizontalAlignment="Left"
+                           Click="OpenSunshine_Click" />
+                </StackPanel>
+              </Border>
+            </Grid>
+
+            <Border Style="{StaticResource CardStyle}">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,22,0">
+                  <TextBlock Text="ADVANCED CHECKS" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock Text="Endpoint and firewall" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
+                  <TextBlock x:Name="AdvancedStatusText"
+                             Text="Endpoint and firewall checks pending…"
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,0" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="View diagnostics"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        VerticalAlignment="Center"
+                        Click="OpenDiagnostics_Click" />
+              </Grid>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Page 2: guided Tailscale setup keeps the product flow in PiuLink. -->
+        <ScrollViewer x:Name="NetworkPage"
+                      Visibility="Collapsed"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="0,0,0,8">
+            <Border Background="{StaticResource RaisedPanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="20"
+                    Padding="22"
+                    Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="48" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="42" Height="42" CornerRadius="13" Background="{StaticResource ControlBrush}">
+                  <TextBlock Text="&#xE701;"
+                             FontFamily="Segoe Fluent Icons"
+                             FontSize="17"
+                             Foreground="{StaticResource PrimaryBrush}"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,18,0" VerticalAlignment="Center">
+                  <TextBlock Text="Private network setup" FontSize="16" FontWeight="SemiBold" />
+                  <TextBlock x:Name="TailscaleGuideStatusDetail"
+                             Text="Checking whether Tailscale is installed…"
+                             Foreground="{StaticResource MutedBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap"
+                             Margin="0,3,0,0" />
+                </StackPanel>
+                <Border Grid.Column="2" Background="{StaticResource ControlBrush}" CornerRadius="15" Padding="12,7" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal">
+                    <Border x:Name="TailscaleGuideStatusDot"
+                            Width="8" Height="8" CornerRadius="4"
+                            Background="{StaticResource SubtleBrush}"
+                            Margin="0,0,7,0"
+                            VerticalAlignment="Center" />
+                    <TextBlock x:Name="TailscaleGuideStatusText"
+                               Text="Checking"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="54" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="42" Height="42" CornerRadius="21" Background="{StaticResource RaisedPanelBrush}" VerticalAlignment="Top">
+                  <TextBlock Text="1"
+                             Foreground="{StaticResource PrimaryBrush}"
+                             FontSize="16"
+                             FontWeight="SemiBold"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="4,0,24,0">
+                  <TextBlock Text="Install Tailscale from the official source" Style="{StaticResource SectionTitleStyle}" />
+                  <TextBlock Text="PiuLink does not bundle or silently install Tailscale. The button opens tailscale.com, where you can download the signed Windows installer."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,0" />
+                  <TextBlock x:Name="TailscaleInstallStepStatus"
+                             Text="Waiting for installation."
+                             Foreground="{StaticResource MutedBrush}"
+                             FontSize="12"
+                             FontWeight="SemiBold"
+                             Margin="0,12,0,0" />
+                </StackPanel>
+                <Button x:Name="TailscaleDownloadButton"
+                        Grid.Column="2"
+                        Content="Open official download"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        VerticalAlignment="Center"
+                        Click="DownloadTailscale_Click" />
+              </Grid>
+            </Border>
+
+            <Grid Margin="0,0,0,18">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                  <Border Width="42" Height="42" CornerRadius="21" Background="{StaticResource RaisedPanelBrush}" HorizontalAlignment="Left">
+                    <TextBlock Text="2" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <TextBlock Text="Return to PiuLink" Style="{StaticResource SectionTitleStyle}" Margin="0,16,0,0" />
+                  <TextBlock Text="After the installer finishes, come back here. PiuLink will detect the CLI and Windows service automatically."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,17"
+                             MinHeight="64" />
+                  <Button x:Name="TailscaleCheckInstallButton"
+                          Content="Check installation"
+                          HorizontalAlignment="Left"
+                          Click="CheckTailscaleInstallation_Click" />
+                </StackPanel>
+              </Border>
+
+              <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                <StackPanel>
+                  <Border Width="42" Height="42" CornerRadius="21" Background="{StaticResource RaisedPanelBrush}" HorizontalAlignment="Left">
+                    <TextBlock Text="3" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <TextBlock Text="Connect your account" Style="{StaticResource SectionTitleStyle}" Margin="0,16,0,0" />
+                  <TextBlock Text="PiuLink calls tailscale.exe directly. If authentication is required, Tailscale opens the system browser for your identity provider."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,17"
+                             MinHeight="64" />
+                  <Button x:Name="TailscaleSignInButton"
+                          Content="Start secure sign-in"
+                          Style="{StaticResource PrimaryButtonStyle}"
+                          HorizontalAlignment="Left"
+                          IsEnabled="False"
+                          Click="SignInTailscale_Click" />
+                  <TextBlock x:Name="TailscaleSignInStatusText"
+                             Text="Install Tailscale first."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,12,0,0" />
+                </StackPanel>
+              </Border>
+            </Grid>
+
+            <Border Background="{StaticResource RaisedPanelBrush}" CornerRadius="18" Padding="20" Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="34" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="&#xE72E;"
+                           FontFamily="Segoe Fluent Icons"
+                           FontSize="16"
+                           Foreground="{StaticResource MutedBrush}"
+                           VerticalAlignment="Top"
+                           Margin="1,2,0,0" />
+                <StackPanel Grid.Column="1">
+                  <TextBlock Text="Your Tailscale account remains separate" FontWeight="SemiBold" />
+                  <TextBlock Text="PiuLink reads local connection status and the private IP only. Account credentials are entered on Tailscale's authentication page, not inside PiuLink."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,3,20,0" />
+                </StackPanel>
+                <TextBlock x:Name="TailscaleGuideAddressText"
+                           Grid.Column="2"
+                           Text="No private IP"
+                           Foreground="{StaticResource MutedBrush}"
+                           FontFamily="Cascadia Mono, Consolas"
+                           FontSize="12"
+                           VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+              <StackPanel>
+                <TextBlock Text="TAILSCALE SETTINGS" Style="{StaticResource EyebrowStyle}" />
+                <TextBlock Text="Manage this device inside PiuLink" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
+                <TextBlock Text="These controls use Tailscale's local command line. Identity authentication stays on Tailscale's secure browser page. Shields up blocks incoming streaming connections, so leave it off for a Host."
+                           Style="{StaticResource BodyMutedStyle}"
+                           TextWrapping="Wrap"
+                           Margin="0,5,0,16" />
+                <UniformGrid Columns="2" Rows="3">
+                  <CheckBox x:Name="TailscaleAcceptDnsCheckBox"
+                            Content="Use tailnet DNS"
+                            Margin="0,0,18,12" />
+                  <CheckBox x:Name="TailscaleAcceptRoutesCheckBox"
+                            Content="Accept subnet routes"
+                            Margin="0,0,0,12" />
+                  <CheckBox x:Name="TailscaleAutoUpdateCheckBox"
+                            Content="Install Tailscale updates automatically"
+                            Margin="0,0,18,12" />
+                  <CheckBox x:Name="TailscaleSshCheckBox"
+                            Content="Allow Tailscale SSH when policy permits"
+                            Margin="0,0,0,12" />
+                  <CheckBox x:Name="TailscaleWebClientCheckBox"
+                            Content="Expose Tailscale's device web client"
+                            Margin="0,0,18,0" />
+                  <CheckBox x:Name="TailscaleShieldsUpCheckBox"
+                            Content="Block all incoming Tailscale connections"
+                            Foreground="{StaticResource WarningBrush}" />
+                </UniformGrid>
+                <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                  <Button x:Name="LoadTailscaleSettingsButton"
+                          Content="Load settings"
+                          Click="LoadTailscaleSettings_Click" />
+                  <Button x:Name="SaveTailscaleSettingsButton"
+                          Content="Save settings"
+                          Style="{StaticResource PrimaryButtonStyle}"
+                          Margin="10,0,0,0"
+                          Click="SaveTailscaleSettings_Click" />
+                  <Button x:Name="DisconnectTailscaleButton"
+                          Content="Disconnect"
+                          Margin="10,0,0,0"
+                          Click="DisconnectTailscale_Click" />
+                  <Button x:Name="LogoutTailscaleButton"
+                          Content="Sign out this device"
+                          Margin="10,0,0,0"
+                          Click="LogoutTailscale_Click" />
+                </StackPanel>
+                <TextBlock x:Name="TailscaleSettingsStatusText"
+                           Text="Load settings to inspect the current Tailscale preferences."
+                           Style="{StaticResource BodyMutedStyle}"
+                           TextWrapping="Wrap"
+                           Margin="0,12,0,0" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Page 3: Sunshine is controlled through its local REST API without opening a browser. -->
+        <ScrollViewer x:Name="SunshinePage"
+                      Visibility="Collapsed"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="0,0,0,8">
+            <Border Background="{StaticResource RaisedPanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="20"
+                    Padding="22"
+                    Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="48" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="42" Height="42" CornerRadius="13" Background="{StaticResource ControlBrush}">
+                  <TextBlock Text="&#xE714;"
+                             FontFamily="Segoe Fluent Icons"
+                             FontSize="17"
+                             Foreground="{StaticResource PrimaryBrush}"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,18,0" VerticalAlignment="Center">
+                  <TextBlock Text="Native Sunshine control" FontSize="16" FontWeight="SemiBold" />
+                  <TextBlock x:Name="SunshineNativeStatusDetail"
+                             Text="Checking the local streaming service…"
+                             Foreground="{StaticResource MutedBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap"
+                             Margin="0,3,0,0" />
+                </StackPanel>
+                <Border Grid.Column="2" Background="{StaticResource ControlBrush}" CornerRadius="15" Padding="12,7" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal">
+                    <Border x:Name="SunshineNativeStatusDot"
+                            Width="8" Height="8" CornerRadius="4"
+                            Background="{StaticResource SubtleBrush}"
+                            Margin="0,0,7,0"
+                            VerticalAlignment="Center" />
+                    <TextBlock x:Name="SunshineNativeStatusText"
+                               Text="Checking"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </Border>
+
+            <Border x:Name="SunshineInstallCard"
+                    Style="{StaticResource CardStyle}"
+                    Margin="0,0,0,18"
+                    Visibility="Collapsed">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="54" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="270" />
+                </Grid.ColumnDefinitions>
+                <Border Width="42" Height="42" CornerRadius="13" Background="{StaticResource RaisedPanelBrush}" VerticalAlignment="Top">
+                  <TextBlock Text="&#xE896;"
+                             FontFamily="Segoe Fluent Icons"
+                             FontSize="17"
+                             Foreground="{StaticResource PrimaryBrush}"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="4,0,28,0">
+                  <TextBlock Text="BUNDLED COMPONENT" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock Text="Install Sunshine inside PiuLink" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
+                  <TextBlock Text="PiuLink includes a reviewed, signed Sunshine MSI as a separate GPLv3 component. Windows will request administrator approval immediately before installation."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,0" />
+                  <StackPanel Orientation="Horizontal" Margin="0,13,0,0">
+                    <Button Content="Read GPLv3" Click="OpenSunshineLicense_Click" />
+                    <Button Content="View source"
+                            Margin="8,0,0,0"
+                            Click="OpenSunshineSource_Click" />
+                  </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                  <TextBlock Text="Sunshine 2026.516.143833"
+                             FontSize="14"
+                             FontWeight="SemiBold" />
+                  <TextBlock Text="Publisher · LizardByte&#x0A;Verified signer · David Lane"
+                             Foreground="{StaticResource MutedBrush}"
+                             FontSize="11"
+                             LineHeight="17"
+                             Margin="0,3,0,0" />
+                  <TextBlock x:Name="SunshinePayloadStatusText"
+                             Text="Verifying bundled installer…"
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,7,0,12" />
+                  <CheckBox x:Name="SunshineInstallConsentCheckBox"
+                            Foreground="{StaticResource MutedBrush}"
+                            FontSize="12"
+                            Checked="SunshineInstallConsent_Changed"
+                            Unchecked="SunshineInstallConsent_Changed">
+                    <TextBlock Text="I understand Sunshine is a separate GPLv3 component."
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                  </CheckBox>
+                  <Button x:Name="SunshineInstallButton"
+                          Content="Install Sunshine"
+                          Style="{StaticResource PrimaryButtonStyle}"
+                          Margin="0,12,0,0"
+                          IsEnabled="False"
+                          Click="InstallSunshine_Click" />
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+              <StackPanel>
+                <TextBlock Text="PiuLink 虚拟麦克风" Style="{StaticResource SectionTitleStyle}" />
+                <TextBlock x:Name="MicrophoneDeviceStatus" Style="{StaticResource BodyMutedStyle}" TextWrapping="Wrap" Margin="0,5,0,12" />
+                <WrapPanel>
+                  <Button x:Name="InstallMicrophoneDeviceButton" Content="Install virtual microphone" Click="InstallMicrophoneDevice_Click" Margin="0,0,8,0" />
+                  <Button Content="Open Windows sound settings" Click="OpenMicrophoneSettings_Click" />
+                </WrapPanel>
+              </StackPanel>
+            </Border>
+
+            <Grid Margin="0,0,0,18">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.25*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="0.75*" />
+              </Grid.ColumnDefinitions>
+
+              <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                  <TextBlock Text="LOCAL CONTROL" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock Text="PiuLink-managed Sunshine" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
+                  <TextBlock Text="You sign in only to PiuLink. A device-only control credential is generated automatically and protected by Windows Credential Manager; it is not a second user account."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,14" />
+                  <Border Background="{StaticResource RaisedPanelBrush}" CornerRadius="13" Padding="14,11">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Text="&#xE72E;"
+                                 FontFamily="Segoe Fluent Icons"
+                                 Foreground="{StaticResource PrimaryBrush}"
+                                 FontSize="15"
+                                 Margin="0,0,9,0"
+                                 VerticalAlignment="Center" />
+                      <TextBlock Text="One PiuLink identity · Local machine credential"
+                                 FontSize="12"
+                                 FontWeight="SemiBold"
+                                 VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Border>
+
+                  <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                    <Button x:Name="SunshineConnectButton"
+                            Content="Set up secure control"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Click="ConnectSunshine_Click" />
+                    <Button x:Name="SunshineRefreshButton"
+                            Content="Refresh"
+                            Margin="10,0,0,0"
+                            IsEnabled="False"
+                            Click="RefreshSunshineControl_Click" />
+                  </StackPanel>
+                  <TextBlock x:Name="SunshineControlStatusText"
+                             Text="PiuLink connects only to https://localhost:47990. No browser window is opened."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,13,0,0" />
+                </StackPanel>
+              </Border>
+
+              <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                <StackPanel>
+                  <TextBlock Text="SUNSHINE" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock Text="Host summary" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,18" />
+                  <Border Background="{StaticResource RaisedPanelBrush}" CornerRadius="14" Padding="16" Margin="0,0,0,10">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Text="Streamable apps" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                      <TextBlock x:Name="SunshineAppsCountText" Grid.Column="1" Text="—" FontSize="21" FontWeight="SemiBold" />
+                    </Grid>
+                  </Border>
+                  <Border Background="{StaticResource RaisedPanelBrush}" CornerRadius="14" Padding="16">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Text="Paired clients" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                      <TextBlock x:Name="SunshineClientsCountText" Grid.Column="1" Text="—" FontSize="21" FontWeight="SemiBold" />
+                    </Grid>
+                  </Border>
+                  <Border Background="{StaticResource RaisedPanelBrush}" CornerRadius="14" Padding="16" Margin="0,10,0,0">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Text="Current session" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                      <TextBlock x:Name="SunshineSessionStateText" Grid.Column="1" Text="—" FontSize="15" FontWeight="SemiBold" />
+                    </Grid>
+                  </Border>
+                  <TextBlock x:Name="SunshineSessionStatusText"
+                             Text="PiuLink is checking the current streaming session."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,15,0,0" />
+                  <Border Height="1" Background="{StaticResource DividerBrush}" Margin="0,15,0,13" />
+                  <CheckBox x:Name="SessionGuardianCheckBox"
+                            Content="Automatically repair retained sessions"
+                            FontWeight="SemiBold"
+                            Checked="SessionGuardianPreference_Changed"
+                            Unchecked="SessionGuardianPreference_Changed" />
+                  <TextBlock x:Name="SessionGuardianStatusText"
+                             Text="Session Guardian waits briefly after a disconnect, then safely releases a retained app."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="22,5,0,0" />
+                  <Button x:Name="EndSunshineSessionButton"
+                          Content="End previous session"
+                          Margin="0,13,0,0"
+                          HorizontalAlignment="Left"
+                          Visibility="Collapsed"
+                          Click="EndSunshineSession_Click" />
+                </StackPanel>
+              </Border>
+            </Grid>
+
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="260" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,28,0">
+                  <TextBlock Text="PAIR A CLIENT" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock Text="Enter the Moonlight PIN" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
+                  <TextBlock Text="Start pairing on PiuLink Android or Windows Client, then enter the four-digit PIN shown there."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,0" />
+                  <TextBlock x:Name="PairingStatusText"
+                             Text="Connect to Sunshine first."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,13,0,0" />
+                  <TextBlock Text="首次串流配对请在本机输入客户端显示的 PIN。已配对设备使用保存的证书重新连接。"
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="22,5,0,0" />
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Text="Client name" FontSize="12" FontWeight="SemiBold" Margin="1,0,0,6" />
+                  <TextBox x:Name="PairingNameBox"
+                           Text="PiuLink client"
+                           Style="{StaticResource FormTextBoxStyle}"
+                           AutomationProperties.Name="Pairing client name" />
+                  <TextBlock Text="4-digit PIN" FontSize="12" FontWeight="SemiBold" Margin="1,12,0,6" />
+                  <TextBox x:Name="PairingPinBox"
+                           MaxLength="4"
+                           Style="{StaticResource FormTextBoxStyle}"
+                           FontFamily="Cascadia Mono, Consolas"
+                           FontSize="18"
+                           CharacterCasing="Upper"
+                           AutomationProperties.Name="Moonlight pairing PIN" />
+                  <Button x:Name="SubmitPairingPinButton"
+                          Content="Pair client"
+                          Style="{StaticResource PrimaryButtonStyle}"
+                          Margin="0,12,0,0"
+                          IsEnabled="False"
+                          Click="SubmitPairingPin_Click" />
+                </StackPanel>
+              </Grid>
+            </Border>
+
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Expert controls are intentionally separate from the daily streaming workflow. -->
+        <ScrollViewer x:Name="AdvancedSettingsPage"
+                      Visibility="Collapsed"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      CanContentScroll="False"
+                      PanningMode="VerticalOnly">
+          <StackPanel Margin="0,0,0,8">
+            <Border Background="{StaticResource WarningFillBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="20"
+                    Padding="22"
+                    Margin="0,0,0,18">
+              <StackPanel>
+                <TextBlock Text="EXPERT CONTROLS" Style="{StaticResource EyebrowStyle}" />
+                <TextBlock Text="Use only when you need to change how this Host works"
+                           Style="{StaticResource SectionTitleStyle}"
+                           Margin="0,6,0,0" />
+                <TextBlock Text="Daily streaming, pairing, displays, and private networking each have their own page. These controls change the underlying host services and are kept out of the normal connection flow."
+                           Style="{StaticResource BodyMutedStyle}"
+                           TextWrapping="Wrap"
+                           Margin="0,5,0,0" />
+              </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+              <StackPanel>
+                <TextBlock Text="REMOTE TERMINAL" Style="{StaticResource EyebrowStyle}" />
+                <TextBlock Text="Windows PowerShell access" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
+                <TextBlock Text="A paired mobile device can open a Windows PowerShell session. The first connection is approved on this PC; the device key is then remembered."
+                           Style="{StaticResource BodyMutedStyle}"
+                           TextWrapping="Wrap"
+                           Margin="0,5,0,14" />
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
+                  <TextBox x:Name="SshUsernameBox" Margin="0,0,8,0" ToolTip="Windows SSH user name" />
+                  <TextBox x:Name="SshPortBox" Grid.Column="1" ToolTip="SSH port" />
+                </Grid>
+                <WrapPanel>
+                  <Button Content="Save account" Click="SaveSshDefaults_Click" Margin="0,0,8,8" />
+                  <Button Content="Install / enable OpenSSH" Click="EnableOpenSsh_Click" Margin="0,0,8,8" />
+                  <Button Content="Stop OpenSSH" Click="DisableOpenSsh_Click" Margin="0,0,8,8" />
+                </WrapPanel>
+                <TextBlock x:Name="SshTerminalStatusText" Text="Checking the Windows terminal service…" Style="{StaticResource BodyMutedStyle}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+              <StackPanel>
+                <TextBlock Text="SUNSHINE CONFIGURATION" Style="{StaticResource EyebrowStyle}" />
+                <TextBlock Text="Edit complete Sunshine configuration" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
+                <TextBlock Text="This is an expert editor. PiuLink preserves fields from newer Sunshine versions and validates the JSON before saving. Saving restarts Sunshine and is unavailable during an active stream."
+                           Style="{StaticResource BodyMutedStyle}"
+                           TextWrapping="Wrap"
+                           Margin="0,5,0,14" />
+                <TextBox x:Name="SunshineConfigurationEditor"
+                         Height="300"
+                         Padding="13,11"
+                         AcceptsReturn="True"
+                         AcceptsTab="True"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Cascadia Mono, Consolas"
+                         FontSize="12"
+                         TextWrapping="NoWrap"
+                         IsEnabled="False"
+                         AutomationProperties.Name="Sunshine configuration JSON" />
+                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                  <Button x:Name="LoadSunshineConfigurationButton"
+                          Content="Load complete configuration"
+                          IsEnabled="False"
+                          Click="LoadSunshineConfiguration_Click" />
+                  <Button x:Name="SaveSunshineConfigurationButton"
+                          Content="Save and restart Sunshine"
+                          Style="{StaticResource PrimaryButtonStyle}"
+                          Margin="10,0,0,0"
+                          IsEnabled="False"
+                          Click="SaveSunshineConfiguration_Click" />
+                </StackPanel>
+                <TextBlock x:Name="SunshineConfigurationStatusText"
+                           Text="Connect secure Sunshine control to load every setting."
+                           Style="{StaticResource BodyMutedStyle}"
+                           TextWrapping="Wrap"
+                           Margin="0,12,0,0" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Page 4: display routing stays inside PiuLink and is applied through Sunshine's local API. -->
+        <ScrollViewer x:Name="DisplaysPage"
+                      Visibility="Collapsed"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="0,0,0,8">
+            <Border Background="{StaticResource RaisedPanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="20"
+                    Padding="22"
+                    Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="48" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="42" Height="42" CornerRadius="13" Background="{StaticResource ControlBrush}">
+                  <TextBlock Text="&#xE7F4;"
+                             FontFamily="Segoe Fluent Icons"
+                             FontSize="17"
+                             Foreground="{StaticResource PrimaryBrush}"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,18,0" VerticalAlignment="Center">
+                  <TextBlock Text="Streaming display" FontSize="16" FontWeight="SemiBold" />
+                  <TextBlock x:Name="DisplayInventoryStatusDetail"
+                             Text="Connect to Sunshine to detect this PC's displays."
+                             Foreground="{StaticResource MutedBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap"
+                             Margin="0,3,0,0" />
+                </StackPanel>
+                <Border Grid.Column="2" Background="{StaticResource ControlBrush}" CornerRadius="15" Padding="12,7" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal">
+                    <Border x:Name="DisplayInventoryStatusDot"
+                            Width="8" Height="8" CornerRadius="4"
+                            Background="{StaticResource SubtleBrush}"
+                            Margin="0,0,7,0"
+                            VerticalAlignment="Center" />
+                    <TextBlock x:Name="DisplayInventoryStatusText"
+                               Text="Not loaded"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="330" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,34,0">
+                  <TextBlock Text="Displays on this PC" Style="{StaticResource SectionTitleStyle}" />
+                  <ItemsControl x:Name="InventoryDisplayList" Margin="0,8,0,0">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border Padding="0,8" BorderThickness="0,0,0,1" BorderBrush="{StaticResource DividerBrush}">
+                          <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Border Visibility="Collapsed" Background="{StaticResource RaisedPanelBrush}" CornerRadius="14" Padding="15" Margin="0,17,0,0">
+                    <StackPanel>
+                      <CheckBox x:Name="ExclusiveDisplayCheckBox"
+                                Content="Use only this display while streaming"
+                                FontWeight="SemiBold"
+                                IsEnabled="False"
+                                Checked="ExclusiveDisplay_Changed"
+                                Unchecked="ExclusiveDisplay_Changed" />
+                      <TextBlock Text="For a virtual target, saving disconnects it from the idle desktop. Streaming activates only that screen; disconnecting restores the physical desktop. The driver stays installed."
+                                 Style="{StaticResource BodyMutedStyle}"
+                                 TextWrapping="Wrap"
+                                 Margin="22,6,0,0" />
+                    </StackPanel>
+                  </Border>
+                  <Border Visibility="Collapsed" Background="{StaticResource RaisedPanelBrush}" CornerRadius="14" Padding="15" Margin="0,12,0,0">
+                    <StackPanel>
+                      <CheckBox x:Name="SmartDisplayCheckBox"
+                                Content="Match the virtual display to each client"
+                                FontWeight="SemiBold"
+                                IsEnabled="False"
+                                Checked="SmartDisplayPreference_Changed"
+                                Unchecked="SmartDisplayPreference_Changed" />
+                      <TextBlock Text="PiuLink lets Sunshine apply the resolution and frame rate requested by the connecting device, then restores the previous mode when streaming ends. HDR follows the connecting device separately."
+                                 Style="{StaticResource BodyMutedStyle}"
+                                 TextWrapping="Wrap"
+                                 Margin="22,6,0,0" />
+                      <CheckBox x:Name="MoveWindowsToVirtualDisplayCheckBox"
+                                Content="Move open app windows to the virtual display"
+                                FontWeight="SemiBold"
+                                Margin="0,15,0,0"
+                                IsEnabled="False"
+                                Checked="MoveWindowsPreference_Changed"
+                                Unchecked="MoveWindowsPreference_Changed" />
+                      <TextBlock Text="Used only when other displays stay active. In single-display mode, Windows moves apps during streaming and PiuLink restores their previous size and position afterward."
+                                 Style="{StaticResource BodyMutedStyle}"
+                                 TextWrapping="Wrap"
+                                 Margin="22,6,0,0" />
+                      <CheckBox x:Name="RecoverWindowsWhenDisplayDisappearsCheckBox"
+                                Content="Return hidden windows when a display disappears"
+                                FontWeight="SemiBold"
+                                Margin="0,15,0,0"
+                                Checked="RecoverWindowsPreference_Changed"
+                                Unchecked="RecoverWindowsPreference_Changed" />
+                      <TextBlock Text="Enabled by default. If a VDD is switched off, PiuLink brings stranded app windows back onto the Windows primary display."
+                                 Style="{StaticResource BodyMutedStyle}"
+                                 TextWrapping="Wrap"
+                                 Margin="22,6,0,0" />
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Text="Current client-selected route" FontSize="12" FontWeight="SemiBold" Margin="1,0,0,7" />
+                  <ComboBox x:Name="StreamingDisplayComboBox"
+                            Visibility="Collapsed"
+                            MinHeight="42"
+                            Padding="10,7"
+                            AutomationProperties.Name="Streaming display target" />
+                  <TextBlock x:Name="SelectedDisplayDetailText"
+                             Text="No display selected."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="1,9,0,0" />
+                  <TextBlock x:Name="GatherWindowsStatus" TextWrapping="Wrap" Margin="0,10,0,0" Foreground="{StaticResource WarningBrush}" />
+                  <Button x:Name="RetryGatherWindowsButton" Content="重试移动未集中的窗口" Visibility="Collapsed" Click="RetryGatherWindows_Click" Margin="0,8,0,0" />
+                  <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                    <Button x:Name="ApplyDisplaySettingsButton"
+                            Visibility="Collapsed"
+                            Content="Save now"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            IsEnabled="False"
+                            Click="ApplyDisplaySettings_Click" />
+                    <Button x:Name="RefreshDisplaysButton"
+                            Content="Refresh"
+                            Margin="9,0,0,0"
+                            Click="RefreshDisplays_Click" />
+                  </StackPanel>
+                  <TextBlock x:Name="DisplayApplyStatusText"
+                             Text="Display choices are sent by the connecting client."
+                             Style="{StaticResource BodyMutedStyle}"
+                             FontWeight="SemiBold"
+                             TextWrapping="Wrap"
+                             Margin="1,12,0,0" />
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="54" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="42" Height="42" CornerRadius="13" Background="{StaticResource RaisedPanelBrush}" VerticalAlignment="Top">
+                  <TextBlock Text="&#xE7F4;"
+                             FontFamily="Segoe Fluent Icons"
+                             FontSize="17"
+                             Foreground="{StaticResource PrimaryBrush}"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="4,0,28,0">
+                  <TextBlock Text="VIRTUAL DISPLAY" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock x:Name="VddStatusText" Text="No virtual display detected" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
+                  <TextBlock x:Name="VddStatusDetail"
+                             Text="PiuLink can select an installed VDD, but does not install or modify a display driver in this version."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,0" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                  <Button Content="修复桌面布局" Click="RepairDesktop_Click" Margin="0,0,9,0" />
+                    <Button Content="Recover windows" Click="RecoverWindows_Click" />
+                  <Button Content="Virtual display setup" Margin="9,0,0,0" Click="OpenVirtualDisplaySetup_Click" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Page 5: explicit virtual-display lifecycle and installation guidance. -->
+        <ScrollViewer x:Name="VirtualDisplayPage"
+                      Visibility="Collapsed"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="0,0,0,8">
+            <Border Background="{StaticResource RaisedPanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="20"
+                    Padding="22"
+                    Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="48" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="42" Height="42" CornerRadius="13" Background="{StaticResource ControlBrush}">
+                  <TextBlock Text="&#xE8A9;"
+                             FontFamily="Segoe Fluent Icons"
+                             FontSize="17"
+                             Foreground="{StaticResource PrimaryBrush}"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,18,0" VerticalAlignment="Center">
+                  <TextBlock x:Name="VirtualDisplayManagerStatusText"
+                             Text="Checking virtual display…"
+                             FontSize="16"
+                             FontWeight="SemiBold" />
+                  <TextBlock x:Name="VirtualDisplayManagerStatusDetail"
+                             Text="PiuLink is checking the supported driver on this PC."
+                             Foreground="{StaticResource MutedBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap"
+                             Margin="0,3,0,0" />
+                </StackPanel>
+                <Border Grid.Column="2" Background="{StaticResource ControlBrush}" CornerRadius="15" Padding="12,7" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal">
+                    <Border x:Name="VirtualDisplayManagerStatusDot"
+                            Width="8" Height="8" CornerRadius="4"
+                            Background="{StaticResource SubtleBrush}"
+                            Margin="0,0,7,0"
+                            VerticalAlignment="Center" />
+                    <TextBlock x:Name="VirtualDisplayManagerStateLabel"
+                               Text="Checking"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,36,0">
+                  <TextBlock Text="VIRTUAL DISPLAY" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock Text="Create a private streaming screen"
+                             Style="{StaticResource SectionTitleStyle}"
+                             Margin="0,6,0,0" />
+                  <TextBlock Text="PiuLink enables the supported installed driver only after you click. Windows will ask for administrator permission."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,0" />
+                  <TextBlock x:Name="VirtualDisplayActionStatusText"
+                             Text="No system change has been requested."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,14,0,0" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <Button x:Name="CreateVirtualDisplayButton"
+                          Content="Create virtual display"
+                          Style="{StaticResource PrimaryButtonStyle}"
+                          IsEnabled="False"
+                          Click="CreateVirtualDisplay_Click" />
+                  <Button x:Name="DisableVirtualDisplayButton"
+                          Content="Close virtual display"
+                          Margin="0,9,0,0"
+                          IsEnabled="False"
+                          Click="DisableVirtualDisplay_Click" />
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+              <StackPanel>
+                <TextBlock Text="INSTALL THE DRIVER" Style="{StaticResource EyebrowStyle}" />
+                <TextBlock Text="Set up Virtual Display Driver"
+                           Style="{StaticResource SectionTitleStyle}"
+                           Margin="0,6,0,0" />
+                <TextBlock Text="PiuLink does not silently download or install a display driver. Use the official project, approve its signed installer, then return here and check again."
+                           Style="{StaticResource BodyMutedStyle}"
+                           TextWrapping="Wrap"
+                           Margin="0,5,0,17" />
+
+                <Grid Margin="0,0,0,16">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="42" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource RaisedPanelBrush}" VerticalAlignment="Top">
+                    <TextBlock Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" />
+                  </Border>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Get the official installer" FontWeight="SemiBold" />
+                    <TextBlock Text="Open the official releases page, or run: winget install --id=VirtualDrivers.Virtual-Display-Driver -e"
+                               Style="{StaticResource BodyMutedStyle}"
+                               TextWrapping="Wrap"
+                               Margin="0,3,0,0" />
+                  </StackPanel>
+                </Grid>
+                <Grid Margin="0,0,0,16">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="42" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource RaisedPanelBrush}" VerticalAlignment="Top">
+                    <TextBlock Text="2" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" />
+                  </Border>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Complete the Windows installer" FontWeight="SemiBold" />
+                    <TextBlock Text="Accept the administrator prompt and finish driver installation. Restart Windows only if the installer asks."
+                               Style="{StaticResource BodyMutedStyle}"
+                               TextWrapping="Wrap"
+                               Margin="0,3,0,0" />
+                  </StackPanel>
+                </Grid>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="42" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource RaisedPanelBrush}" VerticalAlignment="Top">
+                    <TextBlock Text="3" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" />
+                  </Border>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Return to PiuLink" FontWeight="SemiBold" />
+                    <TextBlock Text="Choose Check again, then Create virtual display."
+                               Style="{StaticResource BodyMutedStyle}"
+                               TextWrapping="Wrap"
+                               Margin="0,3,0,0" />
+                  </StackPanel>
+                </Grid>
+
+                <StackPanel Orientation="Horizontal" Margin="42,19,0,0">
+                  <Button Content="Open official releases"
+                          Style="{StaticResource PrimaryButtonStyle}"
+                          Click="OpenVddReleases_Click" />
+                  <Button Content="Check again"
+                          Margin="9,0,0,0"
+                          Click="CheckVirtualDisplay_Click" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <Border Background="{StaticResource WarningFillBrush}" CornerRadius="18" Padding="20">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="42" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="&#xE7BA;"
+                           FontFamily="Segoe Fluent Icons"
+                           FontSize="17"
+                           Foreground="{StaticResource WarningBrush}"
+                           VerticalAlignment="Top"
+                           Margin="2,2,0,0" />
+                <StackPanel Grid.Column="1">
+                  <TextBlock Text="Window safety" FontWeight="SemiBold" />
+                  <TextBlock Text="Before PiuLink closes the virtual display, it first returns app windows from that screen to the Windows primary display. The automatic recovery option on Displays remains a second safety net."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,4,0,0" />
+                  <Button Content="Open display routing"
+                          HorizontalAlignment="Left"
+                          Margin="0,13,0,0"
+                          Click="OpenDisplaysPage_Click" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Page 6: inspect and configure Wake-on-LAN without changing driver or BIOS settings. -->
+        <ScrollViewer x:Name="WakeOnLanPage"
+                      Visibility="Collapsed"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="0,0,0,8">
+            <Border Background="{StaticResource RaisedPanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="20"
+                    Padding="22"
+                    Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="48" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="42" Height="42" CornerRadius="13" Background="{StaticResource ControlBrush}">
+                  <TextBlock Text="&#xE7E8;"
+                             FontFamily="Segoe Fluent Icons"
+                             FontSize="18"
+                             Foreground="{StaticResource PrimaryBrush}"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,18,0" VerticalAlignment="Center">
+                  <TextBlock x:Name="WakeOnLanStatusTitle"
+                             Text="Checking Wake-on-LAN…"
+                             FontSize="16"
+                             FontWeight="SemiBold" />
+                  <TextBlock x:Name="WakeOnLanStatusDetail"
+                             Text="PiuLink is inspecting active network adapters and Windows wake permissions."
+                             Foreground="{StaticResource MutedBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap"
+                             Margin="0,3,0,0" />
+                </StackPanel>
+                <Button Grid.Column="2"
+                        Content="Refresh"
+                        VerticalAlignment="Center"
+                        Click="RefreshWakeOnLan_Click" />
+              </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+              <StackPanel>
+                <TextBlock Text="WAKE TARGET" Style="{StaticResource EyebrowStyle}" />
+                <TextBlock Text="Network adapter and MAC address"
+                           Style="{StaticResource SectionTitleStyle}"
+                           Margin="0,6,0,0" />
+                <TextBlock Text="Use the MAC address in the PiuLink client or another trusted Wake-on-LAN sender. Wired Ethernet is usually the most reliable."
+                           Style="{StaticResource BodyMutedStyle}"
+                           TextWrapping="Wrap"
+                           Margin="0,5,0,14" />
+                <StackPanel x:Name="WakeOnLanAdapterList" />
+              </StackPanel>
+            </Border>
+
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                  <TextBlock Text="WINDOWS NETWORK ADAPTER" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock Text="Allow Magic Packet wake"
+                             Style="{StaticResource SectionTitleStyle}"
+                             Margin="0,6,0,0" />
+                  <TextBlock Text="In the adapter's Power Management and Advanced tabs, enable wake by Magic Packet. The exact labels depend on the driver."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,14" />
+                  <Button Content="Open Device Manager"
+                          HorizontalAlignment="Left"
+                          Click="OpenWakeDeviceManager_Click" />
+                </StackPanel>
+              </Border>
+              <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                <StackPanel>
+                  <TextBlock Text="POWER AND FIRMWARE" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock Text="Keep wake available while off"
+                             Style="{StaticResource SectionTitleStyle}"
+                             Margin="0,6,0,0" />
+                  <TextBlock Text="If wake works from sleep but not shutdown, review Fast Startup and enable Wake-on-LAN in BIOS/UEFI. PiuLink does not change firmware automatically."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,14" />
+                  <Button Content="Open Power Options"
+                          HorizontalAlignment="Left"
+                          Click="OpenWakePowerOptions_Click" />
+                </StackPanel>
+              </Border>
+            </Grid>
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Page 7: detailed health is one level deeper, never mixed into the common path. -->
+        <ScrollViewer x:Name="DiagnosticsPage"
+                      Visibility="Collapsed"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="0,0,0,8">
+            <Border Background="{StaticResource RaisedPanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="20"
+                    Padding="22"
+                    Margin="0,0,0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="48" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="42" Height="42" CornerRadius="13" Background="{StaticResource ControlBrush}">
+                  <TextBlock Text="&#xE9D9;"
+                             FontFamily="Segoe Fluent Icons"
+                             FontSize="17"
+                             Foreground="{StaticResource PrimaryBrush}"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,18,0" VerticalAlignment="Center">
+                  <TextBlock x:Name="DiagnosticsOverallStatus"
+                             Text="Running all checks…"
+                             FontSize="16"
+                             FontWeight="SemiBold" />
+                  <TextBlock Text="No system changes are made by diagnostics."
+                             Foreground="{StaticResource MutedBrush}"
+                             FontSize="12"
+                             Margin="0,3,0,0" />
+                </StackPanel>
+                <TextBlock x:Name="DiagnosticsCheckedAt"
+                           Grid.Column="2"
+                           Text="Checking now"
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="12"
+                           VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}" Padding="0">
+              <StackPanel>
+                <Grid Margin="24,21">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="30" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="DiagnosticsTailscaleDot" Width="10" Height="10" CornerRadius="5" Background="{StaticResource SubtleBrush}" VerticalAlignment="Top" Margin="0,5,0,0" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Private network" FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock x:Name="DiagnosticsTailscaleDetail" Text="Checking Tailscale…" Style="{StaticResource BodyMutedStyle}" TextWrapping="Wrap" Margin="0,3,20,0" />
+                  </StackPanel>
+                  <TextBlock x:Name="DiagnosticsTailscaleStatus" Grid.Column="2" Text="Checking" Foreground="{StaticResource MutedBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Top" Margin="10,2,0,0" />
+                </Grid>
+                <Border Height="1" Background="{StaticResource DividerBrush}" Margin="24,0" />
+
+                <Grid Margin="24,21">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="30" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="DiagnosticsSunshineDot" Width="10" Height="10" CornerRadius="5" Background="{StaticResource SubtleBrush}" VerticalAlignment="Top" Margin="0,5,0,0" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Streaming host" FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock x:Name="DiagnosticsSunshineDetail" Text="Checking Sunshine…" Style="{StaticResource BodyMutedStyle}" TextWrapping="Wrap" Margin="0,3,20,0" />
+                  </StackPanel>
+                  <TextBlock x:Name="DiagnosticsSunshineStatus" Grid.Column="2" Text="Checking" Foreground="{StaticResource MutedBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Top" Margin="10,2,0,0" />
+                </Grid>
+                <Border Height="1" Background="{StaticResource DividerBrush}" Margin="24,0" />
+
+                <Grid Margin="24,21">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="30" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="DiagnosticsEndpointDot" Width="10" Height="10" CornerRadius="5" Background="{StaticResource SubtleBrush}" VerticalAlignment="Top" Margin="0,5,0,0" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Sunshine endpoint" FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock x:Name="DiagnosticsEndpointDetail" Text="Checking the local web endpoint…" Style="{StaticResource BodyMutedStyle}" TextWrapping="Wrap" Margin="0,3,20,0" />
+                  </StackPanel>
+                  <TextBlock x:Name="DiagnosticsEndpointStatus" Grid.Column="2" Text="Checking" Foreground="{StaticResource MutedBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Top" Margin="10,2,0,0" />
+                </Grid>
+                <Border Height="1" Background="{StaticResource DividerBrush}" Margin="24,0" />
+
+                <Grid Margin="24,21">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="30" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="DiagnosticsFirewallDot" Width="10" Height="10" CornerRadius="5" Background="{StaticResource SubtleBrush}" VerticalAlignment="Top" Margin="0,5,0,0" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Windows Firewall" FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock x:Name="DiagnosticsFirewallDetail" Text="Checking firewall rules…" Style="{StaticResource BodyMutedStyle}" TextWrapping="Wrap" Margin="0,3,20,0" />
+                  </StackPanel>
+                  <TextBlock x:Name="DiagnosticsFirewallStatus" Grid.Column="2" Text="Checking" Foreground="{StaticResource MutedBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Top" Margin="10,2,0,0" />
+                </Grid>
+                <Border Height="1" Background="{StaticResource DividerBrush}" Margin="24,0" />
+
+                <Grid Margin="24,21">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="30" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="DiagnosticsGpuDot" Width="10" Height="10" CornerRadius="5" Background="{StaticResource SubtleBrush}" VerticalAlignment="Top" Margin="0,5,0,0" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Display adapters" FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock x:Name="DiagnosticsGpuDetail" Text="Detecting graphics hardware…" Style="{StaticResource BodyMutedStyle}" TextWrapping="Wrap" Margin="0,3,20,0" />
+                  </StackPanel>
+                  <TextBlock x:Name="DiagnosticsGpuStatus" Grid.Column="2" Text="Checking" Foreground="{StaticResource MutedBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Top" Margin="10,2,0,0" />
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}" Margin="0,18,0,0">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,24,0">
+                  <TextBlock Text="DIAGNOSTIC REPORT" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock Text="Save a support-ready snapshot" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
+                  <TextBlock Text="Exports local status only. No report is uploaded automatically."
+                             Style="{StaticResource BodyMutedStyle}"
+                             TextWrapping="Wrap"
+                             Margin="0,5,0,0" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                  <Button Content="View logs" Click="ViewLogs_Click" Margin="0,0,8,0" />
+                  <Button x:Name="ExportButton"
+                          Content="Export report"
+                          Style="{StaticResource PrimaryButtonStyle}"
+                          Click="Export_Click"
+                          IsEnabled="False" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>

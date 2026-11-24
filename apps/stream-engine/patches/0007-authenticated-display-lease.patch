@@ -1,0 +1,200 @@
+diff --git a/src/confighttp.cpp b/src/confighttp.cpp
+index 6126660a..38f6f5b3 100644
+--- a/src/confighttp.cpp
++++ b/src/confighttp.cpp
+@@ -1210,12 +1210,27 @@ namespace confighttp {
+    *
+    * @api_examples{/api/logs| GET| null}
+    */
++  void preparePiuLinkDisplay(const resp_https_t &response, const req_https_t &request) {
++    if (!authenticate(response, request)) return;
++    if (!request->remote_endpoint().address().is_loopback()) { bad_request(response, request, "Local control only"); return; }
++    try {
++      const auto input = nlohmann::json::parse(request->content.string());
++      const auto id = input.at("requestId").get<std::string>();
++      const auto owner = input.at("owner").get<std::string>();
++      if (id.size() != 36 || owner.size() != 64 || rtsp_stream::session_count() != 0)
++        throw std::invalid_argument("Invalid or busy display lease");
++      if (input.value("action", "") == "abort") nvhttp::revoke_display_lease(id, owner);
++      else nvhttp::register_display_lease(id, owner, input.value("mode", ""), input.value("ready", false));
++      send_response(response, nlohmann::json {{"status", true}});
++    } catch (const std::exception &error) { bad_request(response, request, error.what()); }
++  }
++
+   void getPiuLinkState(const resp_https_t &response, const req_https_t &request) {
+     if (!authenticate(response, request)) return;
+     const auto devices = display_device::enumerate_devices();
+     nlohmann::json state;
+     state["activeStreams"] = rtsp_stream::session_count();
+-    state["currentApplicationId"] = proc::proc.running();
++    state["currentApplicationId"] = std::max(0, proc::proc.running());
+     state["displays"] = nlohmann::json::parse(display_device::toJson(devices));
+     state["observedAt"] = std::chrono::duration_cast<std::chrono::milliseconds>(
+       std::chrono::system_clock::now().time_since_epoch()).count();
+@@ -1795,6 +1810,7 @@ namespace confighttp {
+     server.resource["^/api/pin$"]["POST"] = savePin;
+     server.resource["^/api/logs$"]["GET"] = getLogs;
+     server.resource["^/api/piulink/state$"]["GET"] = getPiuLinkState;
++    server.resource["^/api/piulink/prepared$"]["POST"] = preparePiuLinkDisplay;
+     server.resource["^/api/reset-display-device-persistence$"]["POST"] = resetDisplayDevicePersistence;
+     server.resource["^/api/restart$"]["POST"] = restart;
+     server.resource["^/api/vigembus/status$"]["GET"] = getViGEmBusStatus;
+diff --git a/src/nvhttp.cpp b/src/nvhttp.cpp
+index e9ca882f..ea7cfa34 100644
+--- a/src/nvhttp.cpp
++++ b/src/nvhttp.cpp
+@@ -21,6 +21,9 @@
+ #include <boost/property_tree/ptree.hpp>
+ #include <boost/property_tree/xml_parser.hpp>
+ #include <Simple-Web-Server/server_http.hpp>
++#ifdef _WIN32
++#include <windows.h>
++#endif
+ 
+ // local includes
+ #include "config.h"
+@@ -137,6 +140,15 @@ namespace nvhttp {
+               if (verify && !verify(session->connection->socket->native_handle())) {
+                 this->write(session, on_verify_failed);
+               } else {
++                crypto::x509_t peer {SSL_get1_peer_certificate(session->connection->socket->native_handle())};
++                unsigned char digest[EVP_MAX_MD_SIZE]; unsigned int length = 0;
++                if (peer && X509_digest(peer.get(), EVP_sha256(), digest, &length)) {
++                  constexpr char hex[] = "0123456789ABCDEF";
++                  for (unsigned int i = 0; i < length; ++i) {
++                    session->connection->authenticated_peer += hex[digest[i] >> 4];
++                    session->connection->authenticated_peer += hex[digest[i] & 15];
++                  }
++                }
+                 this->read(session);
+               }
+             } else if (this->on_error) {
+@@ -908,7 +920,69 @@ namespace nvhttp {
+     }
+   }
+ 
++  static std::mutex display_lease_mutex;
++  static std::string display_lease_id, display_lease_owner;
++  static bool display_lease_ready = false;
++  static std::string display_lease_mode;
++  static std::chrono::steady_clock::time_point display_lease_expires;
++
++  static void persist_display_lease() {
++    const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(display_lease_expires - std::chrono::steady_clock::now()).count();
++    const auto expires = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() + remaining;
++    const nlohmann::json entry {{"id", display_lease_id}, {"owner", display_lease_owner}, {"mode", display_lease_mode},
++      {"ready", display_lease_ready}, {"expires", expires}};
++    const std::filesystem::path path {config::nvhttp.file_state + ".display-lease"};
++    const std::filesystem::path temporary {path.string() + ".tmp"};
++    if (file_handler::write_file(temporary.string().c_str(), entry.dump()) != 0)
++      throw std::runtime_error("Cannot persist display lease");
++#ifdef _WIN32
++    if (!MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
++      throw std::runtime_error("Cannot commit display lease");
++#else
++    std::filesystem::rename(temporary, path);
++#endif
++  }
++
++  static void load_display_lease() {
++    try {
++      const auto entry = nlohmann::json::parse(file_handler::read_file((config::nvhttp.file_state + ".display-lease").c_str()));
++      const auto remaining = entry.at("expires").get<int64_t>() -
++        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
++      if (remaining <= 0 || remaining > 120000) return;
++      display_lease_id = entry.at("id"); display_lease_owner = entry.at("owner"); display_lease_mode = entry.at("mode");
++      display_lease_ready = entry.at("ready");
++      display_lease_expires = std::chrono::steady_clock::now() + std::chrono::milliseconds(remaining);
++    } catch (const std::exception &) { }
++  }
++
++  void register_display_lease(const std::string &request_id, const std::string &owner, const std::string &mode, bool ready) {
++    std::lock_guard lock {display_lease_mutex};
++    if (rtsp_stream::session_count() != 0 || (std::chrono::steady_clock::now() < display_lease_expires &&
++        !display_lease_id.empty() && (display_lease_id != request_id || display_lease_owner != owner)))
++      throw std::invalid_argument("Another display session is active or preparing");
++    const bool same_lease = display_lease_id == request_id && display_lease_owner == owner;
++    display_lease_id = request_id; display_lease_owner = owner;
++    display_lease_mode = mode; display_lease_ready = ready;
++    if (!ready || !same_lease) display_lease_expires = std::chrono::steady_clock::now() + std::chrono::seconds(45);
++    persist_display_lease();
++  }
++
++  void revoke_display_lease(const std::string &request_id, const std::string &owner) {
++    std::lock_guard lock {display_lease_mutex};
++    if (display_lease_id == request_id && display_lease_owner == owner) {
++      display_lease_expires = std::chrono::steady_clock::now(); display_lease_id.clear(); display_lease_ready = false;
++      persist_display_lease();
++    }
++  }
++
++  static bool valid_display_lease(const std::string &id, const std::string &owner, const std::string &mode) {
++    return display_lease_ready && !id.empty() && !owner.empty() && id == display_lease_id && owner == display_lease_owner &&
++      (display_lease_mode.empty() || mode == display_lease_mode) &&
++      std::chrono::steady_clock::now() < display_lease_expires;
++  }
++
+   void launch(bool &host_audio, resp_https_t response, req_https_t request) {
++    std::unique_lock display_lock {display_lease_mutex};
+     print_req<SunshineHTTPS>(request);
+ 
+     pt::ptree tree;
+@@ -957,7 +1031,13 @@ namespace nvhttp {
+     host_audio = util::from_view(get_arg(args, "localAudioPlayMode"));
+     auto launch_session = make_launch_session(host_audio, args);
+ 
+-    const bool piulink_prepared = util::from_view(get_arg(args, "piulinkPrepared"));
++    const auto prepared_id = get_arg(args, "piulinkPrepared", "");
++    const bool piulink_prepared = valid_display_lease(prepared_id, request->authenticated_peer(), get_arg(args, "mode", ""));
++    if (!piulink_prepared && (!prepared_id.empty() || std::chrono::steady_clock::now() < display_lease_expires)) {
++      tree.put("root.<xmlattr>.status_code", 409);
++      tree.put("root.<xmlattr>.status_message", "Display preparation expired or belongs to another paired client");
++      return;
++    }
+     if (rtsp_stream::session_count() == 0 && !piulink_prepared) {
+       // The display should be restored in case something fails as there are no other sessions.
+       revert_display_configuration = true;
+@@ -1021,6 +1101,7 @@ namespace nvhttp {
+   }
+ 
+   void resume(bool &host_audio, resp_https_t response, req_https_t request) {
++    std::unique_lock display_lock {display_lease_mutex};
+     print_req<SunshineHTTPS>(request);
+ 
+     pt::ptree tree;
+@@ -1061,7 +1142,13 @@ namespace nvhttp {
+     // so we should use it if it's present in the args and there are
+     // no active sessions we could be interfering with.
+     const bool no_active_sessions {rtsp_stream::session_count() == 0};
+-    const bool piulink_prepared = util::from_view(get_arg(args, "piulinkPrepared"));
++    const auto prepared_id = get_arg(args, "piulinkPrepared", "");
++    const bool piulink_prepared = valid_display_lease(prepared_id, request->authenticated_peer(), get_arg(args, "mode", ""));
++    if (!piulink_prepared && (!prepared_id.empty() || std::chrono::steady_clock::now() < display_lease_expires)) {
++      tree.put("root.<xmlattr>.status_code", 409);
++      tree.put("root.<xmlattr>.status_message", "Display preparation expired or belongs to another paired client");
++      return;
++    }
+     if (no_active_sessions && args.find("localAudioPlayMode"s) != std::end(args)) {
+       host_audio = util::from_view(get_arg(args, "localAudioPlayMode"));
+     }
+@@ -1158,6 +1245,7 @@ namespace nvhttp {
+   bool is_client_enabled(const std::string_view cert_pem);
+ 
+   void start() {
++    load_display_lease();
+     platf::set_thread_name("nvhttp");
+     auto shutdown_event = mail::man->event<bool>(mail::shutdown);
+ 
+diff --git a/src/nvhttp.h b/src/nvhttp.h
+index f8bf44b9..a698eb48 100644
+--- a/src/nvhttp.h
++++ b/src/nvhttp.h
+@@ -21,6 +21,8 @@
+  * @brief Contains all the functions and variables related to the nvhttp (GameStream) server.
+  */
+ namespace nvhttp {
++  void register_display_lease(const std::string &request_id, const std::string &owner, const std::string &mode, bool ready);
++  void revoke_display_lease(const std::string &request_id, const std::string &owner);
+ 
+   /**
+    * @brief The protocol version.

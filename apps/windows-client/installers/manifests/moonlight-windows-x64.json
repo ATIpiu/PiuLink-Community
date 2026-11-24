@@ -1,0 +1,13 @@
+{
+  "name": "Moonlight PC portable x64",
+  "version": "6.1.0",
+  "release": "v6.1.0",
+  "sourceRepository": "https://github.com/moonlight-stream/moonlight-qt",
+  "releasePage": "https://github.com/moonlight-stream/moonlight-qt/releases/tag/v6.1.0",
+  "archiveUrl": "https://github.com/moonlight-stream/moonlight-qt/releases/download/v6.1.0/MoonlightPortable-x64-6.1.0.zip",
+  "archiveSha256": "95f4d0853a31c7fced4b6d233ddf55ee41720963f2e2620a9cb49a21d112aed1",
+  "executableSha256": "d4bc3e6639b885079c3514db6f2c2f0f8045ac5a53d24364d30e587566627686",
+  "signerSubject": "CN=Cameron Gutman, O=Cameron Gutman, S=Oklahoma, C=US",
+  "signerThumbprint": "8B9D0D682AD9459E54F05A79694BC10F9876E297",
+  "license": "GPL-3.0-only"
+}

@@ -1,0 +1,36 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PiuLink.Host.Core", "src\PiuLink.Host.Core\PiuLink.Host.Core.csproj", "{7A736415-0D50-4AAE-814C-B951505D81EC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PiuLink.Host", "src\PiuLink.Host\PiuLink.Host.csproj", "{F9FD4BF0-59B8-49F4-BC8B-0F51E82AEC69}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PiuLink.Host.Core.Tests", "tests\PiuLink.Host.Core.Tests\PiuLink.Host.Core.Tests.csproj", "{31C34D17-6AD1-48FD-882E-FED05D013633}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PiuLink.Host.Cli", "src\PiuLink.Host.Cli\PiuLink.Host.Cli.csproj", "{E66F924A-3869-4325-A7B7-461A90E362F5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7A736415-0D50-4AAE-814C-B951505D81EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A736415-0D50-4AAE-814C-B951505D81EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A736415-0D50-4AAE-814C-B951505D81EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A736415-0D50-4AAE-814C-B951505D81EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9FD4BF0-59B8-49F4-BC8B-0F51E82AEC69}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9FD4BF0-59B8-49F4-BC8B-0F51E82AEC69}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9FD4BF0-59B8-49F4-BC8B-0F51E82AEC69}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9FD4BF0-59B8-49F4-BC8B-0F51E82AEC69}.Release|Any CPU.Build.0 = Release|Any CPU
+		{31C34D17-6AD1-48FD-882E-FED05D013633}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{31C34D17-6AD1-48FD-882E-FED05D013633}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{31C34D17-6AD1-48FD-882E-FED05D013633}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{31C34D17-6AD1-48FD-882E-FED05D013633}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E66F924A-3869-4325-A7B7-461A90E362F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E66F924A-3869-4325-A7B7-461A90E362F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E66F924A-3869-4325-A7B7-461A90E362F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E66F924A-3869-4325-A7B7-461A90E362F5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

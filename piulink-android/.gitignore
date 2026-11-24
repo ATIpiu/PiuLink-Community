@@ -1,0 +1,103 @@
+# built application files
+*.apk
+*.ap_
+*.aab
+output.json
+output-metadata.json
+out/
+
+# files for the dex VM
+*.dex
+
+# Java class files
+*.class
+
+# generated files
+bin/
+gen/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Google Play upload keys and local signing configuration
+*.jks
+*.keystore
+keystore.properties
+/secrets/
+/.gradle-user/
+/*.log
+/artifacts-*.png
+
+# Windows thumbnail db
+Thumbs.db
+
+# OSX files
+.DS_Store
+
+# Eclipse project files
+.classpath
+.project
+
+# Android Studio
+.idea
+#.idea/workspace.xml - remove # and delete .idea if it better suit your needs.
+.gradle
+build/
+*.iml
+
+# Compiled JNI libraries folder
+**/jniLibs
+app/.externalNativeBuild/
+
+# NDK stuff
+.cxx/
+
+# Workstation assistants and local reviews
+.claude/
+.codex/
+.agents/
+.cursor/
+.serena/
+AGENTS.md
+AGENTS.local.md
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json
+.android-home/
+.gradle-user/
+.vs/
+node_modules/
+.diagnostic-*
+*.log
+*.wixpdb
+*.pdb
+*.p12
+*.key
+*.mobileprovision
+local.properties
+keystore.properties
+signing.properties
+.signing/
+.DS_Store
+Thumbs.db
+
+
+/artifacts/
+/app/libs/piulink-direct.aar
+/app/libs/piulink-tunnel.aar
+*.zip
+*.aab
+.env
+.env.*
+!.env.example
+
+# Local identities and credential stores
+.claude.json
+.claude.json.*
+.codex.json
+.credentials/
+*.p8
+*.pem
+id_rsa
+id_ed25519
+*.pfx

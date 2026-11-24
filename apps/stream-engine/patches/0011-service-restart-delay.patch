@@ -1,0 +1,50 @@
+--- a/src/platform/windows/misc.cpp
++++ b/src/platform/windows/misc.cpp
+@@ -1238,13 +1238,14 @@
+   void restart() {
+     // If we're running standalone, we have to respawn ourselves via CreateProcess().
+     // If we're running from the service, we should just exit and let it respawn us.
+-    if (GetConsoleWindow() != nullptr) {
++    const bool standalone = GetConsoleWindow() != nullptr;
++    if (standalone) {
+       // Avoid racing with the new process by waiting until we're exiting to start it.
+       atexit(restart_on_exit);
+     }
+ 
+     // We use an async exit call here because we can't block the HTTP thread or we'll hang shutdown.
+-    lifetime::exit_sunshine(0, true);
++    lifetime::exit_sunshine(standalone ? 0 : ERROR_RESTART_APPLICATION, true);
+   }
+ 
+   int set_env(const std::string &name, const std::string &value) {
+--- a/tools/sunshinesvc.cpp
++++ b/tools/sunshinesvc.cpp
+@@ -240,8 +240,10 @@
+   service_status.dwCurrentState = SERVICE_RUNNING;
+   SetServiceStatus(service_status_handle, &service_status);
+ 
+-  // Loop every 3 seconds until the stop event is set or Sunshine.exe is running
+-  while (WaitForSingleObject(stop_event, 3000) != WAIT_OBJECT_0) {
++  // Start immediately. Failed launches and unrequested exits keep the retry delay.
++  DWORD retry_delay_ms = 0;
++  while (WaitForSingleObject(stop_event, retry_delay_ms) == WAIT_TIMEOUT) {
++    retry_delay_ms = 3000;
+     auto console_session_id = WTSGetActiveConsoleSessionId();
+     if (console_session_id == 0xFFFFFFFF) {
+       // No console session yet
+@@ -298,9 +300,12 @@
+             // Sunshine terminated itself.
+ 
+             DWORD exit_code;
+-            if (GetExitCodeProcess(process_info.hProcess, &exit_code) && exit_code == ERROR_SHUTDOWN_IN_PROGRESS) {
+-              // Sunshine is asking for us to shut down, so gracefully stop ourselves.
+-              SetEvent(stop_event);
++            if (GetExitCodeProcess(process_info.hProcess, &exit_code)) {
++              if (exit_code == ERROR_SHUTDOWN_IN_PROGRESS) {
++                SetEvent(stop_event);
++              } else if (exit_code == ERROR_RESTART_APPLICATION) {
++                retry_delay_ms = 0;
++              }
+             }
+             still_running = false;
+             break;

@@ -1,0 +1,18 @@
+<resources>
+    <string name="tv_continue_app">继续 %1$s · %2$s</string>
+    <string name="tv_open_desktop">打开桌面 · %1$s</string>
+    <string name="tv_last_app">上次的应用</string>
+    <string name="tv_continue_stream">继续串流</string>
+    <string name="tv_leave_title">离开当前串流？</string>
+    <string name="tv_leave_message">电脑上的应用会继续运行。</string>
+    <string name="tv_connection_lost">连接已中断</string>
+    <string name="tv_reconnect_host">正在重新连接 %1$s…</string>
+    <string name="tv_app_unavailable">上次的应用已不可用，请从列表选择应用。</string>
+    <string name="tv_host_checking">正在查找 %1$s · 查看连接</string>
+    <string name="tv_host_offline">%1$s 已离线 · 查看连接</string>
+    <string name="tv_host_pairing">连接 %1$s · 查看配对</string>
+    <string name="tv_network_wait">正在等待电视恢复网络连接…</string>
+    <string name="tv_network_timeout">已停止自动重连。确认电视网络可用后，选择“重试连接”。</string>
+    <string name="tv_return_to_library">离开串流</string>
+    <string name="tv_handshake_retry">电脑未能完成串流连接。可以重试或退出串流。</string>
+</resources>

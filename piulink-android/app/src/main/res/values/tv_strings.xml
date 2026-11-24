@@ -1,0 +1,18 @@
+<resources>
+    <string name="tv_continue_app">Continue %1$s · %2$s</string>
+    <string name="tv_open_desktop">Open desktop · %1$s</string>
+    <string name="tv_last_app">Last app</string>
+    <string name="tv_continue_stream">Continue streaming</string>
+    <string name="tv_leave_title">Leave this stream?</string>
+    <string name="tv_leave_message">The app will keep running on the PC.</string>
+    <string name="tv_connection_lost">Connection interrupted</string>
+    <string name="tv_reconnect_host">Reconnecting to %1$s…</string>
+    <string name="tv_app_unavailable">This app is no longer available. Choose an app from the library.</string>
+    <string name="tv_host_checking">Checking %1$s · Connection options</string>
+    <string name="tv_host_offline">%1$s is offline · Connection options</string>
+    <string name="tv_host_pairing">Connect to %1$s · Pairing options</string>
+    <string name="tv_network_wait">Waiting for the TV’s network connection…</string>
+    <string name="tv_network_timeout">Automatic reconnection has stopped. Check the TV’s network, then choose Retry connection.</string>
+    <string name="tv_return_to_library">Leave stream</string>
+    <string name="tv_handshake_retry">The PC did not finish setting up the stream. Try connecting again.</string>
+</resources>

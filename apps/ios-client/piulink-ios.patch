@@ -1,0 +1,281 @@
+diff --git a/Limelight/Images.xcassets/AppIcon.appiconset/Contents.json b/Limelight/Images.xcassets/AppIcon.appiconset/Contents.json
+index 1a88ad3..ac785c5 100644
+--- a/Limelight/Images.xcassets/AppIcon.appiconset/Contents.json
++++ b/Limelight/Images.xcassets/AppIcon.appiconset/Contents.json
+@@ -1,112 +1,4 @@
+ {
+-  "images" : [
+-    {
+-      "idiom" : "iphone",
+-      "size" : "20x20",
+-      "scale" : "2x"
+-    },
+-    {
+-      "idiom" : "iphone",
+-      "size" : "20x20",
+-      "scale" : "3x"
+-    },
+-    {
+-      "size" : "29x29",
+-      "idiom" : "iphone",
+-      "filename" : "Icon-App-29x29@2x.png",
+-      "scale" : "2x"
+-    },
+-    {
+-      "size" : "29x29",
+-      "idiom" : "iphone",
+-      "filename" : "Icon-App-29x29@3x.png",
+-      "scale" : "3x"
+-    },
+-    {
+-      "size" : "40x40",
+-      "idiom" : "iphone",
+-      "filename" : "Icon-App-40x40@2x.png",
+-      "scale" : "2x"
+-    },
+-    {
+-      "size" : "40x40",
+-      "idiom" : "iphone",
+-      "filename" : "Icon-App-40x40@3x.png",
+-      "scale" : "3x"
+-    },
+-    {
+-      "size" : "60x60",
+-      "idiom" : "iphone",
+-      "filename" : "Icon-App-60x60@2x.png",
+-      "scale" : "2x"
+-    },
+-    {
+-      "size" : "60x60",
+-      "idiom" : "iphone",
+-      "filename" : "Icon-App-60x60@3x.png",
+-      "scale" : "3x"
+-    },
+-    {
+-      "idiom" : "ipad",
+-      "size" : "20x20",
+-      "scale" : "1x"
+-    },
+-    {
+-      "idiom" : "ipad",
+-      "size" : "20x20",
+-      "scale" : "2x"
+-    },
+-    {
+-      "size" : "29x29",
+-      "idiom" : "ipad",
+-      "filename" : "Icon-App-29x29@1x.png",
+-      "scale" : "1x"
+-    },
+-    {
+-      "size" : "29x29",
+-      "idiom" : "ipad",
+-      "filename" : "Icon-App-29x29@2x-1.png",
+-      "scale" : "2x"
+-    },
+-    {
+-      "size" : "40x40",
+-      "idiom" : "ipad",
+-      "filename" : "Icon-App-40x40@1x.png",
+-      "scale" : "1x"
+-    },
+-    {
+-      "size" : "40x40",
+-      "idiom" : "ipad",
+-      "filename" : "Icon-App-40x40@2x-1.png",
+-      "scale" : "2x"
+-    },
+-    {
+-      "size" : "76x76",
+-      "idiom" : "ipad",
+-      "filename" : "Icon-App-76x76@1x.png",
+-      "scale" : "1x"
+-    },
+-    {
+-      "size" : "76x76",
+-      "idiom" : "ipad",
+-      "filename" : "Icon-App-76x76@2x.png",
+-      "scale" : "2x"
+-    },
+-    {
+-      "size" : "83.5x83.5",
+-      "idiom" : "ipad",
+-      "filename" : "Icon-App-83.5x83.5@2x.png",
+-      "scale" : "2x"
+-    },
+-    {
+-      "size" : "1024x1024",
+-      "idiom" : "ios-marketing",
+-      "filename" : "1024x icon.png",
+-      "scale" : "1x"
+-    }
+-  ],
+-  "info" : {
+-    "version" : 1,
+-    "author" : "xcode"
+-  }
+-}
+\ No newline at end of file
++  "images": [{ "filename": "PiuLink.png", "idiom": "universal", "platform": "ios", "size": "1024x1024" }],
++  "info": { "author": "xcode", "version": 1 }
++}
+diff --git a/Limelight/Limelight-Info.plist b/Limelight/Limelight-Info.plist
+index 963c433..5420e53 100644
+--- a/Limelight/Limelight-Info.plist
++++ b/Limelight/Limelight-Info.plist
+@@ -9,7 +9,7 @@
+ 	<key>CFBundleDevelopmentRegion</key>
+ 	<string>en</string>
+ 	<key>CFBundleDisplayName</key>
+-	<string>${PRODUCT_NAME}</string>
++	<string>PiuLink</string>
+ 	<key>CFBundleExecutable</key>
+ 	<string>${EXECUTABLE_NAME}</string>
+ 	<key>CFBundleIdentifier</key>
+@@ -49,15 +49,15 @@
+ 		<true/>
+ 	</dict>
+ 	<key>NSBluetoothAlwaysUsageDescription</key>
+-	<string>Bluetooth access allows Moonlight to connect to Citrix X1 mice.</string>
++	<string>Bluetooth access allows PiuLink to connect to Citrix X1 mice.</string>
+ 	<key>NSBluetoothPeripheralUsageDescription</key>
+-	<string>Bluetooth access allows Moonlight to connect to Citrix X1 mice.</string>
++	<string>Bluetooth access allows PiuLink to connect to Citrix X1 mice.</string>
+ 	<key>NSBonjourServices</key>
+ 	<array>
+ 		<string>_nvstream._tcp</string>
+ 	</array>
+ 	<key>NSLocalNetworkUsageDescription</key>
+-	<string>Moonlight uses the local network to connect to your gaming PC for streaming.</string>
++	<string>PiuLink uses your local network to discover and stream from your computers.</string>
+ 	<key>UIApplicationSupportsIndirectInputEvents</key>
+ 	<true/>
+ 	<key>UILaunchStoryboardName</key>
+diff --git a/Limelight/Network/DiscoveryManager.m b/Limelight/Network/DiscoveryManager.m
+index a72df63..d249d76 100644
+--- a/Limelight/Network/DiscoveryManager.m
++++ b/Limelight/Network/DiscoveryManager.m
+@@ -127,6 +127,12 @@
+ }
+ 
+ - (void) discoverHost:(NSString *)hostAddress withCallback:(void (^)(TemporaryHost *, NSString*))callback {
++    if (hostAddress.length == 0 ||
++        [hostAddress rangeOfCharacterFromSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].location != NSNotFound ||
++        [hostAddress rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"/?#@"]].location != NSNotFound) {
++        callback(nil, @"Enter a host name or IP address, optionally followed by its streaming port.");
++        return;
++    }
+     BOOL prohibitedAddress = [DiscoveryManager isProhibitedAddress:hostAddress];
+     NSString* prohibitedAddressMessage = [NSString stringWithFormat: @"Moonlight only supports adding PCs on your local network on %s.",
+     #if TARGET_OS_TV
+@@ -202,7 +208,7 @@
+             callback(host, nil);
+         }
+     } else if (!prohibitedAddress) {
+-        callback(nil, @"Could not connect to host.\n\nIf you're hosting using GeForce Experience, make sure you've enabled the toggle on the SHIELD tab.\n\nIf you're hosting using Sunshine, ensure it is running properly. If you're using a non-default port, you will need to include that here.");
++        callback(nil, @"Check that PiuLink Host or Sunshine is running and that the host address is reachable. For a custom configuration, include the Sunshine HTTP port.");
+     } else {
+         callback(nil, prohibitedAddressMessage);
+     }
+diff --git a/Limelight/ViewControllers/MainFrameViewController.m b/Limelight/ViewControllers/MainFrameViewController.m
+index 169bb13..b4090b9 100644
+--- a/Limelight/ViewControllers/MainFrameViewController.m
++++ b/Limelight/ViewControllers/MainFrameViewController.m
+@@ -64,7 +64,7 @@ static NSMutableSet* hostList;
+     // failure callback could be invoked.
+     dispatch_sync(dispatch_get_main_queue(), ^{
+         self->_pairAlert = [UIAlertController alertControllerWithTitle:@"Pairing"
+-                                                               message:[NSString stringWithFormat:@"Enter the following PIN on the host machine: %@\n\nIf your host PC is running Sunshine, navigate to the Sunshine web UI to enter the PIN.", PIN]
++                                                               message:[NSString stringWithFormat:@"PIN: %@\n\nWindows: enter this code on the PiuLink Host pairing page. Linux: run piulink-host pin on the host. For Sunshine, use the PIN page.", PIN]
+                                                         preferredStyle:UIAlertControllerStyleAlert];
+         [self->_pairAlert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleDestructive handler:^(UIAlertAction* action) {
+             self->_pairAlert = nil;
+@@ -561,7 +561,7 @@ static NSMutableSet* hostList;
+ 
+ - (void) addHostClicked {
+     Log(LOG_D, @"Clicked add host");
+-    UIAlertController* alertController = [UIAlertController alertControllerWithTitle:@"Add Host Manually" message:@"If Moonlight doesn't find your local gaming PC automatically,\nenter the IP address of your PC" preferredStyle:UIAlertControllerStyleAlert];
++    UIAlertController* alertController = [UIAlertController alertControllerWithTitle:@"Add Host Manually" message:@"Enter your computer’s local IP or host name. For the first pairing, connect iPhone and host to the same network." preferredStyle:UIAlertControllerStyleAlert];
+     [alertController addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+     [alertController addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction* action){
+         NSString* hostAddress = [((UITextField*)[[alertController textFields] objectAtIndex:0]).text trim];
+@@ -578,16 +578,11 @@ static NSMutableSet* hostList;
+                             }];
+                         });
+                     } else {
+-                        unsigned int portTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443,
+-                                                                                ML_PORT_FLAG_TCP_47984 | ML_PORT_FLAG_TCP_47989);
+-                        if (portTestResults != ML_TEST_RESULT_INCONCLUSIVE && portTestResults != 0) {
+-                            error = [error stringByAppendingString:@"\n\nYour device's network connection is blocking Moonlight. Streaming may not work while connected to this network."];
+-                        }
+-                        
+-                        UIAlertController* hostNotFoundAlert = [UIAlertController alertControllerWithTitle:@"Add Host Manually" message:error preferredStyle:UIAlertControllerStyleAlert];
+-                        [Utils addHelpOptionToDialog:hostNotFoundAlert];
+-                        [hostNotFoundAlert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
++                        // This is a direct host connection. An unrelated internet probe can delay
++                        // the actual host error, especially on private networks.
+                         dispatch_async(dispatch_get_main_queue(), ^{
++                            UIAlertController* hostNotFoundAlert = [UIAlertController alertControllerWithTitle:@"Couldn’t reach the host" message:error preferredStyle:UIAlertControllerStyleAlert];
++                            [hostNotFoundAlert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+                             [self hideLoadingFrame:^{
+                                 [[self activeViewController] presentViewController:hostNotFoundAlert animated:YES completion:nil];
+                             }];
+@@ -597,7 +592,13 @@ static NSMutableSet* hostList;
+             });
+         }];
+     }]];
+-    [alertController addTextFieldWithConfigurationHandler:nil];
++    [alertController addTextFieldWithConfigurationHandler:^(UITextField* field) {
++        field.placeholder = @"192.168.1.10";
++        field.autocorrectionType = UITextAutocorrectionTypeNo;
++        field.autocapitalizationType = UITextAutocapitalizationTypeNone;
++        field.spellCheckingType = UITextSpellCheckingTypeNo;
++        field.keyboardType = UIKeyboardTypeURL;
++    }];
+     [[self activeViewController] presentViewController:alertController animated:YES completion:nil];
+ }
+ 
+diff --git a/Moonlight.xcodeproj/project.pbxproj b/Moonlight.xcodeproj/project.pbxproj
+index e686ec1..ab6bae6 100644
+--- a/Moonlight.xcodeproj/project.pbxproj
++++ b/Moonlight.xcodeproj/project.pbxproj
+@@ -1113,7 +1113,7 @@
+ 				CLANG_WARN_UNREACHABLE_CODE = YES;
+ 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+ 				COPY_PHASE_STRIP = NO;
+-				DEVELOPMENT_TEAM = DM46QST4M7;
++				DEVELOPMENT_TEAM = "";
+ 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+ 				ENABLE_TESTABILITY = YES;
+ 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+@@ -1172,7 +1172,7 @@
+ 				CLANG_WARN_UNREACHABLE_CODE = YES;
+ 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+ 				COPY_PHASE_STRIP = YES;
+-				DEVELOPMENT_TEAM = DM46QST4M7;
++				DEVELOPMENT_TEAM = "";
+ 				ENABLE_NS_ASSERTIONS = NO;
+ 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+ 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+@@ -1235,8 +1235,8 @@
+ 					"$(PROJECT_DIR)/libs/SDL2/lib/iOS-Sim",
+ 					"$(PROJECT_DIR)/libs/FFmpeg/lib/iOS-Sim",
+ 				);
+-				MARKETING_VERSION = 9.0.2;
+-				PRODUCT_BUNDLE_IDENTIFIER = "com.moonlight-stream.Moonlight";
++				MARKETING_VERSION = 0.1.0;
++				PRODUCT_BUNDLE_IDENTIFIER = labs.atipiu.piulink.ios;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				PROVISIONING_PROFILE = "";
+ 				SKIP_INSTALL = NO;
+@@ -1285,8 +1285,8 @@
+ 					"$(PROJECT_DIR)/libs/SDL2/lib/iOS-Sim",
+ 					"$(PROJECT_DIR)/libs/FFmpeg/lib/iOS-Sim",
+ 				);
+-				MARKETING_VERSION = 9.0.2;
+-				PRODUCT_BUNDLE_IDENTIFIER = "com.moonlight-stream.Moonlight";
++				MARKETING_VERSION = 0.1.0;
++				PRODUCT_BUNDLE_IDENTIFIER = labs.atipiu.piulink.ios;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				PROVISIONING_PROFILE = "";
+ 				SKIP_INSTALL = NO;

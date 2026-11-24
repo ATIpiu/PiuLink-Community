@@ -1,0 +1,105 @@
+# Build outputs and local state
+bin/
+obj/
+__pycache__/
+*.pyc
+.gradle/
+build/
+dist/
+.idea/
+.vscode/
+*.user
+*.suo
+*.apk
+*.aab
+*.msix
+*.msixbundle
+*.exe
+*.msi
+
+# Secrets and environment configuration
+.env
+.env.*
+!.env.example
+secrets/
+*.pfx
+*.keystore
+*.jks
+
+# Third-party redistributables must be acquired in the release pipeline
+third_party/
+apps/windows-host/installers/cache/
+apps/windows-host/installers/source-output/
+apps/windows-host/installers/staging/
+AvaloniaUI/
+
+# Projectless-chat scratch and generated deliverables
+work/
+tmp/
+/models/
+outputs/
+artifacts/
+
+# Android and its pinned native sources are included in this public repository.
+
+# Workstation assistants and local reviews
+.claude/
+.codex/
+.agents/
+.cursor/
+.serena/
+AGENTS.md
+AGENTS.local.md
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json
+.android-home/
+.gradle-user/
+.vs/
+node_modules/
+.diagnostic-*
+*.log
+*.wixpdb
+*.pdb
+*.p12
+*.key
+*.mobileprovision
+local.properties
+keystore.properties
+signing.properties
+.signing/
+.DS_Store
+Thumbs.db
+
+# Local release, production and media workspaces (source assets are scoped separately)
+/release/
+/releases/
+/promo/
+/videos/
+/assets/marketing/
+*.zip
+*.tar.gz
+*.tgz
+*.7z
+*.dmg
+*.ipa
+*.AppImage
+
+# Private field reports and handoffs; public product documentation remains versionable.
+/docs/reviews/
+/docs/*-validation.md
+/docs/*-diagnosis-*.md
+/docs/tailscale-*-20*.md
+/docs/audit-*-repair.md
+/docs/PIULINK_TLS_HANDOFF_*.txt
+
+# Local identities and credential stores
+.claude.json
+.claude.json.*
+.codex.json
+.credentials/
+*.p8
+*.pem
+id_rsa
+id_ed25519
+!/apps/windows-host/installers/store/production-public-key.pem

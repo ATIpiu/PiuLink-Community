@@ -1,0 +1,13 @@
+# Android 手机、平板和电视
+
+PiuLink Android 使用标准 Moonlight 串流链路连接自己的电脑，提供局域网发现、手动地址、证书配对、键鼠、触控与手柄。使用私有邀请时，客户端先核对 Host 身份，再尝试直连。[直连邀请](../../docs/rendezvous.md)
+
+## 手机和平板
+
+- 在桌面或游戏中打开快捷栏、键盘或屏幕控制，按设备和网络情况选用码率策略。
+- 可以和已配对电脑互传文件。内置 SSH 终端单独验证主机指纹，在支持 tmux 的环境中可重新接入保留的会话。
+- Host 配置了兼容的虚拟录音设备时，可将手机麦克风用于远端会议和游戏语音。客户端在授权后采集，进入小窗、后台或断开时停止采音。依赖已有录音设备的 Host 测试包会在发布说明中标明。
+
+## 获取与构建
+
+本次预览提供可自行构建的 Android 源码。通用签名包使用 `nonRoot-universal-release.apk` 后缀，应用 ID 为 `labs.atipiu.piulink`。[Android 源码](../../piulink-android/README.md) · [开发指南](../../docs/DEVELOPMENT.md)

@@ -1,0 +1,35 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/lunarAppTile"
+    android:layout_width="match_parent"
+    android:layout_height="166dp"
+    android:background="@drawable/lunar_tile_surface"
+    android:stateListAnimator="@animator/library_tile_press"
+    android:foreground="?android:attr/selectableItemBackground"
+    android:clipToOutline="true">
+    <ImageView android:id="@+id/lunarDesktopArt"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:scaleType="centerCrop" android:importantForAccessibility="no" android:visibility="gone" />
+    <ImageView android:id="@+id/grid_image"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:importantForAccessibility="no" android:scaleType="centerCrop" />
+    <View android:layout_width="match_parent" android:layout_height="match_parent"
+        android:importantForAccessibility="no" android:background="@drawable/lunar_tile_gradient" />
+    <TextView android:id="@+id/grid_text"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start" android:paddingStart="16dp" android:paddingEnd="54dp" android:paddingVertical="14dp"
+        android:fontFamily="sans-serif-medium" android:textSize="19sp" android:textColor="@color/piulink_text_primary"
+        android:maxLines="2" android:ellipsize="end" />
+    <ImageView android:layout_width="30dp" android:layout_height="30dp"
+        android:layout_gravity="bottom|end" android:layout_marginEnd="14dp" android:layout_marginBottom="12dp"
+        android:importantForAccessibility="no" android:padding="8dp" android:background="@drawable/bg_library_launch"
+        android:src="@drawable/ic_play" android:tint="#D2FFF0"/>
+    <ImageView android:id="@+id/grid_overlay"
+        android:layout_width="34dp" android:layout_height="34dp" android:layout_gravity="top|start"
+        android:layout_margin="8dp" android:padding="8dp" android:background="@drawable/bg_play_overlay"
+        android:tint="@android:color/white" android:importantForAccessibility="no" />
+    <ImageView android:id="@+id/grid_favorite"
+        android:layout_width="30dp" android:layout_height="30dp" android:layout_gravity="top|end"
+        android:layout_margin="8dp" android:padding="6dp" android:background="@drawable/bg_favorite_badge"
+        android:src="@drawable/ic_star_filled" android:tint="@color/piulink_on_accent"
+        android:importantForAccessibility="no" android:visibility="gone" />
+</FrameLayout>

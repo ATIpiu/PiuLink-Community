@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/addPcRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".preferences.AddComputerManually">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/piulink_toolbar_height"
+        android:background="@color/piulink_surface"
+        android:elevation="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="16dp">
+
+        <ImageButton
+            android:id="@+id/addPcBackButton"
+            android:layout_width="@dimen/piulink_touch_target"
+            android:layout_height="@dimen/piulink_touch_target"
+            android:background="@drawable/bg_icon_button"
+            android:contentDescription="@string/navigate_back"
+            android:padding="14dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_back"
+            android:tint="@color/piulink_text_primary" />
+
+        <ImageView
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/bg_logo_mark"
+            android:contentDescription="@string/piulink_home_title"
+            android:padding="6dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_piulink_mark" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="@string/add_pc_page_title"
+                android:textColor="@color/piulink_text_primary"
+                android:textSize="18sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/add_pc_page_subtitle"
+                android:textColor="@color/piulink_text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingTop="32dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="32dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_empty_state"
+                android:elevation="2dp"
+                android:orientation="vertical"
+                tools:ignore="UselessParent">
+                <!-- The outer container supplies responsive page gutters; this inner surface owns card styling. -->
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="@string/add_pc_card_title"
+                    android:textColor="@color/piulink_text_primary"
+                    android:textSize="21sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="@string/add_pc_card_description"
+                    android:textColor="@color/piulink_text_secondary"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="@string/host_address_label"
+                    android:textColor="@color/piulink_text_primary"
+                    android:textSize="13sp" />
+
+                <EditText
+                    android:id="@+id/hostTextView"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_text_field"
+                    android:hint="@string/host_address_hint"
+                    android:imeOptions="actionDone"
+                    android:importantForAutofill="no"
+                    android:inputType="textUri|textNoSuggestions"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:singleLine="true"
+                    android:textColor="@color/piulink_text_primary"
+                    android:textColorHint="@color/piulink_text_secondary"
+                    android:textSize="16sp">
+
+                    <requestFocus />
+                </EditText>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="9dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="@string/host_address_example"
+                    android:textColor="@color/piulink_text_secondary"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/addPcButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="22dp"
+                    android:background="@drawable/bg_primary_icon_button"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="center"
+                    android:text="@string/add_pc_primary_action"
+                    android:textColor="@color/piulink_on_accent"
+                    android:textSize="15sp" />
+
+                <Button
+                    android:id="@+id/punchButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/invite_punch_action" />
+
+                <TextView
+                    android:id="@+id/addPcPrivateNetworkButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="9dp"
+                    android:background="@drawable/bg_icon_button"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="center"
+                    android:text="@string/open_private_network"
+                    android:textColor="@color/piulink_blue"
+                    android:textSize="14sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

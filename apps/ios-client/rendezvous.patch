@@ -1,0 +1,202 @@
+diff --git a/Limelight/Network/DiscoveryManager.m b/Limelight/Network/DiscoveryManager.m
+index d249d76..49c4417 100644
+--- a/Limelight/Network/DiscoveryManager.m
++++ b/Limelight/Network/DiscoveryManager.m
+@@ -7,6 +7,7 @@
+ //
+ 
+ #import "DiscoveryManager.h"
++#import "PiuLinkInvite.h"
+ #import "CryptoManager.h"
+ #import "HttpManager.h"
+ #import "Utils.h"
+@@ -20,6 +21,64 @@
+ #include <sys/socket.h>
+ #include <netdb.h>
+ 
++@implementation PiuLinkInvite
+++ (NSString*)storageKey:(NSString*)uuid { return [@"PiuLink.Invite." stringByAppendingString:uuid.lowercaseString]; }
+++ (NSString*)hostID:(NSString*)link {
++    NSString* prefix = @"https://atipiu.org:8443/piulink/join#";
++    if (![link hasPrefix:prefix] || link.length != prefix.length + 101) return nil;
++    NSString* room = [link substringWithRange:NSMakeRange(prefix.length, 64)];
++    if ([room rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"].invertedSet].location != NSNotFound ||
++        [link characterAtIndex:prefix.length + 64] != '.') return nil;
++    return [[NSUUID alloc] initWithUUIDString:[link substringFromIndex:prefix.length + 65]].UUIDString;
++}
++- (void)URLSession:(NSURLSession*)session task:(NSURLSessionTask*)task willPerformHTTPRedirection:(NSHTTPURLResponse*)response
++          newRequest:(NSURLRequest*)request completionHandler:(void (^)(NSURLRequest*))completionHandler { completionHandler(nil); }
+++ (NSArray<NSString*>*)addresses:(NSString*)link errorText:(NSString**)message {
++    NSString* uuid = [self hostID:link];
++    if (!uuid) return @[];
++    NSString* room = [[link componentsSeparatedByString:@"#"].lastObject substringToIndex:64];
++    NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"https://atipiu.org:8443/piulink/v1/resolve"]];
++    request.HTTPMethod = @"POST";
++    request.timeoutInterval = 5;
++    [request setValue:[@"Bearer " stringByAppendingString:room] forHTTPHeaderField:@"Authorization"];
++    NSURLSessionConfiguration* config = NSURLSessionConfiguration.ephemeralSessionConfiguration;
++    config.timeoutIntervalForResource = 7;
++    NSURLSession* session = [NSURLSession sessionWithConfiguration:config
++                                                           delegate:[PiuLinkInvite new] delegateQueue:nil];
++    dispatch_semaphore_t done = dispatch_semaphore_create(0);
++    __block NSDictionary* record;
++    __block NSInteger status;
++    [[session dataTaskWithRequest:request completionHandler:^(NSData* data, NSURLResponse* response, NSError* error) {
++        status = [(NSHTTPURLResponse*)response statusCode];
++        if (!error && status == 200 && data.length && data.length <= 4096) {
++            id object = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
++            if ([object isKindOfClass:NSDictionary.class]) record = object;
++        }
++        dispatch_semaphore_signal(done);
++    }] resume];
++    dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
++    [session invalidateAndCancel];
++    if (message) *message = status == 404 ? @"The Host is offline or this invitation has closed." : @"Could not resolve this Host invitation.";
++    if (![record[@"hostId"] isKindOfClass:NSString.class] || [uuid caseInsensitiveCompare:record[@"hostId"]] != NSOrderedSame) return @[];
++    NSArray* ips = record[@"addresses"];
++    if (![ips isKindOfClass:NSArray.class] || ips.count > 13) return @[];
++    NSMutableArray* result = [NSMutableArray array];
++    for (NSString* ip in ips) {
++        if (![ip isKindOfClass:NSString.class]) continue;
++        struct in_addr v4;
++        struct in6_addr v6;
++        if (inet_pton(AF_INET, ip.UTF8String, &v4) == 1) {
++            uint32_t n = ntohl(v4.s_addr);
++            if ((n >> 24) != 127 && (n >> 24) != 0 && (n >> 24) < 224 && (n >> 16) != 0xa9fe) [result addObject:ip];
++        }
++        else if (inet_pton(AF_INET6, ip.UTF8String, &v6) == 1 &&
++                 ((v6.s6_addr[0] >> 5) == 1 || (v6.s6_addr[0] & 0xfe) == 0xfc))
++            [result addObject:[NSString stringWithFormat:@"[%@]", ip]];
++    }
++    return result;
++}
++@end
++
+ @implementation DiscoveryManager {
+     NSMutableArray* _hostQueue;
+     NSMutableSet* _pausedHosts;
+@@ -127,6 +186,36 @@
+ }
+ 
+ - (void) discoverHost:(NSString *)hostAddress withCallback:(void (^)(TemporaryHost *, NSString*))callback {
++    NSString* expected = [PiuLinkInvite hostID:hostAddress];
++    NSString* invitation = expected ? hostAddress : nil;
++    ServerInfoResponse* serverInfoResponse = nil;
++    if (expected) {
++        NSString* error = nil;
++        NSArray* addresses = [PiuLinkInvite addresses:invitation errorText:&error];
++        if (!addresses.count) { callback(nil, error); return; }
++        NSObject* lock = [NSObject new];
++        dispatch_semaphore_t ready = dispatch_semaphore_create(0);
++        __block NSString* winner;
++        __block ServerInfoResponse* verified;
++        __block NSUInteger remaining = addresses.count;
++        for (NSString* address in addresses) {
++            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
++                ServerInfoResponse* info = [self getServerInfoResponseForAddress:address];
++                NSString* found = [info getStringTag:TAG_UNIQUE_ID];
++                @synchronized (lock) {
++                    if (!winner && [info isStatusOk] && found && [expected caseInsensitiveCompare:found] == NSOrderedSame) {
++                        winner = address;
++                        verified = info;
++                        dispatch_semaphore_signal(ready);
++                    }
++                    if (--remaining == 0) dispatch_semaphore_signal(ready);
++                }
++            });
++        }
++        dispatch_semaphore_wait(ready, dispatch_time(DISPATCH_TIME_NOW, 8 * NSEC_PER_SEC));
++        @synchronized (lock) { hostAddress = winner; serverInfoResponse = verified; }
++        if (!hostAddress) { callback(nil, @"Host is registered, but no direct route is reachable."); return; }
++    }
+     if (hostAddress.length == 0 ||
+         [hostAddress rangeOfCharacterFromSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].location != NSNotFound ||
+         [hostAddress rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"/?#@"]].location != NSNotFound) {
+@@ -141,7 +230,7 @@
+                                    "iOS"
+     #endif
+                              ];
+-    ServerInfoResponse* serverInfoResponse = [self getServerInfoResponseForAddress:hostAddress];
++    if (!serverInfoResponse) serverInfoResponse = [self getServerInfoResponseForAddress:hostAddress];
+     
+     TemporaryHost* host = nil;
+     if ([serverInfoResponse isStatusOk]) {
+@@ -202,7 +291,9 @@
+             }
+         }
+         
++        if (invitation) [NSUserDefaults.standardUserDefaults setObject:invitation forKey:[PiuLinkInvite storageKey:host.uuid]];
+         if (![self addHostToDiscovery:host]) {
++            if (invitation) { callback([self getHostInDiscovery:host.uuid], nil); return; }
+             callback(nil, @"Host information updated");
+         } else {
+             callback(host, nil);
+@@ -307,6 +398,7 @@
+ }
+ 
+ - (void) removeHostFromDiscovery:(TemporaryHost *)host {
++    if (host.uuid) [NSUserDefaults.standardUserDefaults removeObjectForKey:[PiuLinkInvite storageKey:host.uuid]];
+     @synchronized (_hostQueue) {
+         for (DiscoveryWorker* worker in [_opQueue operations]) {
+             if ([worker getHost] == host) {
+diff --git a/Limelight/Network/DiscoveryWorker.m b/Limelight/Network/DiscoveryWorker.m
+index a3c80aa..8aadec2 100644
+--- a/Limelight/Network/DiscoveryWorker.m
++++ b/Limelight/Network/DiscoveryWorker.m
+@@ -7,6 +7,7 @@
+ //
+ 
+ #import "DiscoveryWorker.h"
++#import "PiuLinkInvite.h"
+ #import "Utils.h"
+ #import "HttpManager.h"
+ #import "ServerInfoResponse.h"
+@@ -16,6 +17,7 @@
+ @implementation DiscoveryWorker {
+     TemporaryHost* _host;
+     NSString* _uniqueId;
++    NSTimeInterval _nextInviteLookup;
+ }
+ 
+ static const float POLL_RATE = 2.0f; // Poll every 2 seconds
+@@ -86,6 +88,14 @@ static const float POLL_RATE = 2.0f; // Poll every 2 seconds
+ - (void) discoverHost {
+     BOOL receivedResponse = NO;
+     NSArray *addresses = [self getHostAddressList];
++    if (_host.state == StateOffline && _host.uuid && NSProcessInfo.processInfo.systemUptime >= _nextInviteLookup) {
++        NSString* invite = [NSUserDefaults.standardUserDefaults stringForKey:[PiuLinkInvite storageKey:_host.uuid]];
++        if (invite) {
++            _nextInviteLookup = NSProcessInfo.processInfo.systemUptime + 30;
++            NSArray* fresh = [PiuLinkInvite addresses:invite errorText:NULL];
++            addresses = [NSOrderedSet orderedSetWithArray:[fresh arrayByAddingObjectsFromArray:addresses]].array;
++        }
++    }
+     
+     Log(LOG_D, @"%@ has %d unique addresses", _host.name, [addresses count]);
+     
+diff --git a/Limelight/Network/PiuLinkInvite.h b/Limelight/Network/PiuLinkInvite.h
+new file mode 100644
+index 0000000..c5d26ba
+--- /dev/null
++++ b/Limelight/Network/PiuLinkInvite.h
+@@ -0,0 +1,7 @@
++#import <Foundation/Foundation.h>
++
++@interface PiuLinkInvite : NSObject <NSURLSessionTaskDelegate>
+++ (NSString*)hostID:(NSString*)link;
+++ (NSString*)storageKey:(NSString*)uuid;
+++ (NSArray<NSString*>*)addresses:(NSString*)link errorText:(NSString**)message;
++@end
+diff --git a/Limelight/ViewControllers/MainFrameViewController.m b/Limelight/ViewControllers/MainFrameViewController.m
+index b4090b9..d0b79b2 100644
+--- a/Limelight/ViewControllers/MainFrameViewController.m
++++ b/Limelight/ViewControllers/MainFrameViewController.m
+@@ -561,7 +561,7 @@ static NSMutableSet* hostList;
+ 
+ - (void) addHostClicked {
+     Log(LOG_D, @"Clicked add host");
+-    UIAlertController* alertController = [UIAlertController alertControllerWithTitle:@"Add Host Manually" message:@"Enter your computer’s local IP or host name. For the first pairing, connect iPhone and host to the same network." preferredStyle:UIAlertControllerStyleAlert];
++    UIAlertController* alertController = [UIAlertController alertControllerWithTitle:@"Add Host" message:@"Paste the Host invitation link, IP address or host name. Confirm the first pairing on the Host." preferredStyle:UIAlertControllerStyleAlert];
+     [alertController addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+     [alertController addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction* action){
+         NSString* hostAddress = [((UITextField*)[[alertController textFields] objectAtIndex:0]).text trim];

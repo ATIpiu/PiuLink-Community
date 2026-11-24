@@ -1,0 +1,9 @@
+<resources>
+    <string name="nav_computers">Computers</string>
+    <string name="settings_overview_hint">Display, resolution, and frame rate are unified in the in-stream Display settings and remembered per PC. This page contains bitrate, codec, and other global stream policies.</string>
+    <string name="home_my_computers">My computers</string>
+    <string name="home_add_computer">Add computer</string>
+    <string name="home_apps">Apps</string>
+    <string name="home_apps_named">Apps on %1$s</string>
+    <string name="home_tap_to_pair">%1$s · Tap to pair</string>
+</resources>

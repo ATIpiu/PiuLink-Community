@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title description">
+  <title id="title">PiuLink light app icon</title>
+  <desc id="description">Black PiuLink portal mark centered on a white app-icon canvas.</desc>
+  <rect width="1024" height="1024" fill="#FFFFFF" />
+  <g transform="translate(512 512) scale(.82) translate(-512 -512)">
+    <g fill="none" stroke="#000000" stroke-width="88" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M 448 350 L 304 266 C 244 231 186 274 186 342 V 682 C 186 750 244 793 304 758 L 448 674 Z" />
+      <path d="M 576 350 L 720 266 C 780 231 838 274 838 342 V 682 C 838 750 780 793 720 758 L 576 674 Z" />
+    </g>
+    <path fill="#000000" d="M 448 486 H 576 V 538 H 448 Z" />
+  </g>
+</svg>
