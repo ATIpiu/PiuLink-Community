@@ -1,0 +1,52 @@
+name: Build iOS preview
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, codex/ios-download]
+    paths:
+      - 'apps/ios-client/**'
+      - '.github/workflows/ios-preview.yml'
+permissions:
+  contents: read
+jobs:
+  iphone:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Prepare pinned PiuLink sources
+        run: python3 apps/ios-client/prepare.py "$RUNNER_TEMP/iphone"
+      - name: Build device application
+        working-directory: ${{ runner.temp }}/iphone
+        run: |
+          xcodebuild -version
+          xcodebuild -quiet -project Moonlight.xcodeproj -scheme Moonlight \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/derived" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO ARCHS=arm64 build
+      - name: Verify and package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          apps=("$RUNNER_TEMP"/derived/Build/Products/Release-iphoneos/*.app)
+          [[ ${#apps[@]} = 1 && -d "${apps[0]}" ]]
+          app="${apps[0]}"
+          plist="$app/Info.plist"
+          value() { /usr/libexec/PlistBuddy -c "Print :$1" "$plist"; }
+          [[ "$(value CFBundleIdentifier)" = labs.atipiu.piulink.ios ]]
+          [[ "$(value DTPlatformName)" = iphoneos ]]
+          version=$(value CFBundleShortVersionString)
+          binary="$app/$(value CFBundleExecutable)"
+          lipo -verify_arch arm64 "$binary"
+          stage=$(mktemp -d)
+          mkdir "$stage/Payload"
+          cp -R "$app" "$stage/Payload/"
+          cd "$stage"
+          /usr/bin/zip -qry "$GITHUB_WORKSPACE/PiuLink-iOS-$version-arm64-unsigned.ipa" Payload
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: piulink-ios-unsigned
+          path: PiuLink-iOS-*-arm64-unsigned.ipa
+          if-no-files-found: error
