@@ -7,8 +7,8 @@ import static org.junit.Assert.*;
 
 public class ManualAddressTest {
     @Test public void acceptsCommonKeyboardSeparatorsAndStillValidatesTheAddress() {
-        URI address = AddComputerManually.parseRawUserInputToUri("192。168．1｡8：47989");
-        assertEquals("192.168.50.8", address.getHost());
+        URI address = AddComputerManually.parseRawUserInputToUri("192。0．2｡8：47989");
+        assertEquals("192.0.2.8", address.getHost());
         assertEquals(47989, address.getPort());
         assertEquals("pc.lan", AddComputerManually.parseRawUserInputToUri("pc。lan").getHost());
         assertNull(AddComputerManually.parseRawUserInputToUri("pc。lan：65536"));

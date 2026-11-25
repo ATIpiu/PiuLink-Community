@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$InstallerPath, [switch]$LayoutOnly, [switch]$UseThisComputersMicrophone, [switch]$RequireCli)
+param([Parameter(Mandatory)][string]$InstallerPath, [switch]$LayoutOnly, [switch]$UseThisComputersMicrophone, [switch]$PublicPreview, [switch]$RequireCli)
 $ErrorActionPreference = 'Stop'
 $path = (Resolve-Path -LiteralPath $InstallerPath).Path
 $installer = New-Object -ComObject WindowsInstaller.Installer
@@ -7,7 +7,7 @@ $database = $installer.OpenDatabase($path, 0)
 $query = $database.OpenView("SELECT `Value` FROM `Property` WHERE `Property`='ProductVersion'")
 $query.Execute()
 $packageVersion = [version]$query.Fetch().StringData(1)
-$nativeMicrophone = $packageVersion -ge [version]'0.2.101' -and !$UseThisComputersMicrophone
+$nativeMicrophone = $packageVersion -ge [version]'0.2.101' -and !$UseThisComputersMicrophone -and !$PublicPreview
 $query.Close()
 $view = $database.OpenView("SELECT `Name` FROM `_Tables` WHERE `Name`='RemoveRegistry'")
 $view.Execute()
@@ -36,8 +36,8 @@ while ($record = $view.Fetch()) { $files += ($record.StringData(1) -split '\|')[
 $view.Close()
 $requiredFiles = @('sunshine.exe', 'sunshinesvc.exe', 'piulink-engine.json', 'PiuLink.ShareTarget.exe', 'PiuLink.Share.msix', 'Register-ShareTarget.ps1')
 if ($RequireCli) { $requiredFiles += @('piulink-host.exe', 'piulink-host.dll', 'piulink-host.deps.json', 'piulink-host.runtimeconfig.json') }
-if ($UseThisComputersMicrophone -and ($LayoutOnly -or ($files -match '\.(sys|cat|inf)$'))) {
-    throw 'Local existing-microphone installers must not contain drivers or use the layout-only mode.'
+if (($UseThisComputersMicrophone -or $PublicPreview) -and ($LayoutOnly -or ($files -match '\.(sys|cat|inf)$'))) {
+    throw 'A driver-free installer must not contain drivers or use the layout-only mode.'
 }
 if ($nativeMicrophone) { $requiredFiles += @('PiuLinkMic.sys','PiuLinkMic.inf','PiuLinkMic.cat') }
 foreach ($required in $requiredFiles) {
@@ -60,6 +60,9 @@ $found = $false
 $localGuard = $false
 $expectedGuard = 'Installed OR (WIX_UPGRADE_DETECTED AND ComputerName ~= "' + [Environment]::MachineName + '" AND PIULINK_LOCAL_MIC_SERVICE ~= "SteamStreamingMicrophone")'
 while ($record = $view.Fetch()) {
+    if ($PublicPreview -and $record.StringData(1) -match 'ComputerName|PIULINK_LOCAL_MIC_SERVICE|^Installed$') {
+        throw 'A public preview must allow a fresh install on another computer.'
+    }
     if ($record.StringData(1) -eq $expectedGuard) { $localGuard = $true }
     if ($record.StringData(1) -match 'EXISTING_STREAM_SERVICE') { $found = $true }
     if ($record.StringData(2) -like 'Packaging validation only*' -and !$LayoutOnly) {
@@ -107,7 +110,15 @@ while ($record = $view.Fetch()) {
 }
 $view.Close()
 $micActions = @('InstallBundledMicrophone','RollbackBundledMicrophone','CommitBundledMicrophone','RemoveOwnedMicrophoneDevice')
-if ($UseThisComputersMicrophone -and ($actions | Where-Object { $_ -in $micActions })) { throw 'The local upgrade must leave the installed microphone alone.' }
+if (($UseThisComputersMicrophone -or $PublicPreview) -and ($actions | Where-Object { $_ -in $micActions })) { throw 'This installer must leave microphone devices alone.' }
+if ($PublicPreview) {
+    $view = $database.OpenView("SELECT `Condition` FROM `InstallExecuteSequence` WHERE `Action`='RegisterPiuLinkShareTarget'")
+    $view.Execute()
+    if ($view.Fetch().StringData(1) -ne 'NOT (REMOVE~="ALL") AND PIULINK_REGISTER_SHARE=1') {
+        throw 'Unexpected ShareTarget registration condition for the public preview.'
+    }
+    $view.Close()
+}
 $requiredActions = @('RegisterPiuLinkShareTarget', 'UnregisterPiuLinkShareTarget')
 if ($nativeMicrophone) { $requiredActions += @('InstallBundledMicrophone','RollbackBundledMicrophone','CommitBundledMicrophone') }
 foreach ($requiredAction in $requiredActions) {

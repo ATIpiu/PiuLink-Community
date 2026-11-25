@@ -6,10 +6,11 @@ PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑
 
 | 使用设备 | 安装包 |
 | --- | --- |
+| 让其他设备连接这台 Windows x64 电脑 | [下载 Windows Host 0.2.116 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/host-preview-2026.11.25/PiuLink-Host-0.2.116-win-x64-preview.msi) |
 | 在 Windows x64 电脑上控制另一台主机 | [下载 Windows Client 0.2.31 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/client-preview-2026.11.25/PiuLink-Client-0.2.31-win-x64.msi) |
 | 在 Android 手机、平板或电视上控制主机 | [下载 Android 0.3.185 · 通用签名 APK](https://github.com/ATIpiu/PiuLink-Community/releases/download/client-preview-2026.11.25/PiuLink-Android-0.3.185-nonRoot-universal-release.apk) |
 
-Windows 控制端 MSI 为未签名预览版。两个客户端都需要连接已安装 Host 或兼容 Sunshine 的电脑。[版本说明和 SHA-256](https://github.com/ATIpiu/PiuLink-Community/releases/tag/client-preview-2026.11.25) · [自建 Linux 邀请服务](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)
+两份 Windows MSI 均为未签名预览版。Host 内置串流引擎，这版省去了虚拟麦克风驱动，系统分享扩展可在已信任其签名的设备上按需注册。两个控制端都可连接已配置好的 PiuLink Host 或兼容 Sunshine 的电脑。[Host 版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/host-preview-2026.11.25) · [控制端版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/client-preview-2026.11.25) · [自建 Linux 邀请服务](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)
 
 1. 在要被控制的电脑上安装 **Host**，在操作设备上安装 **Client**。Android 手机、平板与电视使用同一个签名版 `nonRoot-universal-release.apk`。
 2. 第一次连接建议让两台设备使用同一局域网。在客户端发现或手动添加电脑，按提示在 Host 确认配对。

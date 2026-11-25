@@ -3,7 +3,8 @@ param(
     [string]$SourceDirectory,
     [string]$MsysRoot,
     [string]$OutputDirectory,
-    [switch]$ConfigureOnly
+    [switch]$ConfigureOnly,
+    [switch]$PublicPreview
 )
 
 $ErrorActionPreference = 'Stop'
@@ -55,12 +56,25 @@ try {
     $env:BUILD_VERSION = $pin.tag.TrimStart('v')
     $env:COMMIT = $pin.commit
     $env:CLONE_URL = $pin.repository
-    & $cmake -S $sourcePath -B $buildPath -G Ninja -DBUILD_DOCS=OFF -DBUILD_TESTS=OFF -DSUNSHINE_ENABLE_TRAY=OFF -DSUNSHINE_PUBLISHER_NAME=PiuLink
+    $configureFlags = @()
+    $installFlags = @()
+    if ($PublicPreview) {
+        # GCC reports the physical include directory even when MSYS2 is reached via a junction.
+        $toolchain = Get-Item -LiteralPath $MsysRoot
+        $physicalRoot = if ($toolchain.LinkType) { $toolchain.ResolveLinkTarget($true).FullName } else { $toolchain.FullName }
+        $mappings = foreach ($entry in @(@($physicalRoot, '/toolchain'), @($sourcePath, '/source'))) {
+            '"-ffile-prefix-map=' + $entry[0].Replace('\', '/') + '=' + $entry[1] + '"'
+        }
+        $gccFlags = $mappings -join ' '
+        $configureFlags = @("-DCMAKE_C_FLAGS=$gccFlags", "-DCMAKE_CXX_FLAGS=$gccFlags")
+        $installFlags = @('--strip')
+    }
+    & $cmake -S $sourcePath -B $buildPath -G Ninja @configureFlags -DBUILD_DOCS=OFF -DBUILD_TESTS=OFF -DSUNSHINE_ENABLE_TRAY=OFF -DSUNSHINE_PUBLISHER_NAME=PiuLink
     if ($LASTEXITCODE) { throw 'Engine configure failed.' }
     if ($ConfigureOnly) { return }
     & $cmake --build $buildPath --parallel 8
     if ($LASTEXITCODE) { throw 'Engine build failed.' }
-    & $cmake --install $buildPath --prefix $outputPath
+    & $cmake --install $buildPath --prefix $outputPath @installFlags
     if ($LASTEXITCODE) { throw 'Engine staging failed.' }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'upstream.json') -Destination (Join-Path $outputPath 'piulink-engine.json')
     Write-Output "Development engine staged at $outputPath. No installed service was changed."

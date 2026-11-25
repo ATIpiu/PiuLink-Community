@@ -8,6 +8,7 @@
     <HostCliProject>$(MSBuildThisFileDirectory)..\..\src\PiuLink.Host.Cli\PiuLink.Host.Cli.csproj</HostCliProject>
     <PublishDirectory>$(MSBuildThisFileDirectory)..\staging\PiuLink.Host</PublishDirectory>
     <PiuLinkMicrophonePackage Condition="'$(PiuLinkMicrophonePackage)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\artifacts\PiuLinkMic-signed-x64</PiuLinkMicrophonePackage>
+    <PiuLinkPublicPreview Condition="'$(PiuLinkPublicPreview)' == ''">0</PiuLinkPublicPreview>
     <MicrophoneLayoutTest Condition="'$(MicrophoneLayoutTest)' == ''">0</MicrophoneLayoutTest>
     <DotNetExecutable>$(ProgramW6432)\dotnet\dotnet.exe</DotNetExecutable>
     <PiuLinkSelfContained Condition="'$(PiuLinkSelfContained)' == ''">true</PiuLinkSelfContained>
@@ -34,13 +35,13 @@
       <ShareEnabled>0</ShareEnabled>
       <ShareEnabled Condition="'$(PiuLinkShareSigningCertificateThumbprint)' != '' Or '$(PiuLinkPrebuiltShareDirectory)' != ''">1</ShareEnabled>
       <EnginePublishArgument Condition="'$(PiuLinkEngineDirectory)' != ''">-p:PiuLinkEngineDirectory=&quot;$(PiuLinkEngineDirectory)&quot;</EnginePublishArgument>
-      <DefineConstants>PublishDir=$(PublishDirectory);HostVersion=$(HostVersion);EmbeddedEngine=$(EmbeddedEngine);ShareEnabled=$(ShareEnabled);MicrophoneLayoutTest=$(MicrophoneLayoutTest);LocalMicComputer=$(LocalMicComputer)</DefineConstants>
+      <DefineConstants>PublishDir=$(PublishDirectory);HostVersion=$(HostVersion);EmbeddedEngine=$(EmbeddedEngine);ShareEnabled=$(ShareEnabled);MicrophoneLayoutTest=$(MicrophoneLayoutTest);LocalMicComputer=$(LocalMicComputer);PublicPreview=$(PiuLinkPublicPreview)</DefineConstants>
       <LayoutArgument Condition="'$(MicrophoneLayoutTest)' == '1'">-LayoutTest</LayoutArgument>
     </PropertyGroup>
     <RemoveDir Directories="$(PublishDirectory)" />
     <Exec Command="&quot;$(DotNetExecutable)&quot; publish &quot;$(HostProject)&quot; -c Release -r win-x64 --self-contained $(PiuLinkSelfContained) -p:PublishSingleFile=false -p:DebugType=None -p:DebugSymbols=false $(EnginePublishArgument) -o &quot;$(PublishDirectory)&quot;" />
     <Exec Command="&quot;$(DotNetExecutable)&quot; publish &quot;$(HostCliProject)&quot; -c Release -r win-x64 --self-contained $(PiuLinkSelfContained) -p:PublishSingleFile=false -p:DebugType=None -p:DebugSymbols=false -o &quot;$(PublishDirectory)&quot;" />
-    <Exec Condition="'$(LocalMicComputer)' == ''" Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\..\audio-driver\Stage-Driver.ps1&quot; -PackageDirectory &quot;$(PiuLinkMicrophonePackage)&quot; -PublishDirectory &quot;$(PublishDirectory)&quot; $(LayoutArgument)" />
+    <Exec Condition="'$(LocalMicComputer)' == '' And '$(PiuLinkPublicPreview)' != '1'" Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\..\audio-driver\Stage-Driver.ps1&quot; -PackageDirectory &quot;$(PiuLinkMicrophonePackage)&quot; -PublishDirectory &quot;$(PublishDirectory)&quot; $(LayoutArgument)" />
     <RemoveDir Directories="$(ShareBuildDirectory)" Condition="'$(ShareEnabled)' == '1'" />
     <Exec Condition="'$(PiuLinkShareSigningCertificateThumbprint)' != ''" Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\share\Build-ShareTarget.ps1&quot; -SigningCertificateThumbprint &quot;$(PiuLinkShareSigningCertificateThumbprint)&quot; -SigningCertificateSubject &quot;$(PiuLinkSharePublisher)&quot; -OutputDirectory &quot;$(ShareBuildDirectory)&quot; -SelfContained &quot;$(PiuLinkSelfContained)&quot;" />
     <Exec Condition="'$(PiuLinkPrebuiltShareDirectory)' != ''" Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;Copy-Item -LiteralPath '$(PiuLinkPrebuiltShareDirectory)\PiuLink.Share.msix' -Destination '$(PublishDirectory)\PiuLink.Share.msix' -Force; Copy-Item -LiteralPath '$(PiuLinkPrebuiltShareDirectory)\ShareTarget' -Destination '$(PublishDirectory)\ShareTarget' -Recurse -Force&quot;" />

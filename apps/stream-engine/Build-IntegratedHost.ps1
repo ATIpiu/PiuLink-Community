@@ -5,6 +5,7 @@ param(
     [string]$PrebuiltShareDirectory,
     [string]$OutputDirectory,
     [switch]$Development,
+    [switch]$PublicPreview,
     [string]$MicrophonePackageDirectory,
     [switch]$MicrophoneLayoutTest,
     [switch]$UseThisComputersMicrophone
@@ -60,6 +61,13 @@ $shareBuildArguments = if ($prebuiltSharePath) {
     @("-p:PiuLinkShareSigningCertificateThumbprint=$ShareSigningCertificateThumbprint", "-p:PiuLinkSharePublisher=$($shareCertificate.Subject)")
 }
 $audioArguments = @()
+if ($PublicPreview) {
+    if (!$Development -or $MicrophonePackageDirectory -or $MicrophoneLayoutTest -or $UseThisComputersMicrophone) {
+        throw 'The public development preview packages no microphone driver. Choose a single microphone mode.'
+    }
+    $audioArguments += '-p:PiuLinkPublicPreview=1'
+    $packageName = "PiuLink-Host-$hostVersion-win-x64-preview"
+}
 if ($UseThisComputersMicrophone) {
     if (!$Development -or $MicrophoneLayoutTest -or $MicrophonePackageDirectory) { throw 'Reusing the local microphone is only supported for a separate local development upgrade.' }
     $mic = Get-CimInstance Win32_PnPSignedDriver -Filter "DeviceClass='MEDIA'" | Where-Object DeviceID -eq 'ROOT\PIULINKVIRTUALMICROPHONE\0000'
@@ -74,7 +82,7 @@ if ($MicrophoneLayoutTest) { $audioArguments += '-p:MicrophoneLayoutTest=1' }
 & $dotnet build $project -c Release "-p:OutputName=$internalOutputName" '-p:PiuLinkSelfContained=true' "-p:PiuLinkEngineDirectory=$enginePath" $shareBuildArguments $audioArguments '-p:NuGetAudit=false'
 if ($LASTEXITCODE) { throw 'Integrated Host build failed.' }
 $msi = Join-Path (Split-Path $project) "bin/x64/Release/$internalOutputName.msi"
-& "$PSScriptRoot/Test-IntegratedInstaller.ps1" -InstallerPath $msi -LayoutOnly:$MicrophoneLayoutTest -UseThisComputersMicrophone:$UseThisComputersMicrophone -RequireCli
+& "$PSScriptRoot/Test-IntegratedInstaller.ps1" -InstallerPath $msi -LayoutOnly:$MicrophoneLayoutTest -UseThisComputersMicrophone:$UseThisComputersMicrophone -PublicPreview:$PublicPreview -RequireCli
 $destination = Join-Path $outputPath "$packageName.msi"
 Copy-Item -LiteralPath $msi -Destination $destination -Force
 Write-Output "Integrated installer built at $outputPath. No service was installed or replaced."

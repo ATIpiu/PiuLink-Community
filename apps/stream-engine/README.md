@@ -55,3 +55,9 @@ local cursor synchronization, integrated service lifecycle, rollback and end-to-
 validation remain required. A development MSI can now package the engine directly and
 register its service and streaming firewall rules. It blocks a conflicting existing Sunshine
 service pending a migration flow. Existing production packaging still carries official Sunshine.
+
+## Public Windows Host preview
+
+Build the staged engine with PowerShell 7 and `Build-Engine.ps1 -PublicPreview` using the pinned MSYS2 UCRT64 dependencies. Pass the staged engine directory and the ShareTarget signer to `Build-IntegratedHost.ps1 -Development -PublicPreview`. This profile strips engine debug information, maps compiler input paths, includes the signed ShareTarget and skips installing or removing microphone drivers. The regular driver-bundled and machine-specific profiles retain their own requirements.
+
+Install the Host MSI on the Windows x64 PC to control. A first install on a machine already running a standalone Sunshine service requires migration. Registering the Windows ShareTarget is optional in this preview. On a system that already trusts its signing certificate, run the installed `Register-ShareTarget.ps1 -Action Register` in the intended user's session or pass `PIULINK_REGISTER_SHARE=1` to Windows Installer. The main Host UI provides its own file-transfer entry point.
