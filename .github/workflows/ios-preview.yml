@@ -39,10 +39,13 @@ jobs:
           [[ "$(value DTPlatformName)" = iphoneos ]]
           version=$(value CFBundleShortVersionString)
           binary="$app/$(value CFBundleExecutable)"
-          lipo -verify_arch arm64 "$binary"
+          lipo "$binary" -verify_arch arm64
           stage=$(mktemp -d)
           mkdir "$stage/Payload"
           cp -R "$app" "$stage/Payload/"
+          resources="$stage/Payload/$(basename "$app")"
+          cp "$RUNNER_TEMP/iphone/LICENSE.txt" "$resources/PiuLink-GPL.txt"
+          echo "Source, build recipe and pinned dependencies: https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA/apps/ios-client" > "$resources/PiuLink-Source.txt"
           cd "$stage"
           /usr/bin/zip -qry "$GITHUB_WORKSPACE/PiuLink-iOS-$version-arm64-unsigned.ipa" Payload
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
