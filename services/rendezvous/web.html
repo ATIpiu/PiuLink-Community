@@ -1,0 +1,10 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>PiuLink 网页访问</title>
+<style>
+:root{color-scheme:dark;font:15px/1.55 system-ui,"Microsoft YaHei",sans-serif;color:#f4f1ec;background:#101112}
+*{box-sizing:border-box}body{margin:0}main{max-width:680px;margin:12vh auto;padding:28px}header{font-weight:700;letter-spacing:.02em;color:#c1bfb9}h1{font-size:clamp(26px,5vw,36px);margin:20px 0 6px}p{color:#c3c1bc;margin:8px 0 18px}button,input{font:inherit;border-radius:8px;padding:8px 15px;border:1px solid #48494b;background:#292a2c;color:inherit}button{cursor:pointer}button:disabled{opacity:.55;cursor:default}.primary{background:#ebe8e2;color:#18191a;font-weight:650}button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid #e7c895;outline-offset:2px}#status{min-height:1.6em;color:#ead2ab}#session{height:100dvh;display:flex;flex-direction:column}#session[hidden],main[hidden]{display:none}nav{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 14px;background:#1b1c1e}nav strong{margin-right:auto}nav form{display:flex;gap:4px}input{width:clamp(105px,24vw,250px)}.stage{min-height:0;flex:1;display:flex;align-items:center;justify-content:center;background:#080909}canvas{display:block;max-width:100%;max-height:100%;width:auto;height:auto;touch-action:none;cursor:crosshair}#code{font:600 24px ui-monospace,monospace;letter-spacing:.12em}
+</style></head><body>
+<main id="lobby"><header>PiuLink</header><h1>连接远程桌面</h1><p>请求连接后，在被控电脑上核对同一个确认码。对方允许后，你可以查看桌面并使用键盘和鼠标。</p>
+<button class="primary" id="connect" type="button">请求连接</button> <output id="code"></output><p id="status" role="status"></p></main>
+<section id="session" hidden><nav><strong>PiuLink · 直连桌面</strong><form id="textForm"><input aria-label="输入文字" id="text" maxlength="256" placeholder="中文或手机输入"><button>发送文字</button></form><button id="disconnect">断开</button></nav>
+<div class="stage"><canvas id="screen" tabindex="0" aria-label="远程桌面，点击后使用键盘和鼠标"></canvas></div></section>
+<script src="./web.js" defer></script></body></html>

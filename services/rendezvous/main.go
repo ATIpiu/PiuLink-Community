@@ -35,8 +35,9 @@ type entry struct {
 }
 type directory struct {
 	sync.Mutex
-	rooms map[string]entry
-	now   func() time.Time
+	rooms    map[string]entry
+	now      func() time.Time
+	webRooms map[string]*webRoom
 }
 
 func roomKey(owner, hostID string) string {
@@ -56,6 +57,9 @@ func candidate(value string) (string, bool) {
 func (d *directory) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
+	if d.serveWeb(w, r) {
+		return
+	}
 	if r.Method == "GET" && r.URL.Path == prefix+"join" {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		io.WriteString(w, "在 PiuLink 客户端选择「添加电脑」，粘贴完整邀请链接。首次连接请在 Host 确认配对码。")
@@ -118,6 +122,11 @@ func (d *directory) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					delete(d.rooms, k)
 				} else if v.peer == peer {
 					count++
+				}
+			}
+			for k, v := range d.webRooms {
+				if !now.Before(v.until) {
+					delete(d.webRooms, k)
 				}
 			}
 			if count >= 32 {
