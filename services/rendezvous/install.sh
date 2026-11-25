@@ -2,21 +2,26 @@
 # Run alongside the linux/amd64 server binary, routes.caddy and systemd unit.
 set -eu
 cd "$(dirname "$0")"
-public_url=${PIULINK_PUBLIC_URL:?Set PIULINK_PUBLIC_URL to the public HTTPS origin, for example https://connect.example.org}
+config=/etc/caddy/Caddyfile
+public_url=${PIULINK_PUBLIC_URL:-}
+if [ -z "$public_url" ] && grep -Fqx 'https://atipiu.org:8443 {' "$config"; then
+    public_url=https://atipiu.org:8443
+fi
+: "${public_url:?Set PIULINK_PUBLIC_URL to the public HTTPS origin, for example https://connect.example.org}"
 endpoint=$(python3 - "$public_url" <<'PY'
 from urllib.parse import urlsplit
 import re, sys
 u = urlsplit(sys.argv[1])
+port = 443 if u.port is None else u.port
 if (u.scheme != 'https' or not u.hostname or u.path not in ('', '/') or u.query or u.fragment
-        or not re.fullmatch(r'[A-Za-z0-9.-]+(?::[0-9]{1,5})?', u.netloc) or not 1 <= (u.port or 443) <= 65535):
+        or not re.fullmatch(r'[A-Za-z0-9.-]+(?::[0-9]{1,5})?', u.netloc) or not 1 <= port <= 65535):
     sys.exit('Expected an HTTPS hostname with optional port and no path.')
-print(f'{u.hostname}:{u.port or 443}')
+print(f'{u.hostname}:{port}')
 PY
 )
 public_url=${public_url%/}
 dest=/usr/local/lib/piulink-rendezvous
 unit=piulink-rendezvous.service
-config=/etc/caddy/Caddyfile
 backup=$(mktemp -d /var/backups/piulink-rendezvous.XXXXXXXX)
 cp -p "$config" "$backup/Caddyfile"
 for file in "$dest/server" "$dest/routes.caddy" "/etc/systemd/system/$unit"; do
@@ -41,14 +46,24 @@ install -m 644 routes.caddy "$dest/routes.caddy"
 install -m 644 "$unit" "/etc/systemd/system/$unit"
 python3 - "$config" "$dest/routes.caddy" "$public_url" <<'PY'
 from pathlib import Path
-import sys
+from urllib.parse import urlsplit
+import re, sys
 config = Path(sys.argv[1])
-site = sys.argv[3] + ' {\n'
+url = urlsplit(sys.argv[3])
+names = {url.netloc, 'https://' + url.netloc}
+if url.port in (None, 443):
+    names.update((url.hostname, url.hostname + ':443', 'https://' + url.hostname, 'https://' + url.hostname + ':443'))
 include = '    import ' + sys.argv[2] + '\n'
 text = config.read_text()
-if text.count(site) > 1: raise SystemExit('Duplicate Caddy site blocks')
-if site + include not in text:
-    config.write_text(text.replace(site, site + include) if site in text else text.rstrip() + '\n\n' + site + include + '}\n')
+pattern = r'(?m)^[ \t]*(?:' + '|'.join(map(re.escape, names)) + r')[ \t]*\{[ \t]*(?:#.*)?\n'
+matches = list(re.finditer(pattern, text, re.I))
+if len(matches) > 1: raise SystemExit('Duplicate Caddy site blocks')
+if matches:
+    pos = matches[0].end()
+    if not text[pos:].startswith(include):
+        config.write_text(text[:pos] + include + text[pos:])
+else:
+    config.write_text(text.rstrip() + '\n\n' + sys.argv[3] + ' {\n' + include + '}\n')
 PY
 caddy validate --config "$config" >/dev/null
 systemctl daemon-reload
