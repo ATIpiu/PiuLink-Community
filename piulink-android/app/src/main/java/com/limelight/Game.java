@@ -2853,6 +2853,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
         localCursorMenuButton = addStreamMenuButton(R.drawable.ic_stream_cursor, R.string.title_checkbox_local_cursor, view ->
                 setLocalCursorEnabled(!prefConfig.localCursor));
+        if (prefConfig.touchscreenTrackpad && getPackageManager().hasSystemFeature(
+                android.content.pm.PackageManager.FEATURE_TOUCHSCREEN)) {
+            addStreamMenuButton(R.drawable.ic_stream_cursor, R.string.touchpad_pointer_speed,
+                    view -> showTouchpadSpeedDialog());
+        }
         performanceMenuButton = addStreamMenuButton(R.drawable.ic_stream_stats, R.string.title_enable_perf_overlay, view ->
                 setPerformanceOverlayEnabled(!prefConfig.enablePerfOverlay));
         pipMenuButton = addStreamMenuButton(R.drawable.ic_stream_pip, R.string.menu_auto_pip, view ->
@@ -3174,6 +3179,19 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (session != null && game != null && session.equals(game.backgroundSession)) {
             game.disconnectFromStreamMenu();
         }
+    }
+
+    private void showTouchpadSpeedDialog() {
+        String[] values = getResources().getStringArray(R.array.touchpad_pointer_speed_values);
+        int current = java.util.Arrays.asList(values).indexOf(Integer.toString(prefConfig.touchpadSpeedPercent));
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.touchpad_pointer_speed)
+                .setSingleChoiceItems(R.array.touchpad_pointer_speed_labels, current, (dialog, which) -> {
+                    prefConfig.touchpadSpeedPercent = Integer.parseInt(values[which]);
+                    android.preference.PreferenceManager.getDefaultSharedPreferences(this).edit()
+                            .putString(PreferenceConfiguration.TOUCHPAD_SPEED_PREF, values[which]).apply();
+                    dialog.dismiss();
+                }).show();
     }
 
     private void showBackgroundDurationDialog() {

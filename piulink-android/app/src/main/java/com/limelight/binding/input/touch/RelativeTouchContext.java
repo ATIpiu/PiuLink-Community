@@ -21,6 +21,8 @@ public class RelativeTouchContext implements TouchContext {
     private boolean confirmedDrag;
     private boolean confirmedScroll;
     private double xFactor, yFactor;
+    private final TouchpadDelta pointerX = new TouchpadDelta();
+    private final TouchpadDelta pointerY = new TouchpadDelta();
     private int pointerCount;
     private int maxPointerCountInGesture;
 
@@ -159,6 +161,8 @@ public class RelativeTouchContext implements TouchContext {
         xFactor = referenceWidth / (double)targetView.getWidth();
         yFactor = referenceHeight / (double)targetView.getHeight();
 
+        pointerX.reset();
+        pointerY.reset();
         originalTouchX = lastTouchX = eventX;
         originalTouchY = lastTouchY = eventY;
 
@@ -261,47 +265,29 @@ public class RelativeTouchContext implements TouchContext {
 
             // We only send moves and drags for the primary touch point
             if (actionIndex == 0) {
-                int deltaX = eventX - lastTouchX;
-                int deltaY = eventY - lastTouchY;
-
-                // Scale the deltas based on the factors passed to our constructor
-                deltaX = (int) Math.round((double) Math.abs(deltaX) * xFactor);
-                deltaY = (int) Math.round((double) Math.abs(deltaY) * yFactor);
-
-                // Fix up the signs
-                if (eventX < lastTouchX) {
-                    deltaX = -deltaX;
-                }
-                if (eventY < lastTouchY) {
-                    deltaY = -deltaY;
-                }
-
                 if (pointerCount == 2) {
-                    if (confirmedScroll) {
-                        conn.sendMouseHighResScroll((short)(deltaY * SCROLL_SPEED_FACTOR));
+                    int dy = eventY - lastTouchY;
+                    int scroll = Integer.signum(dy) * (int) Math.round(Math.abs(dy) * yFactor);
+                    if (confirmedScroll && scroll != 0) {
+                        conn.sendMouseHighResScroll((short) (scroll * SCROLL_SPEED_FACTOR));
                     }
-                } else {
-                        onMouseMove.move(deltaX, deltaY);
-                        if (prefConfig.absoluteMouseMode) {
-                        conn.sendMouseMoveAsMousePosition(
-                                (short) deltaX,
-                                (short) deltaY,
-                                (short) targetView.getWidth(),
-                                (short) targetView.getHeight());
-                    }
-                    else {
-                        conn.sendMouseMove((short) deltaX, (short) deltaY);
-                    }
-                }
-
-                // If the scaling factor ended up rounding deltas to zero, wait until they are
-                // non-zero to update lastTouch that way devices that report small touch events often
-                // will work correctly
-                if (deltaX != 0) {
                     lastTouchX = eventX;
-                }
-                if (deltaY != 0) {
+                    if (scroll != 0) lastTouchY = eventY;
+                } else {
+                    double speed = prefConfig.touchpadSpeedPercent / 100.0;
+                    short dx = pointerX.move(eventX - lastTouchX, xFactor * speed);
+                    short dy = pointerY.move(eventY - lastTouchY, yFactor * speed);
+                    lastTouchX = eventX;
                     lastTouchY = eventY;
+                    if (dx != 0 || dy != 0) {
+                        onMouseMove.move(dx, dy);
+                        if (prefConfig.absoluteMouseMode) {
+                            conn.sendMouseMoveAsMousePosition(dx, dy,
+                                    (short) targetView.getWidth(), (short) targetView.getHeight());
+                        } else {
+                            conn.sendMouseMove(dx, dy);
+                        }
+                    }
                 }
             }
             else {
@@ -333,6 +319,10 @@ public class RelativeTouchContext implements TouchContext {
 
     @Override
     public void setPointerCount(int pointerCount) {
+        if (this.pointerCount != pointerCount) {
+            pointerX.reset();
+            pointerY.reset();
+        }
         this.pointerCount = pointerCount;
 
         if (pointerCount > maxPointerCountInGesture) {

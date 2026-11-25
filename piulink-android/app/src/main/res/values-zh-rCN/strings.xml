@@ -538,4 +538,6 @@
     <string name="received_file_unavailable">找不到这份文件，可能已被移动或删除。</string>
     <string name="invite_punch_action">使用邀请链接进行 P2P 打洞</string>
     <string name="pcview_status_online_p2p">在线 · P2P 直连</string>
+    <string name="touchpad_pointer_speed">触控板鼠标速度</string>
+    <string name="touchpad_pointer_speed_summary">调整手指滑动相同距离时，远端光标移动的距离。</string>
 </resources>

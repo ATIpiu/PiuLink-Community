@@ -559,5 +559,7 @@
     <string name="received_file_unavailable">This file is no longer available. It may have been moved or deleted.</string>
     <string name="invite_punch_action">Connect invitation via P2P</string>
     <string name="pcview_status_online_p2p">Online · P2P</string>
+    <string name="touchpad_pointer_speed">Touchpad pointer speed</string>
+    <string name="touchpad_pointer_speed_summary">How far the pointer moves when you slide one finger.</string>
 </resources>
 

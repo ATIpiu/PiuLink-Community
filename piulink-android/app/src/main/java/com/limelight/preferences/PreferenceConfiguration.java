@@ -179,6 +179,8 @@ public class PreferenceConfiguration {
     public int vibrateFallbackToDeviceStrength;
     public boolean autoTextKeyboard;
     public boolean touchscreenTrackpad;
+    public static final String TOUCHPAD_SPEED_PREF = "list_touchpad_pointer_speed";
+    public int touchpadSpeedPercent;
     public MoonBridge.AudioConfiguration audioConfiguration;
     public int framePacing;
     public boolean absoluteMouseMode;
@@ -732,6 +734,10 @@ public class PreferenceConfiguration {
         config.flipFaceButtons = prefs.getBoolean(FLIP_FACE_BUTTONS_PREF_STRING, DEFAULT_FLIP_FACE_BUTTONS);
         config.autoTextKeyboard = prefs.getBoolean("checkbox_auto_text_keyboard", true);
         config.touchscreenTrackpad = prefs.getBoolean(TOUCHSCREEN_TRACKPAD_PREF_STRING, DEFAULT_TOUCHSCREEN_TRACKPAD);
+        String speed = prefs.getString(TOUCHPAD_SPEED_PREF, "100");
+        String[] supportedSpeeds = context.getResources().getStringArray(R.array.touchpad_pointer_speed_values);
+        config.touchpadSpeedPercent = java.util.Arrays.asList(supportedSpeeds).contains(speed)
+                ? Integer.parseInt(speed) : 100;
         config.enableLatencyToast = prefs.getBoolean(LATENCY_TOAST_PREF_STRING, DEFAULT_LATENCY_TOAST);
         config.absoluteMouseMode = prefs.getBoolean(ABSOLUTE_MOUSE_MODE_PREF_STRING, DEFAULT_ABSOLUTE_MOUSE_MODE);
         config.localCursor = prefs.getBoolean(LOCAL_CURSOR_PREF_STRING, DEFAULT_LOCAL_CURSOR);

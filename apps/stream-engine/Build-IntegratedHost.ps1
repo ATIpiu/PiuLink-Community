@@ -62,11 +62,17 @@ $shareBuildArguments = if ($prebuiltSharePath) {
 }
 $audioArguments = @()
 if ($PublicPreview) {
-    if (!$Development -or $MicrophonePackageDirectory -or $MicrophoneLayoutTest -or $UseThisComputersMicrophone) {
-        throw 'The public development preview packages no microphone driver. Choose a single microphone mode.'
+    if (!$Development -or $UseThisComputersMicrophone -or ($MicrophoneLayoutTest -and !$MicrophonePackageDirectory)) {
+        throw 'The public preview requires a development build independent of this computer. Specify a driver package for a layout test.'
     }
     $audioArguments += '-p:PiuLinkPublicPreview=1'
-    $packageName = "PiuLink-Host-$hostVersion-win-x64-preview"
+    if ($MicrophonePackageDirectory) {
+        $audioArguments += '-p:BundleMicrophone=1'
+    }
+    if (!$MicrophoneLayoutTest) {
+        $previewSuffix = if ($MicrophonePackageDirectory) { 'preview-mic' } else { 'preview' }
+        $packageName = "PiuLink-Host-$hostVersion-win-x64-$previewSuffix"
+    }
 }
 if ($UseThisComputersMicrophone) {
     if (!$Development -or $MicrophoneLayoutTest -or $MicrophonePackageDirectory) { throw 'Reusing the local microphone is only supported for a separate local development upgrade.' }
@@ -82,7 +88,7 @@ if ($MicrophoneLayoutTest) { $audioArguments += '-p:MicrophoneLayoutTest=1' }
 & $dotnet build $project -c Release "-p:OutputName=$internalOutputName" '-p:PiuLinkSelfContained=true' "-p:PiuLinkEngineDirectory=$enginePath" $shareBuildArguments $audioArguments '-p:NuGetAudit=false'
 if ($LASTEXITCODE) { throw 'Integrated Host build failed.' }
 $msi = Join-Path (Split-Path $project) "bin/x64/Release/$internalOutputName.msi"
-& "$PSScriptRoot/Test-IntegratedInstaller.ps1" -InstallerPath $msi -LayoutOnly:$MicrophoneLayoutTest -UseThisComputersMicrophone:$UseThisComputersMicrophone -PublicPreview:$PublicPreview -RequireCli
+& "$PSScriptRoot/Test-IntegratedInstaller.ps1" -InstallerPath $msi -LayoutOnly:$MicrophoneLayoutTest -UseThisComputersMicrophone:$UseThisComputersMicrophone -PublicPreview:$PublicPreview -WithPreviewMicrophone:($PublicPreview -and [bool]$MicrophonePackageDirectory) -RequireCli
 $destination = Join-Path $outputPath "$packageName.msi"
 Copy-Item -LiteralPath $msi -Destination $destination -Force
 Write-Output "Integrated installer built at $outputPath. No service was installed or replaced."

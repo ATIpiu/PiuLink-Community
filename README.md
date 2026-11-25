@@ -8,7 +8,7 @@ PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑
 | --- | --- |
 | 让其他设备连接这台 Windows x64 电脑 | [下载 Windows Host 0.2.116 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/host-preview-2026.11.25/PiuLink-Host-0.2.116-win-x64-preview.msi) |
 | 在 Windows x64 电脑上控制另一台主机 | [下载 Windows Client 0.2.31 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/client-preview-2026.11.25/PiuLink-Client-0.2.31-win-x64.msi) |
-| 在 Android 手机、平板或电视上控制主机 | [下载 Android 0.3.185 · 通用签名 APK](https://github.com/ATIpiu/PiuLink-Community/releases/download/client-preview-2026.11.25/PiuLink-Android-0.3.185-nonRoot-universal-release.apk) |
+| 在 Android 手机、平板或电视上控制主机 | [下载 Android 0.3.186 · 通用签名 APK](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.186/PiuLink-Android-0.3.186-nonRoot-universal-release.apk) |
 
 两份 Windows MSI 均为未签名预览版。Host 内置串流引擎，这版省去了虚拟麦克风驱动，系统分享扩展可在已信任其签名的设备上按需注册。两个控制端都可连接已配置好的 PiuLink Host 或兼容 Sunshine 的电脑。[Host 版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/host-preview-2026.11.25) · [控制端版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/client-preview-2026.11.25) · [自建 Linux 邀请服务](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)
 
@@ -16,6 +16,10 @@ PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑
 2. 第一次连接建议让两台设备使用同一局域网。在客户端发现或手动添加电脑，按提示在 Host 确认配对。
 3. 选择「桌面」或已配置的游戏、应用开始串流。Windows Host 与各客户端均可直接启动，局域网使用无需 PiuLink 账号。
 4. 异地使用可手动添加可达地址、使用自己配置的 Tailscale，或在支持的版本上使用 Host 生成的私有邀请。邀请服务用于发现地址和协商直连，目前属实验功能。PiuLink 不提供音视频中转。
+
+在 Android 客户端的「设置 → 触控 → 触控板鼠标速度」可选 0.5× 至 4×。串流中也可从菜单直接调速，选择后立即生效。此设置作用于触控板模式下的单指移动与拖动。
+
+全新 Windows 电脑安装 Host 0.2.116 后，麦克风回传还需要适用的 PiuLink 虚拟麦克风驱动。已有 PiuLink 录音设备的电脑可以在 Android 串流菜单点「开启远端麦克风」、授予录音权限，并在远端会议或录音应用中选择相应的输入。[虚拟麦克风驱动与打包说明](apps/windows-host/audio-driver/README.md)
 
 ## 各平台能做什么
 

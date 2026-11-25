@@ -157,6 +157,14 @@
             android:title="@string/title_checkbox_touchscreen_trackpad"
             android:summary="@string/summary_checkbox_touchscreen_trackpad"
             android:defaultValue="true" />
+        <com.limelight.preferences.TvListPreference
+            android:key="list_touchpad_pointer_speed"
+            android:dependency="checkbox_touchscreen_trackpad"
+            android:title="@string/touchpad_pointer_speed"
+            android:summary="@string/touchpad_pointer_speed_summary"
+            android:entries="@array/touchpad_pointer_speed_labels"
+            android:entryValues="@array/touchpad_pointer_speed_values"
+            android:defaultValue="100" />
         <CheckBoxPreference
             android:key="checkbox_auto_text_keyboard"
             android:title="@string/auto_input_title"
