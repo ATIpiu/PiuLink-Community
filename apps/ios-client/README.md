@@ -1,5 +1,7 @@
 # PiuLink iPhone 客户端 0.1.0 开发版
 
+**未在 iPhone 或 iPad 真机上验证。** 主播目前预算有限，手头没有用于测试的苹果设备。当前仅提供源码，需要在 Mac 上用 Xcode 自行编译、签名。
+
 以固定提交的 [Moonlight iOS](https://github.com/moonlight-stream/moonlight-ios/tree/02dc9780496eeeac6d01c8bbdccb8b6fe71ef28a) 为基础，复用原生发现、证书配对、应用库、视频解码和触控输入。PiuLink 补丁提供独立的 iOS 应用标识、主屏图标、Windows/Linux 配对指引和手动添加主机的错误反馈。首次联调在同一局域网进行。
 
 在 Mac 上从仓库根目录运行：

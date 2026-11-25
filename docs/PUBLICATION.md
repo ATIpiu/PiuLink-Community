@@ -27,7 +27,7 @@ PiuLink 由主工程、Android 工程和原生依赖组成。公开仓库的同�
 | 附件 | 对应信息 |
 | --- | --- |
 | Windows Host / Client MSI、受支持的便携 ZIP | 组件版本、架构、签名状态、引擎版本和环境依赖。面向指定机器的安装与回滚套件留作本地备份。 |
-| Android 通用 APK | 只选正式签名的 `PiuLink-Android-<版本>-nonRoot-universal-release.apk`。核对包名、版本号、签名证书和 Gradle 原始产物摘要。 |
+| Android APK | 同一版本提供正式签名的通用版（默认）和 ARM64 专用版。分别核对包名、版本号、签名证书、实际 ABI 和 Gradle 原始产物摘要。 |
 | macOS ZIP、Linux TAR.GZ、iOS 源码套件 | 分别说明架构、平台、签名或实机验证情况。iOS 源码套件应标明需要自行编译。 |
 | 对应源码、第三方声明、`SHA256SUMS` | 精确对应每一份分发的 GPL 二进制，提供应用修改、引擎补丁、子模块、必要的构建输入和构建脚本。GitHub 自动生成的仓库 ZIP 不展开子模块。 |
 

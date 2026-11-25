@@ -10,6 +10,6 @@ PiuLink Android 使用标准 Moonlight 串流链路连接自己的电脑，提�
 
 ## 获取与构建
 
-[下载 Android 0.3.186 通用 APK](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.186/PiuLink-Android-0.3.186-nonRoot-universal-release.apk)。该包经过正式签名，包名为 `labs.atipiu.piulink`，手机、平板与电视共用。[Android 源码](../../piulink-android/README.md) · [开发指南](../../docs/DEVELOPMENT.md)
+Android 0.3.186 提供两份正式签名的 APK，包名均为 `labs.atipiu.piulink`。手机、平板与电视默认选通用版，确认系统支持 `arm64-v8a` 的用户可选 ARM64 专用版，两版功能相同。[通用版（推荐）· 56.14 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.186/PiuLink-Android-0.3.186-nonRoot-universal-release.apk) · [ARM64 专用版 · 17.09 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.186/PiuLink-Android-0.3.186-nonRoot-arm64-v8a-release.apk)。[Android 源码](../../piulink-android/README.md) · [开发指南](../../docs/DEVELOPMENT.md)
 
 在「设置 → 触控 → 触控板鼠标速度」或已连接桌面的串流菜单中选择速度。默认 1×，可在 0.5× 至 4× 之间选择，设置会在本机保存。

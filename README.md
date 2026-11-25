@@ -8,11 +8,11 @@ PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑
 | --- | --- |
 | 让其他设备连接这台 Windows x64 电脑 | [下载 Windows Host 0.2.116 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/host-preview-2026.11.25/PiuLink-Host-0.2.116-win-x64-preview.msi) |
 | 在 Windows x64 电脑上控制另一台主机 | [下载 Windows Client 0.2.31 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/client-preview-2026.11.25/PiuLink-Client-0.2.31-win-x64.msi) |
-| 在 Android 手机、平板或电视上控制主机 | [下载 Android 0.3.186 · 通用签名 APK](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.186/PiuLink-Android-0.3.186-nonRoot-universal-release.apk) |
+| 在 Android 手机、平板或电视上控制主机 | [通用版（推荐）· 56.14 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.186/PiuLink-Android-0.3.186-nonRoot-universal-release.apk) · [ARM64 专用版 · 17.09 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.186/PiuLink-Android-0.3.186-nonRoot-arm64-v8a-release.apk) |
 
 两份 Windows MSI 均为未签名预览版。Host 内置串流引擎，这版省去了虚拟麦克风驱动，系统分享扩展可在已信任其签名的设备上按需注册。两个控制端都可连接已配置好的 PiuLink Host 或兼容 Sunshine 的电脑。[Host 版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/host-preview-2026.11.25) · [控制端版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/client-preview-2026.11.25) · [自建 Linux 邀请服务](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)
 
-1. 在要被控制的电脑上安装 **Host**，在操作设备上安装 **Client**。Android 手机、平板与电视使用同一个签名版 `nonRoot-universal-release.apk`。
+1. 在要被控制的电脑上安装 **Host**，在操作设备上安装 **Client**。Android 手机、平板与电视默认选通用版。确认系统支持 `arm64-v8a` 时可选更小的 ARM64 专用版，两版功能相同。
 2. 第一次连接建议让两台设备使用同一局域网。在客户端发现或手动添加电脑，按提示在 Host 确认配对。
 3. 选择「桌面」或已配置的游戏、应用开始串流。Windows Host 与各客户端均可直接启动，局域网使用无需 PiuLink 账号。
 4. 异地使用可手动添加可达地址、使用自己配置的 Tailscale，或在支持的版本上使用 Host 生成的私有邀请。邀请服务用于发现地址和协商直连，目前属实验功能。PiuLink 不提供音视频中转。
@@ -29,7 +29,10 @@ PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑
 | Windows Client | 管理主机、启动桌面与游戏、设置串流画质，提供图形界面和命令行。 |
 | Android 手机、平板、电视 | 桌面和游戏串流、键鼠、触控、手柄。手机和平板另有桌面快捷栏、文件互传、麦克风回传和 SSH 终端。 |
 | Linux Host / Client | 主机端支持 X11 与无头配置；图形客户端通过已安装的 Moonlight Qt 启动串流。具体环境要求见平台说明。 |
-| macOS / iPhone | macOS 客户端为预览版，依赖 Moonlight.app。iPhone 提供上游固定版本与补丁的源码套件，需在 Mac 上构建和签名。 |
+| macOS | 未在 Mac 真机上验证。当前提供未签名、未公证的预览包，依赖 Moonlight.app。 |
+| iOS | 未在 iPhone 或 iPad 真机上验证。当前仅提供源码，需在 Mac 上用 Xcode 编译和签名。 |
+
+主播目前预算有限，手头没有用于实测的苹果设备。
 
 Windows 主链路和 Android 已有真机串流验证。直连邀请在部分家庭网络上仍会超时；使用已知地址或局域网发现可以独立于邀请服务连接。当前集成引擎标记为开发版本。
 

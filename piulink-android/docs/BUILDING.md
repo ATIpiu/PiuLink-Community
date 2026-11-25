@@ -16,4 +16,6 @@ cd piulink-android
 
 通用 APK 位于 `app/build/outputs/apk/nonRoot/release/`，文件名为 `PiuLink-Android-<版本>-nonRoot-universal-release.apk`，应用 ID 为 `labs.atipiu.piulink`。正式分发前核对 APK 签名、包名、版本名、版本码和支持的 ABI。需要商店 AAB 时使用 `:app:bundleNonRootRelease`。签名私钥和本地配置由构建者保管。
 
+为同一版本另发 ARM64 专用版时，先将已验证的通用包复制到分发目录，再运行 `.\gradlew.bat "-PpiulinkAbi=arm64-v8a" :app:assembleNonRootRelease`。在主工程根目录使用 `tools/Get-VerifiedAndroidRelease.ps1 -ApkPath <APK路径> -Architecture arm64-v8a` 验证专用版。两次构建共用 Gradle 输出目录。
+
 分发 APK 或 AAB 时提供匹配的 Android 与主工程源码、Go 传输库、原生子模块、构建脚本与第三方许可证。[GPLv3](../LICENSE.txt) · [依赖声明](../NOTICE.md)
