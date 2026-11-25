@@ -35,14 +35,14 @@ index 49c4417..0b6a9ad 100644
 +    if (!uuid) return nil;
 +    @synchronized (self) {
 +        if ([directSession alive]) {
-+            if ([uuid isEqual:directHost]) return @"127.0.0.1";
++            if ([link isEqual:directHost]) return @"127.0.0.1";
 +            if (message) *message = @"Another Host is using the P2P connection.";
 +            return nil;
 +        }
 +        [directSession stop];
 +        NSError* error = nil;
 +        directSession = MobileStartInvite(link, [CryptoManager readCertFromFile], [CryptoManager readKeyFromFile], pin, &error);
-+        directHost = directSession ? uuid : nil;
++        directHost = directSession ? [link copy] : nil;
 +        if (!directSession && message) *message = error.localizedDescription;
 +        return directSession ? @"127.0.0.1" : nil;
 +    }
@@ -53,7 +53,7 @@ index 49c4417..0b6a9ad 100644
 ++ (void)closeForHost:(NSString*)uuid {
 +#if !TARGET_OS_TV
 +    @synchronized (self) {
-+        if (uuid && directHost && [uuid caseInsensitiveCompare:directHost] == NSOrderedSame) {
++        if (uuid && directHost && [uuid caseInsensitiveCompare:[self hostID:directHost]] == NSOrderedSame) {
 +            [directSession stop]; directSession = nil; directHost = nil;
 +        }
 +    }
@@ -95,7 +95,7 @@ index 49c4417..0b6a9ad 100644
 +            if (hostAddress) serverInfoResponse = [self getServerInfoResponseForAddress:hostAddress];
 +            NSString* found = [serverInfoResponse getStringTag:TAG_UNIQUE_ID];
 +            if (!hostAddress || ![serverInfoResponse isStatusOk] || !found || [expected caseInsensitiveCompare:found] != NSOrderedSame) {
-+                [PiuLinkInvite closeForHost:expected];
++                if (hostAddress) [PiuLinkInvite closeForHost:expected];
 +                callback(nil, error ?: @"Could not verify the invited Host over P2P."); return;
 +            }
 +        }
