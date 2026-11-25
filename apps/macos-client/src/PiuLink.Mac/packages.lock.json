@@ -182,7 +182,7 @@
         "type": "Project"
       }
     },
-    "net8.0/osx-x64": {
+    "net8.0/linux-arm64": {
       "Avalonia.Angle.Windows.Natives": {
         "type": "Transitive",
         "resolved": "2.1.25547.20250602",

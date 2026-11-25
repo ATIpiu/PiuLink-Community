@@ -23,7 +23,7 @@ try {
         }
     }
     # anet's Android interface enumeration uses the Go linker option documented by that dependency.
-    & "$out/gomobile.exe" bind -trimpath -target=android -androidapi 26 '-ldflags=-checklinkname=0 -s -w' -o "$out/piulink-direct.aar" ./mobile
+    & "$out/gomobile.exe" bind -target=android -androidapi 26 '-ldflags=-checklinkname=0 -s -w' -o "$out/piulink-direct.aar" ./mobile
     if ($LASTEXITCODE) {throw 'Direct Android transport build failed'}
     New-Item -ItemType Directory -Force "$repo/piulink-android/app/libs" | Out-Null
     Copy-Item -LiteralPath "$out/piulink-direct.aar" -Destination "$repo/piulink-android/app/libs/piulink-direct.aar" -Force

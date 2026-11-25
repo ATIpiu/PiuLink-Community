@@ -6,13 +6,19 @@ namespace PiuLink.Client.Core.Networking;
 public sealed record HostEndpoint(string Host, int Port)
 {
     public const int DefaultSunshineHttpPort = 47989;
+    public static Task DisconnectInviteAsync(string? link) =>
+        link != null && PiuLink.Rendezvous.HostInvite.Parse(link) is { } invite
+            ? DirectInviteClient.DisconnectAsync(invite) : Task.CompletedTask;
 
-    public static async Task<HostEndpoint> ResolveAsync(string input, string? cached = null, CancellationToken token = default)
+    public static async Task<HostEndpoint> ResolveAsync(string input, string? cached = null, CancellationToken token = default, bool useP2p = false)
     {
         var invite = PiuLink.Rendezvous.HostInvite.Parse(input);
         if (invite == null) return Parse(input);
-        Func<CancellationToken,Task<string>>? punch = OperatingSystem.IsWindows() ?
+        var active = await DirectInviteClient.ActiveAddressAsync(invite, token).ConfigureAwait(false);
+        if (active != null) return Parse(active);
+        Func<CancellationToken,Task<string>>? punch = OperatingSystem.IsWindows() || OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() ?
             ct => DirectInviteClient.ConnectAsync(invite, ct) : null;
+        if (useP2p && punch != null) return Parse(await punch(token).ConfigureAwait(false));
         return Parse(await invite.ResolveAsync(cached, token, punch).ConfigureAwait(false));
     }
 

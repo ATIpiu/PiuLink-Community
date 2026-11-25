@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>0.1.6</Version>
+    <Version>0.1.7</Version>
     <AssemblyName Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux-'))">PiuLink.Linux</AssemblyName>
     <UseAppHost>true</UseAppHost>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
@@ -15,4 +15,5 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.19" />
     <ProjectReference Include="../../../../packages/client-core/src/PiuLink.Client.Core/PiuLink.Client.Core.csproj" />
   </ItemGroup>
+  <Import Project="../../../../packages/direct-tunnel/UnixTransport.targets" />
 </Project>

@@ -12,10 +12,19 @@ using System.Xml.Linq;
 
 namespace PiuLink.Rendezvous;
 
-public sealed record HostInvite(string Room, Guid HostId)
+public sealed record HostInvite(string Room, Guid HostId, string ServiceBase = HostInvite.Base)
 {
     public const string Base = "https://atipiu.org:8443/piulink/";
-    public string Link => $"{Base}join#{Room}.{HostId:D}";
+    public string Link => $"{ServiceBase}join#{Room}.{HostId:D}";
+    public static string NormalizeService(string value)
+    {
+        value = value.Trim();
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != "https" ||
+            string.IsNullOrEmpty(uri.Host) || uri.UserInfo.Length != 0 || value.IndexOfAny(['?', '#', '\\', '@']) >= 0 ||
+            uri.AbsolutePath.TrimEnd('/') is not ("" or "/piulink"))
+            throw new FormatException("请填写 HTTPS 服务地址，例如 https://example.org/piulink/。");
+        return uri.GetLeftPart(UriPartial.Authority) + "/piulink/";
+    }
     internal static readonly HttpClient DirectoryClient = new(new HttpClientHandler { AllowAutoRedirect = false })
         { Timeout = TimeSpan.FromSeconds(6), MaxResponseContentBufferSize = 4096 };
     private static readonly HttpClient Direct = new(new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false })
@@ -25,20 +34,23 @@ public sealed record HostInvite(string Room, Guid HostId)
     {
         var value = input.Trim();
         if (!value.Contains("://", StringComparison.Ordinal)) return null;
-        const string prefix = Base + "join#";
-        if (value.StartsWith(prefix, StringComparison.Ordinal) && value.Length == prefix.Length + 101 &&
-            value[prefix.Length + 64] == '.' && Regex.IsMatch(value.Substring(prefix.Length, 64), "^[0-9a-f]{64}$") &&
-            Guid.TryParseExact(value[(prefix.Length + 65)..], "D", out var id))
-            return new(value.Substring(prefix.Length, 64), id);
+        int marker = value.IndexOf("/piulink/join#", StringComparison.Ordinal);
+        if (marker < 0) throw new FormatException("请输入完整的 Host 邀请链接。");
+        var service = NormalizeService(value[..marker]);
+        var authority = value[..marker];
+        var fragment = value[(marker + "/piulink/join#".Length)..];
+        if (new Uri(authority).AbsolutePath == "/" && fragment.Length == 101 && fragment[64] == '.' &&
+            Regex.IsMatch(fragment[..64], "^[0-9a-f]{64}$") && Guid.TryParseExact(fragment[65..], "D", out var id))
+            return new(fragment[..64], id, service);
         throw new FormatException("请输入从 PiuLink Host 复制的完整邀请链接。");
     }
 
-    public static HostInvite FromOwner(string owner, Guid id) => new(
-        Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes($"{owner}\n{id:D}"))).ToLowerInvariant(), id);
+    public static HostInvite FromOwner(string owner, Guid id, string serviceBase = Base) => new(
+        Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes($"{owner}\n{id:D}"))).ToLowerInvariant(), id, NormalizeService(serviceBase));
 
-    internal static HttpRequestMessage Post(string verb, string credential, int version = 1)
+    internal HttpRequestMessage Post(string verb, string credential, int version = 1)
     {
-        var message = new HttpRequestMessage(HttpMethod.Post, $"{Base}v{version}/{verb}");
+        var message = new HttpRequestMessage(HttpMethod.Post, $"{ServiceBase}v{version}/{verb}");
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credential);
         return message;
     }

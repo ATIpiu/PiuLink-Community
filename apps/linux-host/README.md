@@ -4,6 +4,8 @@ Linux Host 由用户级 systemd 服务、命令行和 Sunshine 组成。现有 P
 
 ## 桌面模式
 
+使用 `piulink-host invite-service` 查看当前信令服务，关闭邀请后可用 `piulink-host invite-service https://connect.example.org/piulink/` 保存自建服务地址。此 Linux Host 提供地址登记。
+
 运行中的 Host 可用 `piulink-host invite` 开启并打印直连邀请。多台客户端可以粘贴同一链接。
 运行 `piulink-host invite-off` 停止登记，原链接最多再保留 90 秒。参见[直连邀请](../../docs/rendezvous.md)。
 
@@ -17,6 +19,17 @@ Linux Host 由用户级 systemd 服务、命令行和 Sunshine 组成。现有 P
 服务启动时优先采集 X11 的活动主屏，未指定主屏时使用第一个有画面的输出。可用 `piulink-host capture-index` 检查选择，或用 `PIULINK_OUTPUT_INDEX` 指定 Sunshine 的输出编号。显式指定到断开的端口时，启动会报告原因。
 
 ## 构建和安装
+
+Ubuntu 26.04 x86-64 可以在下载目录安装 DEB，然后用桌面用户配置运行环境。下面以采集已登录的 X11 桌面为例。
+
+```sh
+sudo apt install ./piulink-host_0.1.4-1_amd64.deb
+piulink-host-setup-user
+/usr/bin/piulink-host setup desktop
+systemctl --user enable --now piulink-host.service
+```
+
+`piulink-host-setup-user` 会通过网络下载固定版本的 Sunshine 和 .NET 运行时。如果已有一份手工安装并运行的用户服务，先停止该服务，再配置新版本。
 
 从仓库根目录使用 .NET 8 SDK 构建。发布目录可从 Windows 复制到 Linux。
 

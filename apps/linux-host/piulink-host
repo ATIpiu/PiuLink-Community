@@ -26,7 +26,7 @@ dotnet_bin=${PIULINK_DOTNET:-dotnet}
 if [[ -z "${PIULINK_DOTNET:-}" && -x "$base/runtime/dotnet/dotnet" ]]; then dotnet_bin="$base/runtime/dotnet/dotnet"; fi
 sunshine=${PIULINK_SUNSHINE:-sunshine}
 if [[ -z "${PIULINK_SUNSHINE:-}" && -x "$base/runtime/squashfs-root/AppRun" ]]; then sunshine="$base/runtime/squashfs-root/AppRun"; fi
-host=("$dotnet_bin" "$base/app/PiuLink.Host.Linux.dll")
+host=("$dotnet_bin" "${PIULINK_HOST_APP_DIR:-$base/app}/PiuLink.Host.Linux.dll")
 
 if [[ "$PIULINK_SESSION_MODE" == headless ]]; then
     export DISPLAY=${PIULINK_HEADLESS_DISPLAY:-:89}
@@ -68,7 +68,7 @@ run)
     trap cleanup EXIT
     trap 'exit 0' TERM INT
     if [[ "$PIULINK_SESSION_MODE" == headless ]]; then
-        input_bridge="$base/runtime/libpiulink-x11-input.so"
+        input_bridge="${PIULINK_X11_INPUT_LIB:-$base/runtime/libpiulink-x11-input.so}"
         [[ -r "$input_bridge" ]] || { echo 'PiuLink X11 input is missing. Install the headless runtime.' >&2; exit 1; }
         rm -f -- "$input_ready"
         mode=${PIULINK_HEADLESS_MODE:-1920x1080}

@@ -12,13 +12,13 @@ namespace PiuLink.Client.Core.Networking;
 
 internal static class DirectInviteClient
 {
-    private sealed record PathSession(Process Process, IPAddress Address);
+    private sealed record PathSession(Process Process, IPAddress Address, HostInvite Invite);
     private static readonly SemaphoreSlim Gate = new(1);
     private static readonly Dictionary<Guid, PathSession> Sessions = new();
 
     private static async Task<string> RequestFieldAsync(HostInvite invite, string verb, object? body, string field, CancellationToken token)
     {
-        using var message = HostInvite.Post(verb, invite.Room, 2);
+        using var message = invite.Post(verb, invite.Room, 2);
         if (body != null) message.Content = JsonContent.Create(body);
         using var response = await HostInvite.DirectoryClient.SendAsync(message,token).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.NotFound) throw new IOException("Host 未开启 P2P 打洞或已离线。");
@@ -27,13 +27,27 @@ internal static class DirectInviteClient
         return json.RootElement.GetProperty(field).GetString() ?? throw new IOException("P2P 服务响应不完整。");
     }
 
+    internal static async Task<string?> ActiveAddressAsync(HostInvite invite, CancellationToken token)
+    {
+        await Gate.WaitAsync(token).ConfigureAwait(false);
+        try {
+            return Sessions.TryGetValue(invite.HostId, out var session) &&
+                session.Invite == invite && !session.Process.HasExited ? session.Address.ToString() : null;
+        }
+        finally { Gate.Release(); }
+    }
+
     public static async Task<string> ConnectAsync(HostInvite invite, CancellationToken token)
     {
         await Gate.WaitAsync(token).ConfigureAwait(false);
         try
         {
-            if (Sessions.TryGetValue(invite.HostId, out var active) && !active.Process.HasExited)
-                return active.Address.ToString();
+            if (Sessions.TryGetValue(invite.HostId, out var active) && !active.Process.HasExited) {
+                if (active.Invite == invite) return active.Address.ToString();
+                throw new IOException("此 Host 的另一条邀请仍在使用，请先断开该 P2P 会话。");
+            }
+            if (OperatingSystem.IsMacOS() && Sessions.Values.Any(s => !s.Process.HasExited))
+                throw new IOException("另一台 Host 正在使用本机 P2P 端口，请先断开该连接。");
 
             var hostId = invite.HostId.ToString("D");
             var (identity, pin) = QtCompanionIdentity.ReadIdentity(hostId, false);
@@ -55,11 +69,13 @@ internal static class DirectInviteClient
                     signature=Convert.ToBase64String(signing.SignData(signed,HashAlgorithmName.SHA256,RSASignaturePadding.Pkcs1))};
                 var ticket = await RequestFieldAsync(invite,"open",offer,"ticket",token).ConfigureAwait(false);
                 var tag = SHA256.HashData(Encoding.ASCII.GetBytes(hostId));
-                var address = IPAddress.Parse($"127.{1+tag[0]%254}.{tag[1]}.{1+tag[2]%254}");
-                var lease = new {leaseId=id,ticket,transportKey=Convert.ToBase64String(secret).TrimEnd('=').Replace('+','-').Replace('/','_'),
+                // Darwin only binds 127.0.0.1 without a separately configured loopback alias.
+                var address = OperatingSystem.IsMacOS() ? IPAddress.Loopback :
+                    IPAddress.Parse($"127.{1+tag[0]%254}.{tag[1]}.{1+tag[2]%254}");
+                var lease = new {serviceBase=invite.ServiceBase,leaseId=id,ticket,transportKey=Convert.ToBase64String(secret).TrimEnd('=').Replace('+','-').Replace('/','_'),
                     sourceClientId="source",hostClientId="host"};
                 var config = JsonSerializer.Serialize(new {role="source",clientId="source",listenHost=address.ToString(),lease});
-                var session = await StartAsync(config,address,invite.HostId,token).ConfigureAwait(false);
+                var session = await StartAsync(config,address,invite,token).ConfigureAwait(false);
                 Sessions[invite.HostId] = session;
                 _ = WatchAsync(invite.HostId,session);
                 return address.ToString();
@@ -69,9 +85,23 @@ internal static class DirectInviteClient
         finally { Gate.Release(); }
     }
 
-    private static async Task<PathSession> StartAsync(string config, IPAddress address, Guid hostId, CancellationToken token)
+    internal static async Task DisconnectAsync(HostInvite invite)
     {
-        var exe = Path.Combine(AppContext.BaseDirectory,"piulink-direct.exe");
+        await Gate.WaitAsync().ConfigureAwait(false);
+        try {
+            if (Sessions.TryGetValue(invite.HostId, out var active) && active.Invite == invite) {
+                Sessions.Remove(invite.HostId);
+                active.Process.StandardInput.Close();
+                try { await active.Process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3)).ConfigureAwait(false); }
+                catch (TimeoutException) { if (!active.Process.HasExited) active.Process.Kill(); }
+            }
+        }
+        finally { Gate.Release(); }
+    }
+
+    private static async Task<PathSession> StartAsync(string config, IPAddress address, HostInvite invite, CancellationToken token)
+    {
+        var exe = Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? "piulink-direct.exe" : "piulink-direct");
         var process = Process.Start(new ProcessStartInfo(exe) {RedirectStandardInput=true,RedirectStandardOutput=true,
             UseShellExecute=false,CreateNoWindow=true}) ?? throw new IOException("无法启动 P2P 传输服务。");
         try
@@ -84,27 +114,23 @@ internal static class DirectInviteClient
                 ?? throw new IOException("P2P 传输服务已退出。");
             using var ready = JsonDocument.Parse(line);
             if (ready.RootElement.GetProperty("type").GetString() != "ready")
-                throw new IOException("未能建立 P2P 直连。请检查两端网络及 Host 的新设备确认提示。");
-            if (await HostInvite.ReadHostIdAsync(address,startup.Token).ConfigureAwait(false) != hostId)
+                throw new IOException("未能建立 P2P 直连：" + (ready.RootElement.TryGetProperty("message", out var error) ? error.GetString() : "传输进程未就绪"));
+            if (await HostInvite.ReadHostIdAsync(address,startup.Token).ConfigureAwait(false) != invite.HostId)
                 throw new IOException("P2P 通道连接了不同的 Host。");
-            return new PathSession(process,address);
+            return new PathSession(process,address,invite);
         }
         catch { Close(process); throw; }
     }
 
     private static async Task WatchAsync(Guid id, PathSession session)
     {
-        long previous = 0;
-        var idle = Stopwatch.StartNew();
         try
         {
             while (await session.Process.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { } line)
             {
                 using var doc = JsonDocument.Parse(line);
-                if (!doc.RootElement.TryGetProperty("stats",out var stats)) continue;
-                var bytes = stats.GetProperty("UDPBytesSent").GetInt64() + stats.GetProperty("UDPBytesRecv").GetInt64();
-                if (bytes != previous) { previous = bytes; idle.Restart(); }
-                if (idle.Elapsed > TimeSpan.FromMinutes(3)) break;
+                // The transport owns liveness. A quiet app list or paused desktop can be reused.
+                if (doc.RootElement.GetProperty("type").GetString() == "error") break;
             }
         }
         catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException) { }

@@ -37,7 +37,7 @@ internal static class QtCompanionIdentity
 
     internal static (X509Certificate2 Certificate, byte[]? Pin) ReadIdentity(string hostId, bool requirePair)
     {
-        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
+        if (!OperatingSystem.IsWindows()) return UnixQtIdentity.Read(hostId, requirePair);
         var location = new MoonlightQtEngineLocator().Locate();
         if (location.ExecutablePath != null && File.Exists(Path.Combine(Path.GetDirectoryName(location.ExecutablePath)!, "portable.dat")))
             throw new IOException("便携 Qt 配置不受当前客户端支持，请使用完整安装包。");

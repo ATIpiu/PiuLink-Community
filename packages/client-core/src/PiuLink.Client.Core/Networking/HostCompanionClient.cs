@@ -14,7 +14,9 @@ public sealed record HostDisplay(int CaptureIndex, string DeviceId, string Name,
 public sealed record HostDisplayMode(int Width, int Height, int Fps) { public string Resolution => $"{Width}x{Height}"; }
 public sealed record HostResolution(int Width, int Height) { public string Id => $"{Width}x{Height}"; }
 public sealed record HostDisplayInventory(bool ExclusiveDisplay, HostDisplay[] Displays, HostResolution[] VirtualResolutions,
-    int[] VirtualRefreshRates, bool SupportsWindowGathering = false, bool SupportsDisplayScaling = false);
+    int[] VirtualRefreshRates, bool SupportsWindowGathering = false, bool SupportsDisplayScaling = false,
+    bool SupportsVirtualDesktopResize = false);
+public sealed record VirtualDesktopSettings(string Key, HostDisplayMode Current, HostDisplayMode[] Modes);
 
 public sealed class RetainedDisplayRouteException() : IOException("电脑仍保留原应用。可用原屏幕恢复，或先结束应用再更换屏幕。");
 
@@ -94,11 +96,12 @@ public sealed class HostCompanionClient : IDisposable
         }
         return request;
     }
-    public async Task PrepareAsync(HostEndpoint endpoint, HostDisplay? display, StreamProfile profile, CancellationToken token) {
+    public async Task<string> PrepareAsync(HostEndpoint endpoint, HostDisplay? display, StreamProfile profile, CancellationToken token) {
         using var paired = _ownsClient ? await Streaming.QtCompanionIdentity.CreateClientAsync(endpoint, token) : null;
         var selection = Selection(display, profile);
-        selection["requestId"] = Guid.NewGuid().ToString();
-        Streaming.GameStreamHttpClient.PreparedRequests[endpoint.Host] = (string)selection["requestId"]!;
+        string sessionId = Guid.NewGuid().ToString();
+        selection["requestId"] = sessionId;
+        Streaming.GameStreamHttpClient.PreparedRequests[endpoint.Host] = sessionId;
         for (int attempt = 0; ; attempt++) {
             var payload = JsonSerializer.Serialize(selection, Json);
             using var request = new HttpRequestMessage(HttpMethod.Post, new UriBuilder("https", endpoint.Host, 48011, "/v1/displays/select").Uri) {
@@ -126,8 +129,29 @@ public sealed class HostCompanionClient : IDisposable
             using var json = JsonDocument.Parse(await ReadBounded(response, 4096, token));
             if (!json.RootElement.TryGetProperty("status", out var status) || status.GetString() != "ready")
                 throw new IOException("Host 尚未确认屏幕准备完成。");
-            return;
+            return sessionId;
         }
+    }
+
+    public async Task<VirtualDesktopSettings> RequestVirtualDesktopAsync(HostEndpoint endpoint, string sessionId,
+        CancellationToken token, string? key = null, HostDisplayMode? requested = null) {
+        using var paired = _ownsClient ? await Streaming.QtCompanionIdentity.CreateClientAsync(endpoint, token) : null;
+        var payload = JsonSerializer.Serialize(new { sessionId, action = requested == null ? "list" : "resize",
+            key, width = requested?.Width, height = requested?.Height });
+        using var request = new HttpRequestMessage(HttpMethod.Post, new UriBuilder("https", endpoint.Host, 48011, "/v1/displays/session").Uri) {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json")
+        };
+        using var response = await (paired ?? _http).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
+        if (response.StatusCode == HttpStatusCode.Conflict)
+            throw new IOException("Host 无法应用该分辨率，请重新查看当前虚拟屏的可用分辨率。");
+        CheckResponse(response);
+        using var json = JsonDocument.Parse(await ReadBounded(response, 128 * 1024, token));
+        if (!json.RootElement.TryGetProperty("virtualDesktop", out var item) || item.ValueKind != JsonValueKind.Object ||
+            item.Deserialize<VirtualDesktopSettings>(Json) is not { Key.Length: 64, Current: not null, Modes.Length: > 0 } desktop)
+            throw new IOException("当前采集屏未提供可实时调整的虚拟桌面模式。");
+        if (requested != null && (key != desktop.Key || requested.Width != desktop.Current.Width || requested.Height != desktop.Current.Height))
+            throw new IOException("Host 回读的虚拟屏分辨率与所选分辨率不一致。");
+        return desktop;
     }
     public async Task AbortAsync(HostEndpoint endpoint) {
         if (!Streaming.GameStreamHttpClient.PreparedRequests.TryRemove(endpoint.Host, out var id)) return;

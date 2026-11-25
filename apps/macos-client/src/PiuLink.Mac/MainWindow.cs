@@ -47,7 +47,9 @@ public sealed class MainWindow : Window
         var manage = new StackPanel { Spacing = 8 };
         manage.Children.Add(name);
         manage.Children.Add(address);
-        manage.Children.Add(Row(Action("添加主机", AddHost), Action("移除所选主机", RemoveHost)));
+        manage.Children.Add(Row(Action("添加主机", () => AddHost(false)), Action("用邀请链接打洞", () => AddHost(true)), Action("移除所选主机", RemoveHost)));
+        manage.Children.Add(Action("断开所选主机的 P2P 连接", async () => {
+            await HostEndpoint.DisconnectInviteAsync(SelectedHost().InviteLink); status.Text = "P2P 连接已关闭。"; }));
         manageHosts = new Expander { Header = "管理主机", Content = manage, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         controls.Children.Add(Card("我的电脑", hosts, manageHosts));
 
@@ -194,13 +196,14 @@ public sealed class MainWindow : Window
         hosts.ItemsSource = saved.Select(h => $"{h.Name} · {h.Address}").ToArray();
         hosts.SelectedIndex = selected.HasValue ? saved.FindIndex(h => h.Id == selected) : saved.Count > 0 ? 0 : -1;
     }
-    private async Task AddHost()
+    private async Task AddHost(bool useP2p)
     {
         var input = address.Text?.Trim() ?? "";
         var invite = PiuLink.Rendezvous.HostInvite.Parse(input);
-        var endpoint = await HostEndpoint.ResolveAsync(input, token: lifetime.Token);
+        if (useP2p && invite == null) throw new ArgumentException("请粘贴 Host 的完整邀请链接。");
+        var endpoint = await HostEndpoint.ResolveAsync(input, token: lifetime.Token, useP2p: useP2p);
         var title = name.Text?.Trim();
-        if (string.IsNullOrEmpty(title)) title = endpoint.Host;
+        if (string.IsNullOrEmpty(title)) title = IsTunnelEndpoint(endpoint.Host) && invite != null ? $"Host {invite.HostId.ToString("N")[..8]}" : endpoint.Host;
         var existing = saved.FirstOrDefault(h => invite != null && h.InviteLink == invite.Link)
             ?? saved.FirstOrDefault(h => HostEndpoint.Parse(h.Address).MoonlightTarget.Equals(endpoint.MoonlightTarget, StringComparison.OrdinalIgnoreCase) && (invite == null || h.InviteLink == null));
         if (existing != null && invite == null)
@@ -215,6 +218,7 @@ public sealed class MainWindow : Window
     private async Task RemoveHost()
     {
         var host = SelectedHost();
+        await HostEndpoint.DisconnectInviteAsync(host.InviteLink);
         var next = saved.Where(h => h.Id != host.Id).ToList();
         await repository.SaveAsync(next, lifetime.Token);
         saved = next; RenderHosts(); status.Text = "已移除本机的主机记录。";
@@ -279,8 +283,12 @@ public sealed class MainWindow : Window
     private Task<HostEndpoint> ResolveSelectedAsync()
     {
         var host = SelectedHost();
-        return HostEndpoint.ResolveAsync(host.InviteLink ?? host.Address, host.Address, lifetime.Token);
+        return HostEndpoint.ResolveAsync(host.InviteLink ?? host.Address, host.Address, lifetime.Token,
+            useP2p: host.InviteLink != null && IsTunnelEndpoint(host.Address));
     }
+
+    private static bool IsTunnelEndpoint(string address) =>
+        System.Net.IPAddress.TryParse(address, out var ip) && System.Net.IPAddress.IsLoopback(ip);
 
     private Task ShowLogs()
     {

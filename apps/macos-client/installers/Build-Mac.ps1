@@ -19,7 +19,7 @@ public static class MacBundleZip {
             foreach (var file in Directory.EnumerateFiles(app, "*", SearchOption.AllDirectories)) {
                 var relative = Path.GetFileName(app) + "/" + Path.GetRelativePath(app, file).Replace('\\', '/');
                 var entry = archive.CreateEntryFromFile(file, relative, CompressionLevel.Optimal);
-                var executable = Path.GetFileName(file) == "PiuLink.Mac" || file.EndsWith(".dylib", StringComparison.Ordinal);
+                var executable = Path.GetFileName(file) == "PiuLink.Mac" || Path.GetFileName(file) == "piulink-direct" || file.EndsWith(".dylib", StringComparison.Ordinal);
                 entry.ExternalAttributes = unchecked((int)((executable ? 0x81EDu : 0x81A4u) << 16));
             }
         }
@@ -53,7 +53,7 @@ foreach ($rid in $Runtime) {
     if (Test-Path -LiteralPath $bundle) { throw "Output already exists; choose a fresh directory: $bundle" }
     $binaryDirectory = Join-Path $bundle 'Contents/MacOS'
     New-Item -ItemType Directory -Force -Path $binaryDirectory | Out-Null
-    dotnet publish $project -c Release -r $rid --self-contained true -p:UseAppHost=true -p:PublishTrimmed=false -o $binaryDirectory
+    dotnet publish $project -c Release -r $rid --self-contained true -p:UseAppHost=true -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false -o $binaryDirectory
     if ($LASTEXITCODE -ne 0) { throw "Publish failed: $rid" }
     if (!(Test-Path -LiteralPath (Join-Path $binaryDirectory 'PiuLink.Mac'))) { throw 'Missing macOS apphost.' }
     $plist = @"

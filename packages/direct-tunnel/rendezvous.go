@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -19,8 +20,6 @@ import (
 	"github.com/pion/ice/v4"
 	"github.com/pion/stun/v4"
 )
-
-const signalURL = "https://atipiu.org:8443/piulink/v2/exchange"
 
 type description struct {
 	User        string   `json:"user"`
@@ -79,6 +78,10 @@ type rendezvousResult struct {
 
 func physical(name string) bool {
 	name = strings.ToLower(name)
+	// WSL2 guests connect directly to their Windows Host via its Hyper-V gateway.
+	if strings.HasPrefix(name, "vethernet (wsl") {
+		return true
+	}
 	for _, prefix := range []string{"tailscale", "tun", "utun", "meta", "clash", "vethernet", "veth", "docker", "lo", "wg", "dummy", "ipsec"} {
 		if strings.HasPrefix(name, prefix) {
 			return false
@@ -91,8 +94,20 @@ func usableIP(ip net.IP) bool {
 		!(ip.To4() != nil && (ip.To4()[0] == 0 || ip.To4()[0] == 198 && (ip.To4()[1] == 18 || ip.To4()[1] == 19)))
 }
 func rendezvous(ctx context.Context, cfg Config, cert *ephemeralCertificate) (result *rendezvousResult, err error) {
-	stunURL, _ := stun.ParseURI("stun:172.245.182.117:3478")
-	return rendezvousOn(ctx, cfg, cert, directICEConfig(stunURL), signalURL)
+	base, err := ServiceBase(cfg.Lease.ServiceBase)
+	if err != nil {
+		return nil, err
+	}
+	u, _ := url.Parse(base)
+	host := u.Hostname()
+	if base == DefaultService {
+		host = "172.245.182.117"
+	}
+	stunURL, err := stun.ParseURI("stun:" + net.JoinHostPort(host, "3478"))
+	if err != nil {
+		return nil, err
+	}
+	return rendezvousOn(ctx, cfg, cert, directICEConfig(stunURL), base+"v2/exchange")
 }
 
 func directICEConfig(stunURL *stun.URI) *ice.AgentConfig {

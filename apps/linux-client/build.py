@@ -21,7 +21,7 @@ def main():
     with tempfile.TemporaryDirectory(dir=args.output) as stage:
         payload = Path(stage) / "PiuLink"
         subprocess.run(["dotnet", "publish", str(project), "-c", "Release", "-r", args.runtime,
-                        "--self-contained", "true", "-o", str(payload)], check=True)
+                        "--self-contained", "true", "-p:DebugType=None", "-p:DebugSymbols=false", "-o", str(payload)], check=True)
         if not (payload / "PiuLink.Linux").is_file():
             raise FileNotFoundError("Linux apphost missing from publish output")
         staging_archive = Path(stage) / archive.name
@@ -29,7 +29,7 @@ def main():
             for item in sorted(payload.rglob("*")):
                 if item.is_file():
                     info = bundle.gettarinfo(str(item), str(item.relative_to(payload.parent)).replace("\\", "/"))
-                    info.mode = 0o755 if item.name == "PiuLink.Linux" else 0o644
+                    info.mode = 0o755 if item.name in ("PiuLink.Linux", "piulink-direct") else 0o644
                     with item.open("rb") as source:
                         bundle.addfile(info, source)
         staging_archive.rename(archive)
