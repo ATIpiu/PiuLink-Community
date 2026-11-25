@@ -2,9 +2,10 @@ name: Build iOS preview
 on:
   workflow_dispatch:
   push:
-    branches: [main, codex/ios-download]
+    branches: [main, codex/ios-download, codex/p2p-apple-clients]
     paths:
       - 'apps/ios-client/**'
+      - 'packages/direct-tunnel/**'
       - '.github/workflows/ios-preview.yml'
 permissions:
   contents: read
@@ -45,6 +46,7 @@ jobs:
           cp -R "$app" "$stage/Payload/"
           resources="$stage/Payload/$(basename "$app")"
           cp "$RUNNER_TEMP/iphone/LICENSE.txt" "$resources/PiuLink-GPL.txt"
+          cp -R "$RUNNER_TEMP/iphone/PiuLink-Transport-Licenses" "$resources/"
           echo "Source, build recipe and pinned dependencies: https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA/apps/ios-client" > "$resources/PiuLink-Source.txt"
           cd "$stage"
           /usr/bin/zip -qry "$GITHUB_WORKSPACE/PiuLink-iOS-$version-arm64-unsigned.ipa" Payload

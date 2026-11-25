@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -23,12 +25,26 @@ type Role string
 // Lease is the authenticated HTTPS response used to establish one short-lived
 // direct path. TransportKey must never be logged or persisted.
 type Lease struct {
-	LeaseID        string             `json:"leaseId"`
-	Ticket         string             `json:"ticket"`
-	TransportKey   string             `json:"transportKey"`
-	SourceClientID string             `json:"sourceClientId"`
-	HostClientID   string             `json:"hostClientId"`
-	ExpiresAt      time.Time          `json:"expiresAt"`
+	ServiceBase    string    `json:"serviceBase,omitempty"`
+	LeaseID        string    `json:"leaseId"`
+	Ticket         string    `json:"ticket"`
+	TransportKey   string    `json:"transportKey"`
+	SourceClientID string    `json:"sourceClientId"`
+	HostClientID   string    `json:"hostClientId"`
+	ExpiresAt      time.Time `json:"expiresAt"`
+}
+
+const DefaultService = "https://atipiu.org:8443/piulink/"
+
+func ServiceBase(value string) (string, error) {
+	if value == "" {
+		return DefaultService, nil
+	}
+	u, err := url.Parse(value)
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.EscapedPath() != "/piulink/" || strings.ContainsAny(value, "\\#?") {
+		return "", errors.New("invalid HTTPS invitation service")
+	}
+	return u.String(), nil
 }
 
 type Config struct {
