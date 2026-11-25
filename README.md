@@ -2,6 +2,10 @@
 
 PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑，远程使用桌面和应用，也可以用手柄玩游戏。主机端基于 Sunshine，客户端兼容 Moonlight。分辨率、画面比例和帧率取决于显示器、编解码硬件和网络条件。
 
+[![播放 PiuLink 产品短片《让你的电脑，随时回到身边》，时长 1 分 03 秒](sites/downloads/static/media/film-banner.jpg)](https://atipiu.github.io/PiuLink-Community/#film)
+
+[观看短片（1:03）](https://atipiu.github.io/PiuLink-Community/#film) · [前往官网下载](https://atipiu.github.io/PiuLink-Community/#downloads)
+
 ## 下载与连接
 
 | 使用设备 | 安装包 |
@@ -28,9 +32,9 @@ PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑
 | Windows Host | 捕获桌面和应用、配对客户端、选择实体或虚拟屏、恢复显示布局。支持配对设备传文件和兼容录音设备上的麦克风回传。 |
 | Windows Client | 管理主机、启动桌面与游戏、设置串流画质，提供图形界面和命令行。 |
 | Android 手机、平板、电视 | 桌面和游戏串流、键鼠、触控、手柄。手机和平板另有桌面快捷栏、文件互传、麦克风回传和 SSH 终端。 |
-| Linux Host / Client | 主机端支持 X11 与无头配置；图形客户端通过已安装的 Moonlight Qt 启动串流。具体环境要求见平台说明。 |
-| macOS | 未在 Mac 真机上验证。当前提供未签名、未公证的预览包，依赖 Moonlight.app。 |
-| iOS | 未在 iPhone 或 iPad 真机上验证。当前仅提供源码，需在 Mac 上用 Xcode 编译和签名。 |
+| Linux Host / Client | 控制端提供 amd64 和 arm64 的 DEB 及便携压缩包，需另装 Moonlight Qt。Ubuntu 26.04 amd64 被控端也提供 DEB 及压缩包。 |
+| macOS | 0.1.7 支持邀请链接 P2P 打洞。未在 Mac 真机上验证。当前提供未签名、未公证的预览包，依赖 Moonlight.app。 |
+| iOS / iPadOS | 0.1.1 支持邀请链接 P2P 打洞。下载页提供 Xcode 构建的 ARM64 未签名 IPA，支持 iOS / iPadOS 15 及以上。安装到设备前需自行签名，尚未在 iPhone 或 iPad 上实测。 |
 
 主播目前预算有限，手头没有用于实测的苹果设备。
 
