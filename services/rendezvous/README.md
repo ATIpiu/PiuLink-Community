@@ -1,17 +1,21 @@
-# PiuLink 邀请服务
+# 自建 PiuLink 打洞服务
 
-这个 Go 服务保存短期主机地址记录，并协助已配对设备协商直连。HTTP 接口监听 `127.0.0.1:5086`，IPv4 STUN 监听 UDP 3478。音视频由设备直接传输。当前发布版客户端使用内置邀请域名，自行部署其他域名时需要相应配置或构建兼容客户端。
+这台服务器负责登记 Host 地址、交换短期 ICE 信令和响应 STUN Binding。串流建立后，画面、声音和输入直接在两台设备间传输。当前协议没有 TURN 中继；两端没有可用的直连路径时，连接会失败。
 
-## 构建与运行
+准备一台装有 systemd、Caddy、Python 3、curl 和 Go 1.22 或更新版本的 Linux 服务器。将自己的域名解析到 VPS，允许入站 TCP 443 和 UDP 3478。使用 Caddy 的 HTTP 证书验证时，还需要开放 TCP 80。使用自定义 HTTPS 端口时，在下面的地址和防火墙中均指定该端口。
 
-从 `services/rendezvous/` 运行：
+在本目录构建并安装。将示例域名换成自己的域名。
 
 ```sh
 go test ./...
 go build -trimpath -o server .
-./server
+sudo env PIULINK_PUBLIC_URL=https://connect.example.org sh install.sh
+systemctl status piulink-rendezvous
+curl -fsS https://connect.example.org/piulink/join
 ```
 
-Linux x86-64 预构建包包含同一源码构建的 `server`、systemd 单元和 Caddy 路由片段。单元的启动路径为 `/usr/local/lib/piulink-rendezvous/server`。使用自己的域名提供 HTTPS，并在对应的 Caddy 站点导入 `routes.caddy`。仓库中的 `install.sh` 是官方部署环境的维护脚本。协议和连接条件见[直连邀请](../../docs/rendezvous.md)。
+在 Windows Host 的「连接信息 → 打洞服务与邀请历史」填写 `https://connect.example.org/piulink/`。如已有邀请，先关闭该邀请，再保存新服务地址并生成新链接。客户端粘贴完整链接即可选择同一台服务器。默认服务此前发出的活动邀请可继续使用。自建服务使用该域名的 UDP 3478 做 STUN。
 
-自有服务代码适用 [PolyForm Noncommercial 1.0.0](../../licenses/PolyForm-Noncommercial-1.0.0.txt)。
+邀请可重复使用。请只分享给信任的人。服务运营者能看到两端的网络地址，首次配对需要 Host 确认，已配对设备可凭已保存的证书再次连接。关闭邀请会停止本机处理新的打洞请求，并结束由它维护的会话。要移除设备权限，还需在 Host 中移除配对。
+
+安装器备份现有 Caddy 配置、服务文件和二进制，再校验配置并检查 HTTPS；失败时回滚。登记和打洞票据只保存在服务端内存中，重启后由在线 Host 自动重新登记。
