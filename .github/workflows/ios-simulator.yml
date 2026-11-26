@@ -36,21 +36,20 @@ jobs:
           sleep 8
           xcrun simctl spawn "$device" launchctl list | awk '/labs[.]atipiu[.]piulink[.]ios/ && $1 ~ /^[0-9]+$/ {alive=1} END{exit !alive}'
           xcrun simctl io "$device" screenshot "$RUNNER_TEMP/startup.png"
-      - name: Test settings, host entry and diagnostics confirmation
+      - name: Exercise native controls with XCTest
+        working-directory: apps/ios-client/simulator-tests
         run: |
           set -euo pipefail
-          cd "$RUNNER_TEMP"
-          curl -fsSL --retry 3 https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.12.1/maestro.zip -o maestro.zip
-          echo "54dbb0716425626604973cbb374c585ca30272375d9ce15177a1152765ddd9d7  maestro.zip" | shasum -a 256 -c -
-          unzip -q maestro.zip
-          export JAVA_HOME=$(/usr/libexec/java_home -v 17)
-          if [[ ! -d "$JAVA_HOME" ]]; then export JAVA_HOME=$(/usr/libexec/java_home -v 17); fi
-          ./maestro/bin/maestro test --test-output-dir "$RUNNER_TEMP/ui" "$GITHUB_WORKSPACE/apps/ios-client/simulator-flow.yaml"
+          command -v xcodegen || brew install xcodegen
+          xcodegen generate
+          device=$(xcrun simctl list devices booted -j | python3 -c 'import sys,json; print(next(d["udid"] for ds in json.load(sys.stdin)["devices"].values() for d in ds if d["state"]=="Booted"))')
+          xcodebuild -quiet test -scheme Checks -destination "id=$device" -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/Checks.xcresult"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: ios-ui
           path: |
             ${{ runner.temp }}/startup.png
-            ${{ runner.temp }}/ui/
+            ${{ runner.temp }}/Checks.xcresult/
+
 

@@ -1,0 +1,29 @@
+name: PiuLinkChecks
+settings:
+  base:
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    GENERATE_INFOPLIST_FILE: YES
+targets:
+  Harness:
+    type: application
+    platform: iOS
+    sources: [Host]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: labs.atipiu.piulink.testhost
+  Checks:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: Harness
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: labs.atipiu.piulink.checks
+      TEST_TARGET_NAME: Harness
+schemes:
+  Checks:
+    build:
+      targets:
+        Harness: all
+        Checks: [test]
+    test:
+      targets: [Checks]
