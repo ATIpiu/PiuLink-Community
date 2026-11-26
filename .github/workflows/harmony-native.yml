@@ -1,0 +1,301 @@
+name: Build PiuLink native HarmonyOS client
+on:
+  push:
+    branches: [codex/harmony-native]
+    paths: ['apps/harmony-client/**', '.github/workflows/harmony-native.yml']
+permissions:
+  contents: read
+env:
+  NODE_OPTIONS: '--max_old_space_size=8192'
+  SDK_VERSION: '7.0-Release'
+  CI_TARGET_API_VERSION: '26'
+  CMDLINE_TOOLS_VERSION: '5.1.0.840'
+  HVIGOR_VERSION: '6.26.8'
+  CACHE_VERSION: 'v10'
+  # float-to-int cast fix (PR moonlight-audio-haptics#5)
+  AUDIO_HAPTICS_SDK_REF: 'afbbedf19e8ca1616c5c0b6a63051cc1f1723818'
+
+jobs:
+  build:
+    name: Build (${{ github.event.inputs.build_type || 'debug' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: native
+
+    steps:
+    # ── 基础环境 ──
+    - uses: actions/checkout@v4
+      with:
+        path: piulink
+        persist-credentials: false
+    - uses: actions/checkout@v4
+      with:
+        repository: AlkaidLab/moonlight-harmony
+        ref: f9aabcc9d44234d7b9abd5927af855952aaa4283
+        submodules: recursive
+        persist-credentials: false
+        path: native
+    - name: Apply PiuLink port
+      run: git apply ../piulink/apps/harmony-client/piulink.patch
+    - name: Setup Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Run repository checks
+      run: npm run check
+
+    - name: Test SDK patch
+      run: bash ci/test-patch-sdk.sh
+
+    - name: Checkout audio haptics SDK
+      uses: actions/checkout@v4
+      with:
+        repository: AlkaidLab/moonlight-audio-haptics
+        ref: ${{ env.AUDIO_HAPTICS_SDK_REF }}
+        path: native/audio-haptics-sdk
+        fetch-depth: 1
+        persist-credentials: false
+
+    - name: Setup Java 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    # ── SDK 下载 & 缓存 ──
+    - name: Cache OHOS SDK & tools
+      id: cache-sdk
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/ohos-sdk
+          ~/cmdline-tools
+        key: ohos-${{ env.SDK_VERSION }}-tools-${{ env.CMDLINE_TOOLS_VERSION }}-${{ env.CACHE_VERSION }}
+
+    - name: Download OHOS SDK
+      if: steps.cache-sdk.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        SDK_URL="https://repo.huaweicloud.com/harmonyos/os/${{ env.SDK_VERSION }}/ohos-sdk-windows_linux-public_20260829.tar.gz"
+        mkdir -p ~/ohos-sdk && cd ~/ohos-sdk
+        curl -L --retry 3 --retry-delay 10 -o sdk.tar.gz "$SDK_URL" --progress-bar --fail
+        tar -xzf sdk.tar.gz && rm sdk.tar.gz
+        # 7.0 包解压后组件 zip 在 ohos-sdk/linux/ 下（多一层顶层目录），6.x 直接在 linux/
+        LINUX_DIR=$(find . -maxdepth 2 -type d -name linux | head -1)
+        if [ -n "$LINUX_DIR" ]; then
+          for zip in "$LINUX_DIR"/*.zip; do
+            [ -f "$zip" ] && unzip -q -o "$zip" -d .
+          done
+          rm -rf ohos-sdk linux windows
+        fi
+
+    - name: Download command-line-tools
+      if: steps.cache-sdk.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        TOOLS_VER="${{ env.CMDLINE_TOOLS_VERSION }}"
+        TOOLS_PREFIX="${TOOLS_VER%.*}"
+        TOOLS_URL="https://repo.huaweicloud.com/harmonyos/ohpm/${TOOLS_PREFIX}/commandline-tools-linux-x64-${TOOLS_VER}.zip"
+        cd ~
+        curl -L --retry 3 --retry-delay 10 -o cmdline-tools.zip "$TOOLS_URL" --progress-bar --fail
+        unzip -q cmdline-tools.zip
+        [ -d "command-line-tools" ] && mv command-line-tools ~/cmdline-tools
+        rm -f cmdline-tools.zip
+        chmod -R +x ~/cmdline-tools/ohpm/bin/ 2>/dev/null || true
+
+    # ── SDK 结构修正 & 补丁 ──
+    - name: Normalize SDK layout
+      run: |
+        chmod +x ci/normalize-sdk.sh
+        OUTPUT=$(ci/normalize-sdk.sh ~/ohos-sdk)
+        echo "$OUTPUT"
+        API_VER=$(echo "$OUTPUT" | grep "SDK_API_VERSION=" | cut -d= -f2)
+        TARGET_SDK_VERSION=$(echo "$OUTPUT" | grep "HOS_TARGET_SDK_VERSION=" | cut -d= -f2)
+        echo "SDK_API_VERSION=$API_VER" >> "$GITHUB_ENV"
+        echo "TARGET_SDK_VERSION=$TARGET_SDK_VERSION" >> "$GITHUB_ENV"
+        echo "Target SDK version: $TARGET_SDK_VERSION"
+
+    - name: Setup environment
+      run: |
+        SDK_HOME=~/ohos-sdk
+        NATIVE_DIR="$(find "$SDK_HOME" -maxdepth 3 -name "native" -type d | head -1)"
+        TOOLCHAINS_DIR="$(find "$SDK_HOME" -maxdepth 3 -name "toolchains" -type d | head -1)"
+        [ -n "$TOOLCHAINS_DIR" ] && echo "$TOOLCHAINS_DIR" >> "$GITHUB_PATH"
+        [ -n "$NATIVE_DIR" ] && echo "${NATIVE_DIR}/build-tools/cmake/bin" >> "$GITHUB_PATH"
+        echo "$HOME/cmdline-tools/ohpm/bin" >> "$GITHUB_PATH"
+        echo "$HOME/cmdline-tools/hvigor/bin" >> "$GITHUB_PATH"
+        {
+          echo "OHOS_SDK_HOME=$SDK_HOME"
+          echo "HOS_SDK_HOME=$SDK_HOME"
+          echo "OHOS_BASE_SDK_HOME=$SDK_HOME"
+          echo "DEVECO_SDK_HOME=$SDK_HOME"
+        } >> "$GITHUB_ENV"
+
+    - name: Test custom input and sharing
+      run: |
+        set -euo pipefail
+        TS_PATH=$(find "$DEVECO_SDK_HOME" -path '*/ets/build-tools/ets-loader/node_modules/typescript/lib/typescript.js' -print -quit)
+        test -n "$TS_PATH"
+        npm run test:mouse-look -- "$TS_PATH"
+        npm run test:key-menu -- "$TS_PATH"
+
+    # ── build-profile.json5 ──
+    - name: Create build profile (unsigned)
+
+      run: |
+        cat > build-profile.json5 << EOF
+        {
+          "app": {
+            "signingConfigs": [],
+            "products": [
+              {
+                "name": "default",
+                "compatibleSdkVersion": "5.0.0(12)",
+                "compileSdkVersion": "${TARGET_SDK_VERSION}",
+                "targetSdkVersion": "${TARGET_SDK_VERSION}",
+                "runtimeOS": "HarmonyOS",
+                "buildOption": {
+                  "strictMode": {
+                    "caseSensitiveCheck": true,
+                    "useNormalizedOHMUrl": true
+                  }
+                }
+              }
+            ],
+            "buildModeSet": [
+              { "name": "debug" },
+              { "name": "release" }
+            ]
+          },
+          "modules": [
+            {
+              "name": "entry",
+              "srcPath": "./entry",
+              "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+            },
+            {
+              "name": "nativelib",
+              "srcPath": "./nativelib",
+              "targets": [{ "name": "default" }]
+            }
+          ]
+        }
+        EOF
+
+    # ── 依赖安装 ──
+    - name: Cache ohpm packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          oh_modules
+          entry/oh_modules
+          nativelib/oh_modules
+          ~/.ohpm
+        key: ohpm-${{ hashFiles('**/oh-package.json5') }}
+        restore-keys: ohpm-
+
+    - name: Setup hvigor
+      run: |
+        set -euo pipefail
+        # @ohos/hvigor 只在华为开发者 npm 源发布（repo.harmonyos.com），
+        # huaweicloud 镜像没有该包（packument 404）
+        echo "@ohos:registry=https://repo.harmonyos.com/npm/" > ~/.npmrc
+        # HarmonyOS 7.0(API 26) SDK 需要 hvigor 6.26+；cmdline-tools 5.1 内置的 6.24 不认识 26
+        # 从 npm 安装与 SDK 匹配的 hvigor 插件，替换 cmdline-tools 内置版本
+        npm install --prefix "$HOME/hvigor-dist" --no-audit --no-fund \
+          "@ohos/hvigor@${{ env.HVIGOR_VERSION }}" \
+          "@ohos/hvigor-ohos-plugin@${{ env.HVIGOR_VERSION }}"
+        HVIGOR_SRC="$HOME/hvigor-dist/node_modules/@ohos"
+        for dir in . hvigor entry nativelib; do
+          mkdir -p "$dir/node_modules/@ohos"
+          ln -sf "$HVIGOR_SRC/hvigor" "$dir/node_modules/@ohos/hvigor"
+          ln -sf "$HVIGOR_SRC/hvigor-ohos-plugin" "$dir/node_modules/@ohos/hvigor-ohos-plugin"
+        done
+
+    - name: Install ohpm dependencies
+      run: |
+        ohpm config set registry https://ohpm.openharmony.cn/ohpm/
+
+        ohpm install --all
+
+    # ── SDK 补丁 ──
+    - name: Patch SDK
+      run: |
+        chmod +x ci/patch-sdk.sh
+        ci/patch-sdk.sh ~/ohos-sdk
+
+    # ── 构建 ──
+    - name: Build Native HAR
+      run: |
+        set -o pipefail
+        BUILD_MODE="debug"
+
+        export NODE_HOME="$(dirname "$(dirname "$(which node)")")"
+        export JAVA_HOME="${JAVA_HOME_17_X64}"
+        export LD_LIBRARY_PATH="${HOME}/ohos-sdk/toolchains/lib:${HOME}/ohos-sdk/previewer/common/bin:${LD_LIBRARY_PATH:-}"
+
+        node hvigorw.js assembleHar \
+          --mode module \
+          -p module=nativelib@default \
+          -p product=default \
+          -p buildMode="${BUILD_MODE}" \
+          --no-daemon \
+          --stacktrace \
+          2>&1 | tee build-har.log
+
+    - name: Build App
+      run: |
+        set -o pipefail
+        BUILD_MODE="debug"
+
+        export NODE_HOME="$(dirname "$(dirname "$(which node)")")"
+        export JAVA_HOME="${JAVA_HOME_17_X64}"
+        export LD_LIBRARY_PATH="${HOME}/ohos-sdk/toolchains/lib:${HOME}/ohos-sdk/previewer/common/bin:${LD_LIBRARY_PATH:-}"
+
+        node hvigorw.js assembleApp \
+          --mode project \
+          -p product=default \
+          -p buildMode="${BUILD_MODE}" \
+          --no-daemon \
+          --stacktrace \
+          2>&1 | tee build-hap.log
+
+    - name: Verify RCP runtime module in HAP
+      run: |
+        shopt -s globstar nullglob
+        haps=(entry/build/default/outputs/**/*.hap)
+        if (( ${#haps[@]} == 0 )); then
+          echo 'No HAP produced' >&2
+          exit 1
+        fi
+        for hap in "${haps[@]}"; do
+          python3 ci/check-rcp-module.py "$hap"
+        done
+
+    # ── 清理 & 上传 ──
+    - name: Upload build logs on failure
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: build-logs-${{ github.run_id }}
+        path: |
+          native/build-har.log
+          native/build-hap.log
+        retention-days: 7
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      if: success()
+      with:
+        name: harmonyos-debug-${{ github.run_id }}
+        path: |
+          native/entry/build/default/outputs/**/*.hap
+
+        if-no-files-found: error
+        retention-days: 7
+
+  # Signed release artifacts are produced when signing secrets are configured.
+

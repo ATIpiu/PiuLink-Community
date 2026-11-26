@@ -1,0 +1,113 @@
+diff --git a/AppScope/app.json5 b/AppScope/app.json5
+index 9224f42..adf61fb 100644
+--- a/AppScope/app.json5
++++ b/AppScope/app.json5
+@@ -1,9 +1,9 @@
+ {
+   "app": {
+-    "bundleName": "com.alkaidlab.sdream",
+-    "vendor": "Moonlight",
+-    "versionCode": 1000825,
+-    "versionName": "1.0.0.825",
++    "bundleName": "labs.atipiu.piulink.harmony",
++    "vendor": "ATIpiu",
++    "versionCode": 1,
++    "versionName": "0.1.0",
+     "icon": "$media:layered_icon",
+     "label": "$string:app_name",
+     "bundleType": "app",
+diff --git a/AppScope/resources/base/element/string.json b/AppScope/resources/base/element/string.json
+index 0024e71..819682c 100644
+--- a/AppScope/resources/base/element/string.json
++++ b/AppScope/resources/base/element/string.json
+@@ -2,7 +2,7 @@
+   "string": [
+     {
+       "name": "app_name",
+-      "value": "Moonlight V+"
++      "value": "PiuLink"
+     }
+   ]
+ }
+diff --git a/entry/src/main/ets/pages/AddPcPageV2.ets b/entry/src/main/ets/pages/AddPcPageV2.ets
+index 1bf5c85..0d81e24 100644
+--- a/entry/src/main/ets/pages/AddPcPageV2.ets
++++ b/entry/src/main/ets/pages/AddPcPageV2.ets
+@@ -360,8 +360,8 @@ struct AddPcPageV2 {
+             .backgroundColor(Color.Transparent)
+             .onChange((value: string) => {
+               this.ipAddress = value;
+-              this.validateInput();
+               this.errorMessage = '';
++              this.validateInput();
+             })
+             .onSubmit(() => {
+               if (this.isValidInput) {
+@@ -537,6 +537,11 @@ struct AddPcPageV2 {
+   private validateInput(): void {
+     const value = this.ipAddress.trim();
+     
++    if (value.includes('://') || /[/?#@]/.test(value)) {
++      this.isValidInput = false;
++      this.errorMessage = '请输入 PiuLink Host 的 IP 地址或主机名。此版本仅支持地址配对。';
++      return;
++    }
+     if (!value) {
+       this.isValidInput = false;
+       return;
+diff --git a/entry/src/main/ets/pages/PcListPageV2.ets b/entry/src/main/ets/pages/PcListPageV2.ets
+index 62b0973..3a89120 100644
+--- a/entry/src/main/ets/pages/PcListPageV2.ets
++++ b/entry/src/main/ets/pages/PcListPageV2.ets
+@@ -609,13 +609,13 @@ struct PcListPageV2 {
+         .fontColor(AppColors.Primary)
+         .margin({ bottom: AppSpacing.Small })
+ 
+-      Text('自动发现局域网内运行 Foundation Sunshine 的电脑')
++      Text('查找同一局域网内运行 PiuLink Host 的电脑')
+         .fontSize(AppSizes.FontBody)
+         .fontColor(AppColors.TextSecondary)
+         .textAlign(TextAlign.Center)
+         .padding({ left: AppSpacing.XXLarge, right: AppSpacing.XXLarge })
+ 
+-      Text('或手动输入 IP 地址添加')
++      Text('模拟器未发现主机时，可手动输入被控电脑的局域网地址')
+         .fontSize(AppSizes.FontCaption)
+         .fontColor(AppColors.TextTertiary)
+         .margin({ top: AppSpacing.Small })
+diff --git a/entry/src/main/ets/service/streaming/BackgroundStreamService.ets b/entry/src/main/ets/service/streaming/BackgroundStreamService.ets
+index ec134b1..8d4b5f3 100644
+--- a/entry/src/main/ets/service/streaming/BackgroundStreamService.ets
++++ b/entry/src/main/ets/service/streaming/BackgroundStreamService.ets
+@@ -267,7 +267,7 @@ export class BackgroundStreamService {
+       // 创建 WantAgent（点击通知时跳转回应用）
+       const wantAgentInfo: wantAgent.WantAgentInfo = {
+         wants: [{
+-          bundleName: 'com.alkaidlab.sdream',
++          bundleName: 'labs.atipiu.piulink.harmony',
+           abilityName: 'EntryAbility'
+         }],
+         actionType: wantAgent.OperationType.START_ABILITY,
+diff --git a/entry/src/main/resources/base/element/string.json b/entry/src/main/resources/base/element/string.json
+index fcfea8d..789d053 100644
+--- a/entry/src/main/resources/base/element/string.json
++++ b/entry/src/main/resources/base/element/string.json
+@@ -2,15 +2,15 @@
+   "string": [
+     {
+       "name": "module_desc",
+-      "value": "Moonlight V+ 主模块"
++      "value": "PiuLink 主模块"
+     },
+     {
+       "name": "EntryAbility_desc",
+-      "value": "Moonlight V+ 游戏串流客户端"
++      "value": "PiuLink 游戏串流客户端"
+     },
+     {
+       "name": "EntryAbility_label",
+-      "value": "Moonlight V+"
++      "value": "PiuLink"
+     },
+     {
+       "name": "streaming_service_desc",
