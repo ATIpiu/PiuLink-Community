@@ -43,6 +43,41 @@ final class ClientChecks: XCTestCase {
         XCTAssertTrue(fps.isSelected)
     }
 
+    func testSettingsControls() {
+        app.buttons["Settings"].tap()
+        let controls = app.segmentedControls
+        XCTAssertGreaterThanOrEqual(controls.count, 10)
+        var checked: [String] = []
+        for index in 0..<controls.count {
+            let control = controls.element(boundBy: index)
+            let choices = control.buttons.allElementsBoundByIndex
+            guard let original = choices.first(where: { $0.isSelected }) else { continue }
+            // Scroll inside the settings drawer, keeping the host list stationary.
+            for _ in 0..<12 where !original.isHittable {
+                let pane = app.scrollViews.containing(.segmentedControl, identifier: nil).firstMatch
+                guard pane.exists else { break }
+                pane.swipeUp()
+            }
+            guard original.isHittable else { continue }
+            for choice in choices where choice.isHittable && choice.isEnabled && !choice.isSelected {
+                let name = choice.label
+                choice.tap()
+                let alert = app.alerts.firstMatch
+                if alert.exists {
+                    if alert.buttons["Cancel"].exists { alert.buttons["Cancel"].tap() }
+                    else if alert.buttons["OK"].exists { alert.buttons["OK"].tap() }
+                }
+                if name != "Custom" { XCTAssertTrue(choice.isSelected, "Setting: " + name) }
+                checked.append("\(index):\(name)")
+            }
+            if original.isHittable && !original.isSelected { original.tap() }
+        }
+        let output = XCTAttachment(string: checked.joined(separator: "\n"))
+        output.name = "Settings options exercised"
+        output.lifetime = .keepAlways
+        add(output)
+        XCTAssertGreaterThan(checked.count, 10)
+    }
     func testUploadReceipt() {
         app.buttons["日志"].tap()
         app.alerts.buttons["上传"].tap()
@@ -86,3 +121,4 @@ final class ClientChecks: XCTestCase {
         add(shot)
     }
 }
+
