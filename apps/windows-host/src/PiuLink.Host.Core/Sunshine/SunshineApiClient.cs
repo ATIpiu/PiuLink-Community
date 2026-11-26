@@ -139,6 +139,33 @@ public sealed class SunshineApiClient : IDisposable
         return state.RootElement.GetProperty("activeStreams").GetInt32();
     }
 
+    public async Task<(int Streams, bool LiveVideoResize, bool LiveVideoFrameRate)> GetDisplaySessionStatusAsync(string username, string password, CancellationToken token)
+    {
+        using var state = await GetJsonAsync("api/piulink/state", username, password, token);
+        var root = state.RootElement;
+        return (root.GetProperty("activeStreams").GetInt32(), root.TryGetProperty("liveVideoResize", out var value) && value.ValueKind == JsonValueKind.True,
+            root.TryGetProperty("liveVideoFrameRate", out var rate) && rate.ValueKind == JsonValueKind.True);
+    }
+
+    public sealed record VideoSize(int Width, int Height, int Fps = 0);
+
+    public async Task<VideoSize> LiveVideoModeAsync(string sessionId, string owner, string username, string password,
+        VideoSize? desired, CancellationToken token)
+    {
+        using var request = CreateRequest(HttpMethod.Post, "api/piulink/prepared", username, password);
+        request.Content = JsonContent.Create(new { requestId = sessionId, owner, action = desired == null ? "video-size" : "resize-video",
+            width = desired?.Width ?? 0, height = desired?.Height ?? 0, fps = desired?.Fps ?? 0 });
+        using var response = await _httpClient.SendAsync(request, token);
+        response.EnsureSuccessStatusCode();
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+        var actual = new VideoSize(json.RootElement.GetProperty("width").GetInt32(), json.RootElement.GetProperty("height").GetInt32(),
+            json.RootElement.TryGetProperty("fps", out var rate) ? rate.GetInt32() : 0);
+        if (actual.Width <= 0 || actual.Height <= 0 || (desired != null && (actual.Width != desired.Width || actual.Height != desired.Height ||
+            (desired.Fps > 0 && actual.Fps != desired.Fps))))
+            throw new InvalidDataException("Encoder did not confirm the requested video dimensions.");
+        return actual;
+    }
+
     public async Task CloseCurrentApplicationAsync(
         string username,
         string password,

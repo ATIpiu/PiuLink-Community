@@ -16,6 +16,7 @@
         <Button Content="Refresh" Click="Refresh_Click" Margin="0,0,8,0" />
         <Button Content="Copy" Click="Copy_Click" Margin="0,0,8,0" />
         <Button Content="Open folder" Click="OpenFolder_Click" Margin="0,0,8,0" />
+        <Button Content="上传连接与崩溃日志" Click="Upload_Click" Margin="0,0,8,0" />
         <Button Content="Clear" Click="Clear_Click" />
       </WrapPanel>
     </Grid>

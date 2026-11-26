@@ -101,6 +101,10 @@
             </Directory>
           </Directory>
           <?endif?>
+          <Component Id="PiuLinkWebAccessFirewall" Guid="50F1A9CA-F63D-4AD4-B473-22F36939E3A8">
+            <firewall:FirewallException Id="WebAccessDirectUdp" Name="PiuLink browser direct access"
+                Program="[INSTALLFOLDER]piulink-web-host.exe" Port="52620-52635" Protocol="udp" Profile="all" Scope="any" />
+          </Component>
           <Component Id="PiuLinkDisplayCompanionFirewall" Guid="EAC7BD67-C084-43DF-88F2-C20D711C2C80">
             <firewall:FirewallException Id="DisplayCompanionFirewallException"
                                         Name="PiuLink display discovery"

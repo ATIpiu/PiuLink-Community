@@ -2,7 +2,7 @@
   "repository": "https://github.com/LizardByte/Sunshine.git",
   "tag": "v2026.516.143833",
   "commit": "14ffa6fdaa53f7b51512be2b3d24f3939695403c",
-  "engineVersion": "2026.516.143833-piulink.15",
+  "engineVersion": "2026.516.143833-piulink.17",
   "protocolVersion": 2,
   "releaseReady": false,
   "patches": [
@@ -18,7 +18,9 @@
     "patches/0012-session-capture-output.patch",
     "patches/0013-live-capture-switch.patch",
     "patches/0014-sdr-white-level.patch",
-    "patches/0015-engine-bugfixes.patch"
+    "patches/0015-engine-bugfixes.patch",
+    "patches/0016-live-video-resolution.patch",
+    "patches/0017-live-stream-framerate.patch"
   ],
   "dependencyPatches": [
     {

@@ -9,7 +9,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using PiuLink.Desktop;
@@ -109,6 +108,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        ConfigureArtwork();
         Loaded += (_, _) => RestoreInvite();
         Closed += (_, _) => _inviteSession?.Cancel();
         // One-time cleanup for the retired paired PowerShell server preference.
@@ -352,6 +352,8 @@ public partial class MainWindow : Window
         }
     }
 
+    private static string UiText(string source) => LocalizationService.Instance.TranslateLiteral(source);
+
     private static void LocalizeProperty(DependencyObject target, DependencyProperty property)
     {
         if (BindingOperations.IsDataBound(target, property) || target.GetValue(property) is not string source)
@@ -414,8 +416,8 @@ public partial class MainWindow : Window
         HeroStatusDescription.Text = "PiuLink is checking networking and streaming services.";
         DiagnosticsOverallStatus.Text = "Running all checks…";
         DiagnosticsCheckedAt.Text = "Checking now";
-        TailscaleGuideStatusText.Text = "Checking";
-        TailscaleGuideStatusDetail.Text = "Checking whether Tailscale is installed…";
+        TailscaleGuideStatusText.Text = UiText("Checking");
+        TailscaleGuideStatusDetail.Text = UiText("Checking whether Tailscale is installed…");
         _trayNetworkStatus.Text = "Private network · Checking";
         _traySunshineStatus.Text = "Streaming host · Checking";
 
@@ -445,10 +447,11 @@ public partial class MainWindow : Window
         OverallStatus.Foreground = overallBrush;
         OverallStatusDot.Background = overallBrush;
         HeroStatusGlyph.Text = snapshot.IsReady ? "✓" : "!";
+        HeroStatusGlyph.Foreground = overallBrush;
+        HeroStatusGlyphSurface.Background = ResourceBrush(snapshot.IsReady ? "SuccessFillBrush" : "WarningFillBrush");
         HeroStatusTitle.Text = LocalizationService.Instance.TranslateLiteral(snapshot.IsReady ? "Your host is ready" : "A few things need attention");
-        HeroStatusDescription.Text = LocalizationService.Instance.TranslateLiteral(snapshot.IsReady
-            ? "Use the private address to connect securely from a PiuLink client."
-            : "Review the service cards below. PiuLink will point you to the missing setup.");
+        HeroStatusDescription.Text = snapshot.IsReady ? snapshot.DeviceName :
+            LocalizationService.Instance.TranslateLiteral("Review the service cards below. PiuLink will point you to the missing setup.");
 
         DeviceText.Text = snapshot.DeviceName;
         SystemText.Text = $"{snapshot.WindowsVersion} · {snapshot.Architecture}";
@@ -470,11 +473,11 @@ public partial class MainWindow : Window
 
         var sunshineInstalled = snapshot.Sunshine.State != ComponentState.Missing;
         SunshineNativeStatusDot.Background = StateBrush(snapshot.Sunshine.State);
-        SunshineNativeStatusText.Text = sunshineInstalled ? "Detected" : "Not installed";
+        SunshineNativeStatusText.Text = UiText(sunshineInstalled ? "Detected" : "Not installed");
         SunshineNativeStatusText.Foreground = StateBrush(snapshot.Sunshine.State);
-        SunshineNativeStatusDetail.Text = sunshineInstalled
+        SunshineNativeStatusDetail.Text = UiText(sunshineInstalled
             ? "Sunshine is available locally. Connect below to manage it inside PiuLink."
-            : "Sunshine was not found. Install the verified bundled component below without leaving PiuLink.";
+            : "Sunshine was not found. Install the verified bundled component below without leaving PiuLink.");
         SunshineInstallCard.Visibility = sunshineInstalled
             ? Visibility.Collapsed
             : Visibility.Visible;
@@ -506,17 +509,21 @@ public partial class MainWindow : Window
             ? "Set up in PiuLink"
             : "Manage in PiuLink");
 
-        ConnectionText.Text = snapshot.ConnectionSummary;
+        var addresses = snapshot.LanAddresses?.ToList() ?? [];
+        if (snapshot.Tailscale.IsReady && !string.IsNullOrWhiteSpace(snapshot.TailscaleIp))
+            addresses.Add("Tailscale · " + snapshot.TailscaleIp);
+        ConnectionText.Text = addresses.Count > 0 ? string.Join("   ·   ", addresses) :
+            LocalizationService.Instance.Translate("Section.NoAddress");
         CopyButton.Content = LocalizationService.Instance.TranslateLiteral("Copy connection info");
         CopyButton.IsEnabled = true;
         ExportButton.Content = LocalizationService.Instance.TranslateLiteral("Export report");
         ExportButton.IsEnabled = true;
 
-        DiagnosticsOverallStatus.Text = snapshot.IsReady
+        DiagnosticsOverallStatus.Text = LocalizationService.Instance.TranslateLiteral(snapshot.IsReady
             ? "All required checks passed"
-            : "Some checks need your attention";
+            : "Some checks need your attention");
         DiagnosticsOverallStatus.Foreground = overallBrush;
-        DiagnosticsCheckedAt.Text = $"Checked {snapshot.CheckedAt.ToLocalTime():MMM d, HH:mm}";
+        DiagnosticsCheckedAt.Text = snapshot.CheckedAt.ToLocalTime().ToString("g");
 
         RenderDiagnostic(
             snapshot.Tailscale,
@@ -560,46 +567,48 @@ public partial class MainWindow : Window
 
     private void RenderTailscaleGuide(HostSnapshot snapshot)
     {
+        if (NetworkSetupSection.ReadLocalValue(Expander.IsExpandedProperty) == DependencyProperty.UnsetValue)
+            NetworkSetupSection.IsExpanded = snapshot.Tailscale.State == ComponentState.Missing;
         var installed = snapshot.Tailscale.State != ComponentState.Missing;
         var connected = snapshot.Tailscale.State == ComponentState.Ready;
         var stateBrush = StateBrush(snapshot.Tailscale.State);
 
         TailscaleGuideStatusDot.Background = stateBrush;
         TailscaleGuideStatusText.Foreground = stateBrush;
-        TailscaleGuideStatusText.Text = connected
+        TailscaleGuideStatusText.Text = UiText(connected
             ? "Connected"
             : installed
                 ? "Sign-in required"
-                : "Not installed";
-        TailscaleGuideStatusDetail.Text = connected
+                : "Not installed");
+        TailscaleGuideStatusDetail.Text = UiText(connected
             ? "The private network is ready. PiuLink will use this address for streaming."
             : installed
                 ? "Tailscale is installed. Complete the account connection below."
-                : "Follow the three steps below to install and connect Tailscale.";
-        TailscaleInstallStepStatus.Text = installed
+                : "Install Tailscale to connect this PC to a private network.");
+        TailscaleInstallStepStatus.Text = UiText(installed
             ? "Installed on this PC."
-            : "Waiting for installation.";
+            : "Waiting for installation.");
         TailscaleInstallStepStatus.Foreground = installed
             ? ResourceBrush("SuccessBrush")
             : ResourceBrush("MutedBrush");
         TailscaleSignInButton.IsEnabled = installed && !connected && !_tailscaleSignInInProgress;
-        TailscaleSignInButton.Content = connected
+        TailscaleSignInButton.Content = UiText(connected
             ? "Connected"
             : _tailscaleSignInInProgress
                 ? "Opening browser…"
-                : "Start secure sign-in";
+                : "Start secure sign-in");
         if (!_tailscaleSignInInProgress)
         {
-            TailscaleSignInStatusText.Text = connected
+            TailscaleSignInStatusText.Text = UiText(connected
                 ? "This PC is signed in and ready."
                 : installed
                     ? "Ready to start Tailscale's secure authentication flow."
-                    : "Install Tailscale first.";
+                    : "Install Tailscale first.");
             TailscaleSignInStatusText.Foreground = connected
                 ? ResourceBrush("SuccessBrush")
                 : ResourceBrush("MutedBrush");
         }
-        TailscaleGuideAddressText.Text = snapshot.TailscaleIp ?? "No private IP";
+        TailscaleGuideAddressText.Text = UiText(snapshot.TailscaleIp ?? "No private IP");
         TailscaleGuideAddressText.Foreground = connected
             ? ResourceBrush("PrimaryBrush")
             : ResourceBrush("MutedBrush");
@@ -625,9 +634,9 @@ public partial class MainWindow : Window
 
         var brush = StateBrush(health.State);
         dot.Background = brush;
-        status.Text = health.Summary;
+        status.Text = LocalizationService.Instance.TranslateLiteral(health.Summary);
         status.Foreground = brush;
-        detail.Text = health.Detail ?? availableFallback;
+        detail.Text = LocalizationService.Instance.TranslateLiteral(health.Detail ?? availableFallback);
     }
 
     private void RenderFailure(Exception exception)
@@ -1053,20 +1062,22 @@ public partial class MainWindow : Window
 
     private void SwitchPage(HostPage target)
     {
+        var previous = _currentPage;
         _currentPage = target;
-        var pageToShow = target switch
+        var (pageToShow, tab) = target switch
         {
-            HostPage.Overview => OverviewPage,
-            HostPage.PrivateNetwork => NetworkPage,
-            HostPage.StreamingHost => SunshinePage,
-            HostPage.Displays => DisplaysPage,
-            HostPage.VirtualDisplay => VirtualDisplayPage,
-            HostPage.WakeOnLan => WakeOnLanPage,
-            HostPage.AdvancedSettings => AdvancedSettingsPage,
-            HostPage.Diagnostics => DiagnosticsPage,
-            _ => OverviewPage
+            HostPage.PrivateNetwork => (NetworkPage, NetworkNavButton),
+            HostPage.StreamingHost => (SunshinePage, StreamingNavButton),
+            HostPage.Displays => (DisplaysPage, DisplaysNavButton),
+            HostPage.VirtualDisplay => (VirtualDisplayPage, VirtualDisplayNavButton),
+            HostPage.WakeOnLan => (WakeOnLanPage, WakeOnLanNavButton),
+            HostPage.AdvancedSettings => (AdvancedSettingsPage, AdvancedSettingsNavButton),
+            HostPage.Diagnostics => (DiagnosticsPage, DiagnosticsNavButton),
+            _ => (OverviewPage, OverviewNavButton)
         };
 
+        NavMarker.Track(tab);
+        PageArtwork.Symbol = (HostSymbol)tab.Tag;
         UpdatePageHeader(target);
 
         if (pageToShow.Visibility == Visibility.Visible)
@@ -1086,12 +1097,33 @@ public partial class MainWindow : Window
                       DiagnosticsPage
                  })
         {
-            page.BeginAnimation(OpacityProperty, null);
+            StopPageMotion(page);
             page.Visibility = Visibility.Collapsed;
         }
 
         pageToShow.Visibility = Visibility.Visible;
-        AnimatePageIn(pageToShow);
+        AnimatePageIn(pageToShow, target > previous ? 1 : -1);
+    }
+
+    private void ConfigureArtwork()
+    {
+        NavMarker.Track(OverviewNavButton);
+        BrandTile.MouseEnter += (_, _) => BrandArtwork.Replay();
+        HeaderBand.SizeChanged += (_, e) =>
+        {
+            var compact = e.NewSize.Width < 655;
+            Grid.SetColumn(PageArtwork, compact ? 0 : 2);
+            PageArtwork.Width = compact ? 31 : 176;
+            PageArtwork.Height = compact ? 43 : 68;
+            PageArtwork.Margin = compact ? new Thickness(0, 0, 12, 0) : new Thickness(4, 0, 12, 0);
+        };
+        foreach (var button in new[] { RefreshButton, TailscaleSignInButton, SaveTailscaleSettingsButton,
+                     SunshineRefreshButton, ApplyDisplaySettingsButton, RefreshDisplaysButton, CreateVirtualDisplayButton,
+                     DisableVirtualDisplayButton, LoadSunshineConfigurationButton, SaveSunshineConfigurationButton, ExportButton })
+            button.Click += (_, _) => PageArtwork.Replay();
+        CopyButton.Click += (_, _) => AddressIcon.Replay();
+        InviteButton.Click += (_, _) => InvitationIcon.Replay();
+        BrowserAccessButton.Click += (_, _) => BrowserIcon.Replay();
     }
 
     private void UpdatePageHeader(HostPage target)
@@ -1111,12 +1143,13 @@ public partial class MainWindow : Window
 
         PageTitle.Text = LocalizationService.Instance.Translate(titleKey);
         PageSubtitle.Text = LocalizationService.Instance.Translate(subtitleKey);
+        PageSubtitle.Visibility = target == HostPage.Overview ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async Task LoadWakeOnLanStatusAsync()
     {
-        WakeOnLanStatusTitle.Text = "Checking Wake-on-LAN…";
-        WakeOnLanStatusDetail.Text = "Inspecting active network adapters and Windows wake permissions.";
+        WakeOnLanStatusTitle.Text = UiText("Checking Wake-on-LAN…");
+        WakeOnLanStatusDetail.Text = UiText("Inspecting active network adapters and Windows wake permissions.");
         WakeOnLanAdapterList.Children.Clear();
 
         WakeOnLanStatus status;
@@ -1126,29 +1159,29 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            WakeOnLanStatusTitle.Text = "Wake-on-LAN inspection failed";
-            WakeOnLanStatusDetail.Text = exception.Message;
+            WakeOnLanStatusTitle.Text = UiText("Wake-on-LAN inspection failed");
+            WakeOnLanStatusDetail.Text = UiText(exception.Message);
             await _log.WriteAsync($"Wake-on-LAN inspection failed: {exception.GetType().Name}");
             return;
         }
 
         if (!status.HasCandidate)
         {
-            WakeOnLanStatusTitle.Text = "No active Ethernet or Wi-Fi adapter found";
-            WakeOnLanStatusDetail.Text = status.Error ??
-                "Connect this PC to the network, then refresh the Wake-on-LAN page.";
+            WakeOnLanStatusTitle.Text = UiText("No active Ethernet or Wi-Fi adapter found");
+            WakeOnLanStatusDetail.Text = UiText(status.Error ??
+                "Connect this PC to the network, then refresh the Wake-on-LAN page.");
             AddWakeOnLanEmptyState();
             return;
         }
 
-        WakeOnLanStatusTitle.Text = status.HasArmedAdapter
+        WakeOnLanStatusTitle.Text = UiText(status.HasArmedAdapter
             ? "Windows allows this PC to wake"
-            : "Wake-on-LAN needs adapter setup";
-        WakeOnLanStatusDetail.Text = status.HasArmedAdapter
+            : "Wake-on-LAN needs adapter setup");
+        WakeOnLanStatusDetail.Text = UiText(status.HasArmedAdapter
             ? "At least one active adapter is armed for wake events. Copy its MAC address for the client."
             : status.PowerQuerySucceeded
                 ? "No active adapter is currently armed. Open Device Manager and enable Magic Packet wake."
-                : status.Error ?? "PiuLink could not read Windows wake permissions.";
+                : status.Error ?? "PiuLink could not read Windows wake permissions.");
 
         foreach (var adapter in status.Adapters)
         {
@@ -1181,7 +1214,7 @@ public partial class MainWindow : Window
         {
             Text = $"{adapter.MacAddress}  ·  " +
                    (adapter.Ipv4Addresses.Count == 0
-                       ? "No IPv4 address"
+                       ? UiText("No IPv4 address")
                        : string.Join(", ", adapter.Ipv4Addresses)),
             FontFamily = new System.Windows.Media.FontFamily("Cascadia Mono, Consolas"),
             Foreground = ResourceBrush("MutedBrush"),
@@ -1190,7 +1223,7 @@ public partial class MainWindow : Window
         });
         details.Children.Add(new TextBlock
         {
-            Text = adapter.IsWakeArmed ? "Wake armed" : "Wake permission not detected",
+            Text = UiText(adapter.IsWakeArmed ? "Wake armed" : "Wake permission not detected"),
             Foreground = adapter.IsWakeArmed
                 ? ResourceBrush("SuccessBrush")
                 : ResourceBrush("WarningBrush"),
@@ -1201,7 +1234,7 @@ public partial class MainWindow : Window
 
         var copyButton = new System.Windows.Controls.Button
         {
-            Content = "Copy MAC",
+            Content = UiText("Copy MAC"),
             Tag = adapter.MacAddress,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(16, 0, 0, 0)
@@ -1218,7 +1251,7 @@ public partial class MainWindow : Window
     {
         WakeOnLanAdapterList.Children.Add(new TextBlock
         {
-            Text = "No suitable active adapter is available.",
+            Text = UiText("No suitable active adapter is available."),
             Foreground = ResourceBrush("MutedBrush"),
             FontSize = 13,
             Margin = new Thickness(0, 4, 0, 4)
@@ -1236,8 +1269,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void RefreshWakeOnLan_Click(object sender, RoutedEventArgs e) =>
+    private async void RefreshWakeOnLan_Click(object sender, RoutedEventArgs e)
+    {
+        PageArtwork.Replay();
         await LoadWakeOnLanStatusAsync();
+    }
 
     private void OpenWakeDeviceManager_Click(object sender, RoutedEventArgs e) =>
         Process.Start(new ProcessStartInfo("devmgmt.msc") { UseShellExecute = true });
@@ -1245,28 +1281,23 @@ public partial class MainWindow : Window
     private void OpenWakePowerOptions_Click(object sender, RoutedEventArgs e) =>
         Process.Start(new ProcessStartInfo("powercfg.cpl") { UseShellExecute = true });
 
-    private static void AnimatePageIn(UIElement page)
+    private static void StopPageMotion(UIElement page)
     {
         page.BeginAnimation(OpacityProperty, null);
+        if (page.RenderTransform is TranslateTransform offset)
+            offset.BeginAnimation(TranslateTransform.YProperty, null);
+        page.RenderTransform = Transform.Identity;
+    }
 
-        if (!SystemParameters.ClientAreaAnimation)
-        {
-            page.Opacity = 1;
-            return;
-        }
-
-        page.Opacity = 0.35;
-        var animation = new DoubleAnimation
-        {
-            From = page.Opacity,
-            To = 1,
-            Duration = TimeSpan.FromMilliseconds(160),
-            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
-            FillBehavior = FillBehavior.Stop
-        };
-
-        animation.Completed += (_, _) => page.Opacity = 1;
-        page.BeginAnimation(OpacityProperty, animation, HandoffBehavior.SnapshotAndReplace);
+    private static void AnimatePageIn(UIElement page, int direction)
+    {
+        if (!HostMotion.Enabled) return;
+        var offset = new TranslateTransform();
+        page.RenderTransform = offset;
+        var arrival = HostMotion.Travel(8 * direction, 0, 185);
+        arrival.Completed += (_, _) => { if (page.RenderTransform == offset) StopPageMotion(page); };
+        offset.BeginAnimation(TranslateTransform.YProperty, arrival);
+        page.BeginAnimation(OpacityProperty, HostMotion.Travel(.88, 1, 145));
     }
 
     private async void Copy_Click(object sender, RoutedEventArgs e)
@@ -1612,6 +1643,7 @@ public partial class MainWindow : Window
                 ExclusiveDisplayCheckBox.IsChecked = true;
             }
 
+            if (_currentPage == HostPage.Displays) PageArtwork.Replay();
             ScheduleDisplaySettingsAutoSave();
         }
 
@@ -2492,10 +2524,13 @@ public partial class MainWindow : Window
         {
             using var writer = DisplayRecoveryJournal.AcquireSessionWriter();
             var entry = DisplayRecoveryJournal.Read();
+            var status = await _sunshineApi.GetDisplaySessionStatusAsync(credential.Username, credential.Secret, token);
             if (entry == null || !DisplayRecoveryJournal.OwnsStream(owner, command.SessionId) ||
-                await _sunshineApi.GetActiveStreamCountAsync(credential.Username, credential.Secret, token) != 1 ||
-                !DisplayRecoveryJournal.OwnsStream(owner, command.SessionId)) throw new UnauthorizedAccessException();
+                status.Streams != 1) throw new UnauthorizedAccessException();
             var key = entry.CaptureKey;
+            SunshineApiClient.VideoSize? encoded = null;
+            Task<SunshineApiClient.VideoSize> VideoMode(SunshineApiClient.VideoSize? size) =>
+                _sunshineApi.LiveVideoModeAsync(command.SessionId, owner, credential.Username, credential.Secret, size, CancellationToken.None);
             if (command.Action != "list")
             {
                 if (key == null) throw new InvalidOperationException("output_protected");
@@ -2514,12 +2549,40 @@ public partial class MainWindow : Window
                         key = next;
                     }
                 }
+                else if (command.Action == "resize")
+                    DisplayTopologyService.ResizeVirtualDesktop(key, command.Key!, command.Width!.Value, command.Height!.Value);
+                else if (command.Action == "stream-mode") {
+                    if (!status.LiveVideoFrameRate || command.Key != key) throw new InvalidOperationException("outputs_changed");
+                    try { encoded = await VideoMode(new(command.Width!.Value, command.Height!.Value, command.Fps!.Value)); }
+                    catch (Exception ex) when (ex is HttpRequestException or System.IO.InvalidDataException) {
+                        throw new InvalidOperationException("display_mode_unavailable", ex);
+                    }
+                }
+                else if (command.Action == "resize-stream") {
+                    if (!status.LiveVideoResize || command.Key != key) throw new InvalidOperationException("outputs_changed");
+                    var before = DisplayTopologyService.GetVirtualDesktopMode(key)?.Current ?? throw new InvalidOperationException("output_protected");
+                    var previousVideo = await VideoMode(null);
+                    var next = new SunshineApiClient.VideoSize(command.Width!.Value, command.Height!.Value);
+                    DisplayTopologyService.ResizeVirtualDesktop(key, command.Key, next.Width, next.Height);
+                    try { encoded = await VideoMode(next); }
+                    catch {
+                        try { DisplayTopologyService.ResizeVirtualDesktop(key, command.Key, before.Width, before.Height); }
+                        finally { await VideoMode(previousVideo); }
+                        throw new InvalidOperationException("display_mode_unavailable");
+                    }
+                }
                 else if (command.Action == "create") await _virtualDisplayControl.CreateOutputAsync(key, command.ExpectedCount!.Value, token);
                 else DisplayTopologyService.SetSessionOutput(key, command.Key!, command.Action == "enable", original: entry.Desktop);
             }
             var outputs = DisplayTopologyService.SessionOutputs(key);
             var capability = _virtualDisplayControl.GetCreationCapability(outputs);
-            return new(outputs, capability.Count, capability.Status);
+            var virtualDesktop = outputs.Any(o => o.Capture && o.Active && o.Virtual)
+                ? DisplayTopologyService.GetVirtualDesktopMode(key) : null;
+            if ((status.LiveVideoFrameRate || virtualDesktop != null && status.LiveVideoResize) && encoded == null) {
+                try { encoded = await VideoMode(null); }
+                catch (HttpRequestException) { /* The first encoded keyframe may still be pending. */ }
+            }
+            return new(outputs, capability.Count, capability.Status, virtualDesktop, encoded);
         }
         finally { _remoteDisplayApplyGate.Release(); }
     }
@@ -3018,9 +3081,9 @@ public partial class MainWindow : Window
         catch (Exception exception)
         {
             _virtualDisplayStatus = null;
-            VirtualDisplayManagerStatusText.Text = "Driver status unavailable";
-            VirtualDisplayManagerStatusDetail.Text = "PiuLink could not inspect the supported virtual display driver.";
-            VirtualDisplayManagerStateLabel.Text = "Unavailable";
+            VirtualDisplayManagerStatusText.Text = UiText("Driver status unavailable");
+            VirtualDisplayManagerStatusDetail.Text = UiText("PiuLink could not inspect the supported virtual display driver.");
+            VirtualDisplayManagerStateLabel.Text = UiText("Unavailable");
             VirtualDisplayManagerStatusDot.Background = ResourceBrush("ErrorBrush");
             CreateVirtualDisplayButton.IsEnabled = false;
             DisableVirtualDisplayButton.IsEnabled = false;
@@ -3032,9 +3095,9 @@ public partial class MainWindow : Window
     {
         if (!status.Installed)
         {
-            VirtualDisplayManagerStatusText.Text = "Virtual display driver not installed";
-            VirtualDisplayManagerStatusDetail.Text = "Follow the official installation guide below, then return to PiuLink.";
-            VirtualDisplayManagerStateLabel.Text = "Not installed";
+            VirtualDisplayManagerStatusText.Text = UiText("Virtual display driver not installed");
+            VirtualDisplayManagerStatusDetail.Text = UiText("Follow the official installation guide below, then return to PiuLink.");
+            VirtualDisplayManagerStateLabel.Text = UiText("Not installed");
             VirtualDisplayManagerStatusDot.Background = ResourceBrush("WarningBrush");
             CreateVirtualDisplayButton.IsEnabled = false;
             DisableVirtualDisplayButton.IsEnabled = false;
@@ -3044,22 +3107,22 @@ public partial class MainWindow : Window
         if (status.Enabled)
         {
             var idle = UsesExclusiveVirtualDesktop && DisplayTopologyService.IsPhysicalDesktopOnly();
-            VirtualDisplayManagerStatusText.Text = idle ? "Virtual display is ready for streaming" : "Virtual display is active";
-            VirtualDisplayManagerStatusDetail.Text = idle
+            VirtualDisplayManagerStatusText.Text = UiText(idle ? "Virtual display is ready for streaming" : "Virtual display is active");
+            VirtualDisplayManagerStatusDetail.Text = UiText(idle
                 ? "Disconnected from the desktop. Sunshine will activate it when streaming starts."
-                : $"{status.DisplayName} is enabled and available to Windows.";
-            VirtualDisplayManagerStateLabel.Text = idle ? "Ready" : "Active";
+                : string.Format(UiText("{0} is enabled and available to Windows."), status.DisplayName));
+            VirtualDisplayManagerStateLabel.Text = UiText(idle ? "Ready" : "Active");
             VirtualDisplayManagerStatusDot.Background = ResourceBrush("SuccessBrush");
             CreateVirtualDisplayButton.IsEnabled = false;
             DisableVirtualDisplayButton.IsEnabled = !_virtualDisplayBusy;
             return;
         }
 
-        VirtualDisplayManagerStatusText.Text = "Driver installed · virtual display is off";
-        VirtualDisplayManagerStatusDetail.Text = status.ProblemCode is > 0 and not 22
-            ? $"Windows reports driver problem code {status.ProblemCode}. You can ask Windows to enable it again."
-            : "Create the display when you want a private streaming screen.";
-        VirtualDisplayManagerStateLabel.Text = "Off";
+        VirtualDisplayManagerStatusText.Text = UiText("Driver installed · virtual display is off");
+        VirtualDisplayManagerStatusDetail.Text = UiText(status.ProblemCode is > 0 and not 22
+            ? string.Format(UiText("Windows reports driver problem code {0}. You can ask Windows to enable it again."), status.ProblemCode)
+            : "Create the display when you want a private streaming screen.");
+        VirtualDisplayManagerStateLabel.Text = UiText("Off");
         VirtualDisplayManagerStatusDot.Background = ResourceBrush("PrimaryBrush");
         CreateVirtualDisplayButton.IsEnabled = !_virtualDisplayBusy;
         DisableVirtualDisplayButton.IsEnabled = false;
@@ -3222,6 +3285,7 @@ public partial class MainWindow : Window
         }
 
         SetSunshineControlsBusy(isBusy: true);
+        PageArtwork.PlayPairing();
         PairingStatusText.Text = "Sending the PIN to Sunshine…";
         PairingStatusText.Foreground = ResourceBrush("MutedBrush");
 
@@ -3770,8 +3834,8 @@ public partial class MainWindow : Window
 
         _tailscaleSignInInProgress = true;
         TailscaleSignInButton.IsEnabled = false;
-        TailscaleSignInButton.Content = "Opening browser…";
-        TailscaleSignInStatusText.Text = "Requesting a secure sign-in address from Tailscale…";
+        TailscaleSignInButton.Content = UiText("Opening browser…");
+        TailscaleSignInStatusText.Text = UiText("Requesting a secure sign-in address from Tailscale…");
         TailscaleSignInStatusText.Foreground = ResourceBrush("PrimaryBrush");
 
         try
@@ -3786,9 +3850,9 @@ public partial class MainWindow : Window
             }
 
             await RefreshAsync();
-            TailscaleSignInStatusText.Text = result.Detail is null
+            TailscaleSignInStatusText.Text = UiText(result.Detail is null
                 ? result.Message
-                : $"{result.Message} {result.Detail}";
+                : $"{result.Message} {result.Detail}");
             TailscaleSignInStatusText.Foreground = result.State switch
             {
                 TailscaleConnectState.Connected => ResourceBrush("SuccessBrush"),
@@ -3799,7 +3863,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            TailscaleSignInStatusText.Text = "PiuLink could not start Tailscale sign-in. Try checking the installation again.";
+            TailscaleSignInStatusText.Text = UiText("PiuLink could not start Tailscale sign-in. Try checking the installation again.");
             TailscaleSignInStatusText.Foreground = ResourceBrush("ErrorBrush");
             await _log.WriteAsync($"Tailscale guided sign-in failed: {exception.GetType().Name}");
         }
@@ -3810,9 +3874,9 @@ public partial class MainWindow : Window
             var installed = _snapshot is not null &&
                             _snapshot.Tailscale.State != ComponentState.Missing;
             TailscaleSignInButton.IsEnabled = installed && !connected;
-            TailscaleSignInButton.Content = connected
+            TailscaleSignInButton.Content = UiText(connected
                 ? "Connected"
-                : "Open sign-in again";
+                : "Open sign-in again");
         }
 
     }

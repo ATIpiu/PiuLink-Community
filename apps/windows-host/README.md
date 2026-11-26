@@ -113,3 +113,7 @@ configuration editor, the persistent in-app language selector, Session Guardian,
 client-matched smart display routing and the Virtual display navigation page. For an already installed
 MikeTheTech VDD, PiuLink can explicitly enable or disable only the fixed `Root\MttVDD` device after Windows
 shows a UAC prompt. It does not bundle or silently install the driver.
+
+## Android 串流中调整画面
+
+Windows Host 0.2.131 集成 Sunshine `2026.516.143833-piulink.17`。在已配对的 Android 0.3.206 打开桌面，展开串流菜单，进入「屏幕」。选择「串流帧率」或「串流分辨率」后，Host 会在当前会话中更新编码参数。分辨率的可选项取决于设备的解码能力。调整串流分辨率可单独改变视频尺寸。虚拟显示器的桌面模式另有选项。

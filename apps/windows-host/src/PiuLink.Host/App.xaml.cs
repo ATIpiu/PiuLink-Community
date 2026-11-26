@@ -57,6 +57,8 @@ public partial class App : System.Windows.Application
             await DisplayRecoveryJournal.RunGuardianAsync();
             Shutdown(); return;
         }
+        PiuLink.Diagnostics.DiagnosticUpload.Initialize(System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ATIPiu Labs", "PiuLink Host", "logs"), "windows-host");
         if (DisplayRecoveryJournal.Pending) DisplayRecoveryJournal.EnsureGuardian();
         // The Host deliberately changes the active Windows display topology while an
         // exclusive virtual desktop is in use.  WPF's hardware composition target can

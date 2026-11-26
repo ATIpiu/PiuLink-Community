@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$ExpectedInviteFile,
+    [switch]$ExpectedInviteFromInput,
     [long]$WindowHandle,
     [long]$ClientWindowHandle,
     [switch]$ReproduceOldFailure
@@ -94,7 +95,9 @@ if (!$WindowHandle) {
 $window = [Windows.Automation.AutomationElement]::FromHandle([IntPtr]$WindowHandle)
 if ((Get-Process -Id $window.Current.ProcessId).ProcessName -ne 'PiuLink.Host') {throw 'Unexpected window owner.'}
 (Find-Id 'OverviewNavButton').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
-if ($ExpectedInviteFile) {
+if ($ExpectedInviteFromInput) {
+    $link = [Console]::In.ReadLine().Trim()
+} elseif ($ExpectedInviteFile) {
     $link = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $ExpectedInviteFile)).Trim()
 } else {
     # An explicit disable/re-enable rotates the room while keeping the Sunshine UUID.
@@ -104,13 +107,18 @@ if ($ExpectedInviteFile) {
     $credentialType = $assembly.GetType('PiuLink.Host.Services.WindowsCredentialStore',$true)
     $store = [Activator]::CreateInstance($credentialType,$true)
     $credential = $credentialType.GetMethod('Read').Invoke($store,@('PiuLink/AddressInvite/v1'))
-    if ($credential.Username -ne 'enabled') {throw 'The Host invitation must already be enabled.'}
+    if ($credential.Username -ne 'enabled' -and $credential.Username -notlike 'https://*') {throw 'The Host invitation must already be enabled.'}
     $response = Invoke-WebRequest -NoProxy 'http://127.0.0.1:47989/serverinfo'
     $xml = [xml]::new()
     $xml.Load($response.RawContentStream)
     $hostId = [Guid]$xml.DocumentElement.uniqueid
-    $link = $assembly.GetType('PiuLink.Rendezvous.HostInvite').GetMethod('FromOwner').Invoke(
-        $null, @($credential.Secret,$hostId)).Link
+    $inviteType = $assembly.GetType('PiuLink.Rendezvous.HostInvite')
+    $method = $inviteType.GetMethod('FromOwner')
+    $arguments = @($credential.Secret,$hostId)
+    if ($method.GetParameters().Count -eq 3) {
+        $arguments += if ($credential.Username -eq 'enabled') { $inviteType.GetField('Base').GetRawConstantValue() } else { $credential.Username }
+    }
+    $link = $method.Invoke($null,$arguments).Link
     $credential = $null
 }
 if ($link -notmatch '^https://[^/]+/piulink/join#[0-9a-f]{64}\.[0-9a-f-]{36}$') { throw 'Unexpected test invitation format.' }

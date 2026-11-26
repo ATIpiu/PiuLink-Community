@@ -6,6 +6,71 @@ namespace PiuLink.Host.Services;
 internal static partial class DisplayTopologyService
 {
     internal sealed record SessionOutput(string Key, string Name, bool Active, bool Virtual, bool Capture);
+    internal sealed record VirtualDesktopMode(string Key, DisplayMode Current, IReadOnlyList<DisplayMode> Modes);
+
+    // A cloned source also drives another target. Changing its mode would resize both desktops.
+    private static string? VirtualCaptureSource(string? key)
+    {
+        if (key == null) return null;
+        var paths = ReadActive().Paths;
+        var targets = paths.Where(p => OutputKey(GetTargetName(p).DevicePath) == key).ToArray();
+        if (targets.Length != 1 || !IsVirtual(targets[0])) return null;
+        var source = targets[0].Source;
+        return paths.Count(p => p.Source.Adapter.Equals(source.Adapter) && p.Source.Id == source.Id) == 1
+            ? GetSourceName(targets[0]) : null;
+    }
+
+    private static DisplayMode? CurrentDesktopMode(string source)
+    {
+        var mode = new DevMode { Size = (ushort)System.Runtime.InteropServices.Marshal.SizeOf<DevMode>() };
+        return EnumDisplaySettings(source, -1, ref mode)
+            ? new((int)mode.PelsWidth, (int)mode.PelsHeight, (int)mode.DisplayFrequency) : null;
+    }
+
+    internal static VirtualDesktopMode? GetVirtualDesktopMode(string? captureKey)
+    {
+        var source = VirtualCaptureSource(captureKey);
+        if (source == null || CurrentDesktopMode(source) is not { } current) return null;
+        return new(captureKey!, current, GetDisplayModes(source).Where(m => m.Fps == current.Fps).ToArray());
+    }
+
+    internal static void ResizeVirtualDesktop(string captureKey, string expectedKey, int width, int height)
+    {
+        if (captureKey != expectedKey) throw new InvalidOperationException("outputs_changed");
+        var source = VirtualCaptureSource(captureKey) ?? throw new InvalidOperationException("output_protected");
+        if (CurrentDesktopMode(source) is not { } before) throw new InvalidOperationException("outputs_changed");
+        var requested = new DisplayMode(width, height, before.Fps);
+        if (requested == before) return;
+        if (!GetDisplayModes(source).Contains(requested)) throw new InvalidOperationException("display_mode_unavailable");
+        bool Change(DisplayMode target, bool test) {
+            if (VirtualCaptureSource(captureKey) != source) throw new InvalidOperationException("outputs_changed");
+            var mode = new DevMode {
+                Size = (ushort)System.Runtime.InteropServices.Marshal.SizeOf<DevMode>(),
+                Fields = 0x80000 | 0x100000 | 0x400000, // DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY
+                PelsWidth = (uint)target.Width, PelsHeight = (uint)target.Height, DisplayFrequency = (uint)target.Fps
+            };
+            return ChangeDisplaySettingsEx(source, ref mode, IntPtr.Zero, test ? 2u : 0u, IntPtr.Zero) == 0;
+        }
+        bool Confirm(DisplayMode target) {
+            for (int attempt = 0; attempt < 10; attempt++) {
+                if (attempt > 0) Thread.Sleep(100);
+                if (VirtualCaptureSource(captureKey) == source && CurrentDesktopMode(source) == target) return true;
+            }
+            return false;
+        }
+        ApplyLiveMode(before, requested, Change, Confirm);
+    }
+
+    internal static void ApplyLiveMode(DisplayMode before, DisplayMode requested,
+        Func<DisplayMode, bool, bool> change, Func<DisplayMode, bool> confirm)
+    {
+        if (!change(requested, true) || !change(requested, false))
+            throw new InvalidOperationException("display_mode_unavailable");
+        if (confirm(requested)) return;
+        if (!confirm(before) && (!change(before, false) || !confirm(before)))
+            throw new InvalidOperationException("output_restore_pending");
+        throw new InvalidOperationException("display_mode_unavailable");
+    }
 
     private static string OutputKey(string path) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(path.ToUpperInvariant())));

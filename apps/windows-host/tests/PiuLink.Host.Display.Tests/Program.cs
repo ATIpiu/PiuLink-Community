@@ -48,6 +48,27 @@ Require(!DisplayTopologyService.MatchesRequestedDisplay(
         @"\\.\DISPLAY6", "S2719DGF", "", "VDD by MTT"),
     "Another vendor's sole active virtual display was accepted as the selected VDD");
 var capture = new SessionOutput("capture", "A", true, false, true);
+var originalMode = new DisplayMode(1920, 1080, 60);
+var requestedMode = new DisplayMode(2560, 1440, 60);
+var modeWrites = new List<DisplayMode>();
+bool ChangeMode(DisplayMode mode, bool test) {
+    if (!test) modeWrites.Add(mode);
+    return true;
+}
+ApplyLiveMode(originalMode, requestedMode, ChangeMode, m => m == requestedMode);
+Require(modeWrites.SequenceEqual([requestedMode]), "Confirmed resize made extra changes");
+modeWrites.Clear();
+Reject(() => ApplyLiveMode(originalMode, requestedMode, ChangeMode,
+    m => modeWrites.LastOrDefault() == originalMode && m == originalMode));
+Require(modeWrites.SequenceEqual([requestedMode, originalMode]), "Unconfirmed resize did not restore the previous mode");
+modeWrites.Clear();
+Reject(() => ApplyLiveMode(originalMode, requestedMode, (_, test) =>
+    test ? false : throw new Exception("Applied a mode rejected by CDS_TEST"), _ => false));
+try {
+    ApplyLiveMode(originalMode, requestedMode, ChangeMode, _ => false);
+    throw new Exception("Unconfirmed rollback reported success");
+} catch (InvalidOperationException ex) when (ex.Message == "output_restore_pending") { }
+Console.WriteLine("PASS virtual mode validation, acknowledgement and rollback");
 var secondary = new SessionOutput("second", "B", false, true, false);
 Require(!CanSetOutput([capture], "capture", false), "Cannot disable the captured or last output");
 Require(CanSetOutput([capture, secondary], "second", true), "An inactive secondary can be enabled");
@@ -252,6 +273,11 @@ var primarySource = System.Windows.Forms.Screen.PrimaryScreen?.DeviceName;
 var primaryKey = CaptureOutputKey(primarySource, null);
 if (primaryKey != null) {
     var sessionOutputs = SessionOutputs(primaryKey);
+    foreach (var output in sessionOutputs.Where(o => !o.Virtual || !o.Active)) {
+        Require(GetVirtualDesktopMode(output.Key) == null, "Non-virtual or inactive output offered a live resize");
+        Reject(() => ResizeVirtualDesktop(output.Key, output.Key, 1280, 720));
+    }
+    Reject(() => ResizeVirtualDesktop(primaryKey, "stale-key", 1280, 720));
     Require(sessionOutputs.Count(o => o.Capture && o.Active) == 1, "Native capture must resolve uniquely.");
     foreach (var secondaryOutput in sessionOutputs.Where(o => !o.Capture && o.Active)) {
         SetSessionOutput(primaryKey, secondaryOutput.Key, false, validateOnly: true);

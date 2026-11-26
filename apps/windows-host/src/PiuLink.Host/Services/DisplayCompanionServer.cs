@@ -45,8 +45,10 @@ public sealed class DisplayCompanionServer : IDisposable
     internal Func<string, string, bool>? MicrophoneInUse { get; set; }
     internal Action<string, string>? EnsureMicrophone { get; set; }
     internal Func<IMicrophoneOutput> OpenMicrophone { get; set; } = RemoteMicrophoneOutput.Open;
-    internal sealed record SessionDisplayCommand(string SessionId, string Action, string? Key, int? ExpectedCount);
-    internal sealed record SessionDisplayState(DisplayTopologyService.SessionOutput[] Outputs, int? VirtualCount, string CreateStatus);
+    internal sealed record SessionDisplayCommand(string SessionId, string Action, string? Key, int? ExpectedCount,
+        int? Width = null, int? Height = null, int? Fps = null);
+    internal sealed record SessionDisplayState(DisplayTopologyService.SessionOutput[] Outputs, int? VirtualCount,
+        string CreateStatus, DisplayTopologyService.VirtualDesktopMode? VirtualDesktop = null, SunshineApiClient.VideoSize? EncodedVideo = null);
     internal Func<string, SessionDisplayCommand, CancellationToken, Task<SessionDisplayState>>? SessionDisplays { get; set; }
     public Func<string, string, string, CancellationToken, Task<bool>>? UpdateLease { get; set; }
     internal Func<X509Certificate2> LoadTlsCertificate { get; set; } = PairedDisplaySecurity.LoadServerCertificate;
@@ -501,9 +503,16 @@ public sealed class DisplayCompanionServer : IDisposable
             var root = json.RootElement;
             var cmd = root.Deserialize<SessionDisplayCommand>(new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             if (cmd == null || !Guid.TryParseExact(cmd.SessionId, "D", out _) ||
+                (cmd.Action != "stream-mode" && cmd.Fps != null) ||
+                (cmd.Action is not ("stream-mode" or "resize" or "resize-stream") && (cmd.Width != null || cmd.Height != null)) ||
                 cmd.Action switch {
                     "list" => cmd.Key != null || cmd.ExpectedCount != null,
                     "capture" => !Guid.TryParse(cmd.Key, out _) || cmd.ExpectedCount != null,
+                    "stream-mode" => cmd.Key?.Length != 64 || !cmd.Key.All(Uri.IsHexDigit) || cmd.ExpectedCount != null ||
+                        cmd.Fps is null or < 15 or > 240 || cmd.Width is null or < 320 or > 8192 || cmd.Height is null or < 240 or > 8192 ||
+                        cmd.Width % 2 != 0 || cmd.Height % 2 != 0,
+                    "resize" or "resize-stream" => cmd.Key?.Length != 64 || !cmd.Key.All(Uri.IsHexDigit) || cmd.ExpectedCount != null ||
+                        cmd.Width is null or <= 0 || cmd.Height is null or <= 0,
                     "enable" or "disable" => cmd.Key?.Length != 64 || !cmd.Key.All(Uri.IsHexDigit) || cmd.ExpectedCount != null,
                     "create" => cmd.Key != null || cmd.ExpectedCount is null or < 0 or >= 16,
                     _ => true
@@ -514,7 +523,7 @@ public sealed class DisplayCompanionServer : IDisposable
         catch (JsonException) { await WriteResponseAsync(stream, 400, new { error = "invalid_request" }, token); }
         catch (UnauthorizedAccessException) { await WriteResponseAsync(stream, 403, new { error = "session_required" }, token); }
         catch (InvalidOperationException error) {
-            var reason = error.Message is "outputs_changed" or "output_protected" or "creation_unconfirmed" or "output_restore_pending"
+            var reason = error.Message is "outputs_changed" or "output_protected" or "creation_unconfirmed" or "output_restore_pending" or "display_mode_unavailable"
                 ? error.Message : "output_unavailable";
             await WriteResponseAsync(stream, 409, new { error = reason }, token);
         }
@@ -594,6 +603,7 @@ public sealed class DisplayCompanionServer : IDisposable
                 {
                     state.ExclusiveDisplay,
                     supportsSessionDisplays = SessionDisplays != null,
+                    supportsVirtualDesktopResize = SessionDisplays != null,
                     supportsWindowGathering = _selectWithWindows is not null,
                     supportsDisplayScaling = _selectWithScale is not null,
                     virtualResolutions,

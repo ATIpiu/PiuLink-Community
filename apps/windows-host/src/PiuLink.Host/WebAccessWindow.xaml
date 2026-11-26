@@ -1,0 +1,45 @@
+<Window x:Class="PiuLink.Host.WebAccessWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:PiuLink.Host"
+        Title="网页访问" Width="500" MinWidth="360" SizeToContent="Height" Icon="Assets/PiuLink.ico" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" UseLayoutRounding="True"
+        Background="{StaticResource BackgroundBrush}" Foreground="{StaticResource TextBrush}">
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="24,22">
+        <DockPanel>
+          <Border DockPanel.Dock="Left" Width="42" Height="42" CornerRadius="12" VerticalAlignment="Top"
+                  Background="{Binding PlateBrush, ElementName=WebIcon}" Margin="0,0,14,0">
+            <local:HostArtwork x:Name="WebIcon" Symbol="Browser" Width="26" Height="26"/>
+          </Border>
+          <StackPanel>
+            <TextBlock x:Name="StateText" Text="网页访问已关闭" Style="{StaticResource SectionTitleStyle}"
+                       TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+            <TextBlock x:Name="Detail" Style="{StaticResource BodyMutedStyle}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+          </StackPanel>
+        </DockPanel>
+        <Border Visibility="{Binding Visibility, ElementName=Code}" Background="{StaticResource WarningFillBrush}"
+                Padding="18,12" CornerRadius="10" Margin="0,16,0,0">
+          <StackPanel>
+            <TextBlock Text="双方确认码" Foreground="{StaticResource WarningBrush}" FontSize="12"/>
+            <TextBlock x:Name="Code" Visibility="Collapsed" FontFamily="Cascadia Mono, Consolas" FontSize="31"
+                       FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Margin="0,3,0,0"/>
+          </StackPanel>
+        </Border>
+        <TextBox x:Name="Fallback" AutomationProperties.Name="网页访问链接" Visibility="Collapsed"
+                 IsReadOnly="True" IsUndoEnabled="False" TextWrapping="Wrap" Margin="0,14,0,0"/>
+      </StackPanel>
+    </ScrollViewer>
+    <Border Grid.Row="1" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource DividerBrush}"
+            BorderThickness="0,1,0,0" Padding="20,12">
+      <WrapPanel HorizontalAlignment="Right">
+        <Button x:Name="StopButton" Content="关闭网页访问" Visibility="Collapsed" Click="StopWeb" Margin="4,2"/>
+        <Button x:Name="DenyButton" Content="拒绝" Visibility="Collapsed" Click="Decide" Margin="4,2"/>
+        <Button x:Name="StartButton" Content="开启网页访问" Style="{StaticResource PrimaryButtonStyle}" Click="StartWeb" Margin="4,2"/>
+        <Button x:Name="CopyButton" Content="复制网页链接" Visibility="Collapsed" Click="CopyWeb" Style="{StaticResource PrimaryButtonStyle}" Margin="4,2"/>
+        <Button x:Name="AllowButton" Content="允许控制" Visibility="Collapsed" Click="Decide" Style="{StaticResource PrimaryButtonStyle}" Margin="4,2"/>
+      </WrapPanel>
+    </Border>
+  </Grid>
+</Window>

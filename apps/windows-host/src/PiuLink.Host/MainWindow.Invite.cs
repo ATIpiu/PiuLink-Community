@@ -11,6 +11,15 @@ public partial class MainWindow
     private CancellationTokenSource? _inviteSession;
     private HostInvite? _publishedInvite;
     private TaskCompletionSource<bool>? _punchApproval;
+    private WebAccessWindow? _webAccess;
+
+    private void OpenWebAccess(object sender, RoutedEventArgs e)
+    {
+        if (_webAccess is { } existing) { existing.Activate(); return; }
+        _webAccess = new WebAccessWindow { Owner = this };
+        _webAccess.Closed += (_, _) => _webAccess = null;
+        _webAccess.Show();
+    }
 
     private async Task<bool> ApprovePunchAsync(string fingerprint, CancellationToken token)
     {
@@ -30,8 +39,9 @@ public partial class MainWindow
     {
         try
         {
-            if (_inviteSession == null && new WindowsCredentialStore().Read(InviteCredential) is { Username: "enabled" } stored)
-                _ = MaintainInviteAsync(stored.Secret);
+            var stored = new WindowsCredentialStore().Read(InviteCredential);
+            if (_inviteSession == null && stored != null && (stored.Username == "enabled" || stored.Username.StartsWith("https://", StringComparison.Ordinal)))
+                _ = MaintainInviteAsync(stored.Secret, stored.Username == "enabled" ? HostInvite.Base : HostInvite.NormalizeService(stored.Username));
         }
         catch (Exception error) { InviteStatus.Text = error.Message; }
     }
@@ -60,9 +70,12 @@ public partial class MainWindow
             }
             else if (_inviteSession == null)
             {
+                var service = InvitePreferences.Service;
+                var warning = new InviteDialog(true, service, false, null) { Owner = this };
+                if (warning.ShowDialog() != true) return;
                 var owner = InvitePublisher.NewOwner();
-                new WindowsCredentialStore().Write(InviteCredential, new("enabled", owner));
-                _ = MaintainInviteAsync(owner);
+                new WindowsCredentialStore().Write(InviteCredential, new(service == HostInvite.Base ? "enabled" : service, owner));
+                _ = MaintainInviteAsync(owner, service);
             }
         }
         catch (Exception error) { InviteStatus.Text = error.Message; }
@@ -74,7 +87,7 @@ public partial class MainWindow
         InviteLinkFallback.Visibility = Visibility.Collapsed;
     }
 
-    private async Task MaintainInviteAsync(string owner)
+    private async Task MaintainInviteAsync(string owner, string service)
     {
         using var session = new CancellationTokenSource();
         _inviteSession = session;
@@ -89,12 +102,14 @@ public partial class MainWindow
             {
                 try
                 {
-                    var invite = await InvitePublisher.PublishAsync(owner, token);
+                    var invite = await InvitePublisher.PublishAsync(owner, token, service);
                     token.ThrowIfCancellationRequested();
                     if(punch == null || punch.IsCompleted)
                         punch = DirectInviteHost.RunAsync(owner,invite,ApprovePunchAsync,s => _log.WriteAsync(s),token);
                     if (_publishedInvite != invite)
                     {
+                        try { InvitePreferences.Remember(invite.Link); }
+                        catch (Exception ex) { await _log.WriteAsync("Invite history unavailable: " + ex.GetType().Name); }
                         HideInviteLink();
                         InviteStatus.Text = "邀请已开启。首次连接仍需在 Host 确认配对。";
                     }
@@ -102,8 +117,9 @@ public partial class MainWindow
                     InviteButton.Content = "复制直连邀请链接";
                     InviteButton.IsEnabled = true;
                 }
-                catch (Exception) when (!token.IsCancellationRequested)
+                catch (Exception error) when (!token.IsCancellationRequested)
                 {
+                    PiuLink.Diagnostics.DiagnosticUpload.ConnectionFailure("signal", error);
                     _publishedInvite = null;
                     HideInviteLink();
                     InviteButton.IsEnabled = false;
@@ -135,5 +151,16 @@ public partial class MainWindow
             InviteStatus.Text = "已停止登记，旧链接将在 90 秒内过期。再次开启会生成新链接。";
         }
         catch (Exception error) { InviteStatus.Text = error.Message; }
+    }
+
+    private void InviteSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var service = _publishedInvite?.ServiceBase ?? InvitePreferences.Service;
+            var window = new InviteDialog(false, service, _inviteSession != null, _publishedInvite?.Link) { Owner = this };
+            window.ShowDialog();
+        }
+        catch (Exception ex) { InviteStatus.Text = ex.Message; }
     }
 }

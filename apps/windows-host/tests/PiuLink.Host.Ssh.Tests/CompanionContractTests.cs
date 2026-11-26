@@ -141,6 +141,64 @@ internal static class CompanionContractTests
             (await Request(busy, "POST", sessionPath, Body("list"))).Code != 404 || mutations != 3)
             throw new Exception("Display state or create replay contract changed.");
         Console.WriteLine("PASS live outputs: paired session, enable, disable, protected capture and compare-and-set creation");
+        var activeMode = new DisplayTopologyService.DisplayMode(1920, 1080, 60);
+        var largerMode = new DisplayTopologyService.DisplayMode(2560, 1440, 60);
+        var available = new[] { activeMode, largerMode };
+        physicalOnly.SessionDisplays = (owner, cmd, _) => {
+            if (owner != Convert.ToHexString(SHA256.HashData(ClientCertificate.RawData)) || cmd.SessionId != session)
+                throw new UnauthorizedAccessException();
+            if (cmd.Action is "resize" or "resize-stream") {
+                if (cmd.Key != captureKey) throw new InvalidOperationException("outputs_changed");
+                activeMode = available.SingleOrDefault(m => m.Width == cmd.Width && m.Height == cmd.Height)
+                    ?? throw new InvalidOperationException("display_mode_unavailable");
+            }
+            return Task.FromResult(new DisplayCompanionServer.SessionDisplayState(
+                [new(captureKey, "Virtual desktop", true, true, true)], null, "physical_capture_required",
+                new(captureKey, activeMode, available), new(activeMode.Width, activeMode.Height)));
+        };
+        string Resize(int? w, int? h, string? output = null, string? id = null) =>
+            System.Text.Json.JsonSerializer.Serialize(new { sessionId = id ?? session, action = "resize", key = output ?? captureKey, width = w, height = h });
+        if ((await Request(physicalOnly, "POST", sessionPath, Resize(2560, 1440), false)).Code != 403 ||
+            (await Request(physicalOnly, "POST", sessionPath, Resize(2560, 1440, id: Guid.NewGuid().ToString()))).Code != 403 ||
+            (await Request(physicalOnly, "POST", sessionPath, Resize(2560, null))).Code != 400 ||
+            (await Request(physicalOnly, "POST", sessionPath, Resize(-1, 1440))).Code != 400 ||
+            (await Request(physicalOnly, "POST", sessionPath, Resize(2560, 1440, key))).Code != 409 ||
+            (await Request(physicalOnly, "POST", sessionPath, Resize(1234, 789))).Body["error"]?.GetValue<string>() != "display_mode_unavailable")
+            throw new Exception("Invalid live resize request was accepted.");
+        foreach (var mode in new[] { largerMode, largerMode, available[0] }) {
+            var result = await Request(physicalOnly, "POST", sessionPath, Resize(mode.Width, mode.Height));
+            var current = result.Body["virtualDesktop"]?["current"];
+            if (result.Code != 200 || current?["width"]?.GetValue<int>() != mode.Width || current["height"]?.GetValue<int>() != mode.Height)
+                throw new Exception("Live resize did not return the applied dimensions.");
+        }
+        Console.WriteLine("PASS virtual desktop resize: paired session, stable target, supported mode, resize, replay and restore");
+        var synchronizedResize = Resize(2560, 1440).Replace("\"resize\"", "\"resize-stream\"");
+        var synchronizedResult = await Request(physicalOnly, "POST", sessionPath, synchronizedResize);
+        if ((await Request(physicalOnly, "POST", sessionPath, synchronizedResize, false)).Code != 403 ||
+            synchronizedResult.Code != 200 || synchronizedResult.Body["encodedVideo"]?["width"]?.GetValue<int>() != 2560 ||
+            synchronizedResult.Body["virtualDesktop"]?["current"]?["height"]?.GetValue<int>() != 1440)
+            throw new Exception("Synchronized resize must authenticate and report the encoder and desktop readbacks.");
+        string StreamMode(int w, int fps, string? id = null, string? key = null) =>
+            System.Text.Json.JsonSerializer.Serialize(new { sessionId = id ?? session, action = "stream-mode",
+                key = key ?? captureKey, width = w, height = 1080, fps });
+        physicalOnly.SessionDisplays = (owner, cmd, _) => {
+            if (owner != Convert.ToHexString(SHA256.HashData(ClientCertificate.RawData)) || cmd.SessionId != session)
+                throw new UnauthorizedAccessException();
+            if (cmd.Key != captureKey) throw new InvalidOperationException("outputs_changed");
+            return Task.FromResult(new DisplayCompanionServer.SessionDisplayState(
+                [new(captureKey, "Monitor", true, false, true)], null, "", null,
+                new(cmd.Width!.Value, cmd.Height!.Value, cmd.Fps!.Value)));
+        };
+        var live = await Request(physicalOnly, "POST", sessionPath, StreamMode(1920, 30));
+        if (live.Code != 200 || live.Body["encodedVideo"]?["fps"]?.GetValue<int>() != 30 ||
+            (await Request(physicalOnly, "POST", sessionPath, StreamMode(1920, 30), false)).Code != 403 ||
+            (await Request(physicalOnly, "POST", sessionPath, StreamMode(1920, 30, Guid.NewGuid().ToString()))).Code != 403 ||
+            (await Request(physicalOnly, "POST", sessionPath, StreamMode(1920, 30, key: new string('f',64)))).Code != 409 ||
+            (await Request(physicalOnly, "POST", sessionPath, StreamMode(1921, 30))).Code != 400 ||
+            (await Request(physicalOnly, "POST", sessionPath, StreamMode(1920, 0))).Code != 400 ||
+            (await Request(physicalOnly, "POST", sessionPath, StreamMode(1920, 241))).Code != 400)
+            throw new Exception("Live stream-mode ownership, bounds or acknowledgement changed.");
+        Console.WriteLine("PASS live stream mode checks paired owner, session, capture key, dimensions and frame rate");
         const string inputPath = "/v1/displays/input-status";
         int probes = 0;
         physicalOnly.OwnsActiveSession = (peer, id, _) => Task.FromResult(
