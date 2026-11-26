@@ -24,4 +24,16 @@
     <string name="route_remove_prompt">从本机的连接历史中移除“%1$s”？</string>
     <string name="route_connecting">正在连接 %1$s…</string>
     <string name="route_choose_after_failure">自动连接失败，选择连接方式</string>
+    <string name="open_invite_named">用已保存的 P2P 邀请打开 %1$s 的桌面</string>
+    <string name="direct_invite_network">P2P 串流优先直连</string>
+    <string name="direct_invite_summary">VPN 允许绕行时，用 Wi-Fi 或移动数据传输邀请串流，Host 可见直连地址。重新连接后生效。</string>
+    <string name="hold_loss_quality">丢帧时保持清晰度</string>
+    <string name="hold_loss_summary">保留最后的完整画面，恢复期间保持编码码率。</string>
+    <string name="session_picture">画面</string>
+    <string name="session_displays">显示器</string>
+    <string name="session_resolution">分辨率</string>
+    <string name="session_fps">帧率</string>
+    <string name="route_bound_media">P2P · 物理网络直连</string>
+    <string name="route_system_vpn">P2P · 系统 VPN 路由</string>
+    <string name="super_screen_missing">这台电脑还没有可供超级屏使用的虚拟显示器。</string>
 </resources>

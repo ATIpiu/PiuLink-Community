@@ -21,6 +21,7 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
     private final java.util.function.Consumer<ComputerDetails> openLibrary;
 
     private final java.util.function.Consumer<ComputerDetails> openSuperScreen;
+    private final java.util.function.Consumer<ComputerDetails> openInvite;
 
     public PcGridAdapter(Context context, PreferenceConfiguration prefs, java.util.function.Consumer<ComputerDetails> openDesktop) {
         this(context, prefs, openDesktop, null);
@@ -36,10 +37,19 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
                          java.util.function.Consumer<ComputerDetails> openDesktop,
                          java.util.function.Consumer<ComputerDetails> openLibrary,
                          java.util.function.Consumer<ComputerDetails> openSuperScreen) {
+        this(context, prefs, openDesktop, openLibrary, openSuperScreen, null);
+    }
+
+    public PcGridAdapter(Context context, PreferenceConfiguration prefs,
+                         java.util.function.Consumer<ComputerDetails> openDesktop,
+                         java.util.function.Consumer<ComputerDetails> openLibrary,
+                         java.util.function.Consumer<ComputerDetails> openSuperScreen,
+                         java.util.function.Consumer<ComputerDetails> openInvite) {
         super(context, openDesktop != null ? R.layout.pc_touch_item : R.layout.pc_grid_item);
         this.openDesktop = openDesktop;
         this.openLibrary = openLibrary;
         this.openSuperScreen = openSuperScreen;
+        this.openInvite = openInvite;
     }
 
     private int getColorCompat(int resource) {
@@ -131,6 +141,12 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
                 obj.details.pairState == PairingManager.PairState.PAIRED && obj.details.serverCert != null;
         statusView.setTextColor(getColorCompat(available ? R.color.home_device_online : statusColor));
         if (openDesktop != null) {
+            View invite = parentView.findViewById(R.id.pcSavedInvite);
+            boolean hasInvite = openInvite != null && obj.details.serverCert != null &&
+                    com.limelight.computers.ConnectionHistory.hasAcceptedInvite(context, obj.details.uuid);
+            invite.setVisibility(hasInvite ? View.VISIBLE : View.GONE);
+            invite.setContentDescription(hasInvite ? context.getString(R.string.open_invite_named, obj.details.name) : null);
+            invite.setOnClickListener(hasInvite ? v -> openInvite.accept(obj.details) : null);
             // A single local illustration keeps additional computers in a compact list.
             parentView.findViewById(R.id.pcLunarCover).setVisibility(
                     !itemList.isEmpty() && itemList.get(0) == obj ? View.VISIBLE : View.GONE);

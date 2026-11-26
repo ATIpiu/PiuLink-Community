@@ -36,6 +36,16 @@
             android:entryValues="@array/auto_bitrate_mode_values"
             android:defaultValue="balanced" />
         <CheckBoxPreference
+            android:key="checkbox_hold_loss_quality"
+            android:title="@string/hold_loss_quality"
+            android:summary="@string/hold_loss_summary"
+            android:defaultValue="true" />
+        <CheckBoxPreference
+            android:key="checkbox_direct_invite_network"
+            android:title="@string/direct_invite_network"
+            android:summary="@string/direct_invite_summary"
+            android:defaultValue="false" />
+        <CheckBoxPreference
             android:key="checkbox_save_metered_data"
             android:title="@string/title_save_metered_data"
             android:summary="@string/summary_save_metered_data"

@@ -17,9 +17,11 @@ public final class AutoBitrateManager {
     public Session beginSession(String hostAddress, boolean saveDataOnMeteredNetwork,
                                 int width, int height, int fps, String tuningMode) {
         StreamPath path = streamPath(context, hostAddress);
-        int selectedKbps = AutoBitratePolicy.startupBitrate(path.route, width, height, fps,
+        int budgetKbps = AutoBitratePolicy.startupBitrate(path.route, width, height, fps,
                 path.downstreamKbps, saveDataOnMeteredNetwork, tuningMode);
-        return new Session(path, selectedKbps);
+        boolean holdQuality = android.preference.PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean("checkbox_hold_loss_quality", true);
+        return new Session(path, budgetKbps, holdQuality);
     }
 
     static String routeFor(Context context, String address) {
@@ -30,11 +32,13 @@ public final class AutoBitrateManager {
         final String route;
         final int downstreamKbps;
         final boolean vpnTransport;
+        final boolean vpnInvite;
 
-        StreamPath(String route, int downstreamKbps, boolean vpnTransport) {
+        StreamPath(String route, int downstreamKbps, boolean vpnTransport, boolean tunnel) {
             this.route = route;
             this.downstreamKbps = downstreamKbps;
             this.vpnTransport = vpnTransport;
+            this.vpnInvite = vpnTransport && tunnel;
         }
     }
 
@@ -47,12 +51,14 @@ public final class AutoBitrateManager {
         // uses the VPN budget until a concrete on-link endpoint is selected.
         Network lan = !tunnel && literal && vpn ? NetHelper.getBindableLocalNetworkForAddress(context, address) : null;
         Network network = lan != null ? lan : manager == null || Build.VERSION.SDK_INT < 23 ? null : manager.getActiveNetwork();
+        Network bound = tunnel ? com.limelight.computers.DirectInviteTunnel.boundNetwork(address) : null;
+        if (bound != null) network = bound;
         NetworkCapabilities caps = manager == null || network == null ? null : manager.getNetworkCapabilities(network);
         boolean metered = caps != null ? !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
                 : manager != null && manager.isActiveNetworkMetered();
         boolean local = !tunnel && (vpn ? lan != null : NetHelper.isPrivateHostAddress(address));
         String route = tunnel ? (metered ? "metered" : "remote") : classifyRoute(address, vpn, metered, local);
-        return new StreamPath(route, caps == null ? 0 : caps.getLinkDownstreamBandwidthKbps(), vpn && lan == null);
+        return new StreamPath(route, caps == null ? 0 : caps.getLinkDownstreamBandwidthKbps(), vpn && lan == null, tunnel);
     }
 
     static String classifyRoute(String hostAddress, boolean vpnActive, boolean metered, boolean directLocal) {
@@ -65,19 +71,24 @@ public final class AutoBitrateManager {
     public static final class Session {
         private final String route;
         private final int selectedKbps;
+        private final int ceilingKbps;
+        private final boolean vpnInvite;
         private final int downstreamEstimateKbps;
         private final ThroughputHistory throughputHistory = new ThroughputHistory();
         private final AutoBitratePolicy.Feedback feedback;
 
-        private Session(StreamPath path, int selectedKbps) {
+        private Session(StreamPath path, int budgetKbps, boolean holdQuality) {
             this.route = path.route;
-            this.selectedKbps = selectedKbps;
+            this.vpnInvite = path.vpnInvite;
+            this.ceilingKbps = budgetKbps;
+            this.selectedKbps = AutoBitratePolicy.handshakeBudget(budgetKbps, vpnInvite);
             this.downstreamEstimateKbps = path.downstreamKbps;
-            this.feedback = new AutoBitratePolicy.Feedback(path.vpnTransport);
+            this.feedback = new AutoBitratePolicy.Feedback(path.vpnTransport, selectedKbps, ceilingKbps, holdQuality);
         }
 
         public int getSelectedKbps() { return selectedKbps; }
-        public int getCeilingKbps() { return selectedKbps; }
+        public int getCeilingKbps() { return ceilingKbps; }
+        public boolean isVpnInvite() { return vpnInvite; }
         public String getRoute() { return route; }
         public int getDownstreamEstimateKbps() { return downstreamEstimateKbps; }
 

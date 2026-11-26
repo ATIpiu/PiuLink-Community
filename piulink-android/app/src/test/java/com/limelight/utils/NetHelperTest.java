@@ -20,7 +20,7 @@ public class NetHelperTest {
     @Test
     public void doesNotTreatOrdinaryConnectionFailureAsBindingDenial() {
         assertFalse(NetHelper.isNetworkBindingDenied(
-                new IOException("Failed to connect to 192.168.50.8")));
+                new IOException("Failed to connect to 192.168.1.8")));
     }
 
     @Test
@@ -28,7 +28,7 @@ public class NetHelperTest {
         assertEquals("fe80::1", NetHelper.stripIpv6Zone("[fe80::1%wlan0]"));
         assertEquals("[fe80::1]", NetHelper.formatAuthorityHost("fe80::1%wlan0"));
         assertEquals("[2001:db8::1]", NetHelper.formatAuthorityHost("[2001:db8::1]"));
-        assertEquals("192.168.50.8", NetHelper.formatAuthorityHost("192.168.50.8"));
+        assertEquals("192.168.1.8", NetHelper.formatAuthorityHost("192.168.1.8"));
     }
 
     @Test

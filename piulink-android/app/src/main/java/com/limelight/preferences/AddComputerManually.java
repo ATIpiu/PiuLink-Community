@@ -202,7 +202,7 @@ public class AddComputerManually extends Activity {
 
     private int addPc(ComputerManagerService.ComputerManagerBinder binder, URI address, boolean punch, String expectedHostId) throws InterruptedException {
         if ("https".equals(address.getScheme())) {
-            try { return binder.addInvite(address.toString(), punch) ? R.string.addpc_success : R.string.invite_no_route; }
+            try { return binder.addInvite(address.toString(), punch, expectedHostId) ? R.string.addpc_success : R.string.invite_no_route; }
             catch (java.io.FileNotFoundException offline) { return R.string.invite_offline; }
             catch (java.io.IOException unavailable) { return R.string.invite_unavailable; }
         }

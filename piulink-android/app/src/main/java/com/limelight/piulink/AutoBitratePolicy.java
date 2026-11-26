@@ -7,7 +7,7 @@ final class AutoBitratePolicy {
     private AutoBitratePolicy() {
     }
 
-    // Choose the handshake bitrate once. Android's link bandwidth estimates the
+    // Choose the stream bandwidth budget. Android's link bandwidth estimates the
     // local bearer, not throughput across a VPN or the Internet.
     static int startupBitrate(String route, int width, int height, int fps,
                               int downstreamEstimateKbps, boolean saveDataOnMeteredNetwork,
@@ -26,6 +26,11 @@ final class AutoBitratePolicy {
             target = Math.min(target, 10_000);
         target = Math.max(MIN_BITRATE_KBPS, Math.min(MAX_BITRATE_KBPS, target));
         return Math.max(MIN_BITRATE_KBPS, target / 500 * 500);
+    }
+
+    static int handshakeBudget(int budgetKbps, boolean vpnInvite) {
+        if (!vpnInvite) return budgetKbps;
+        return Math.min(budgetKbps, Math.max(MIN_BITRATE_KBPS, Math.min(4_000, budgetKbps / 2)));
     }
 
     static DisplayInventoryClient.Mode fitTvOutput(DisplayInventoryClient.Mode stream,
@@ -70,12 +75,27 @@ final class AutoBitratePolicy {
         private long lastIncreaseMs = -1;
         private int recoveryDelay;
         private final boolean watchVpnDelay;
+        private final int startupBudget, bandwidthBudget;
+        private boolean probingStartup;
+        private final boolean holdQualityOnLoss;
+        private int cleanSamplesNeeded;
+        private long lastSampleMs = -1;
         private double baselineRtt;
         private int rttSamples, previousRtt, olderRtt, delayedWindows, clearWindows;
         private boolean delayReductionApplied;
 
         Feedback() { this(false); }
-        Feedback(boolean watchVpnDelay) { this.watchVpnDelay = watchVpnDelay; }
+        Feedback(boolean watchVpnDelay) { this(watchVpnDelay, 0, 0); }
+        Feedback(boolean watchVpnDelay, int startupBudget, int bandwidthBudget) {
+            this(watchVpnDelay, startupBudget, bandwidthBudget, false);
+        }
+        Feedback(boolean watchVpnDelay, int startupBudget, int bandwidthBudget, boolean holdQualityOnLoss) {
+            this.holdQualityOnLoss = holdQualityOnLoss;
+            this.watchVpnDelay = watchVpnDelay;
+            this.startupBudget = startupBudget;
+            this.bandwidthBudget = bandwidthBudget;
+            this.probingStartup = startupBudget < bandwidthBudget;
+        }
 
         private boolean sustainedQueueDelay(int rttMs, boolean carryingVideo) {
             if (!watchVpnDelay || rttMs <= 0) {
@@ -102,15 +122,41 @@ final class AutoBitratePolicy {
         // Only act on an encoder-confirmed rate. The handshake budget also covers FEC and audio.
         int nextEncoderTarget(int applied, int received, int lost, int frames, int rttMs, long nowMs) {
             if (applied <= 0) return 0;
-            if (encoderCeiling == 0) encoderCeiling = applied;
-            if (frames < 8 || lost < 0 || lost > frames || received <= 0) {
+            // Keep the same fraction for encoded video that the Host actually allowed
+            // at startup. The rest of the link budget is for audio and error correction.
+            if (encoderCeiling == 0) {
+                encoderCeiling = applied;
+                if (startupBudget < bandwidthBudget)
+                    encoderCeiling = (int) Math.min(bandwidthBudget, (long) applied * bandwidthBudget / startupBudget);
+            }
+            if (lastSampleMs >= 0 && nowMs - lastSampleMs > 2500) {
+                cleanWindows = lossyWindows = delayedWindows = clearWindows = 0;
+            }
+            lastSampleMs = nowMs;
+            if (holdQualityOnLoss && lost > 0 && lost <= frames) {
+                // Native FEC and IDR/RFI recovery keep the previous decoded image on the surface.
+                // Do not make the first complete recovery frames blurry by cutting the encoder rate.
+                cleanSamplesNeeded = 3;
+                cleanWindows = lossyWindows = delayedWindows = clearWindows = 0;
+                probingStartup = false;
+                return 0;
+            }
+            boolean sparseLoss = startupBudget < bandwidthBudget && frames < 8 && lost >= 2 && lost * 4 >= frames;
+            if ((frames < 8 && !sparseLoss) || lost < 0 || lost > frames || received <= 0) {
                 lossyWindows = cleanWindows = delayedWindows = clearWindows = 0;
                 return 0;
             }
             float loss = (float) lost / frames;
+            if (cleanSamplesNeeded > 0) {
+                cleanSamplesNeeded--;
+                return 0;
+            }
             lossyWindows = loss >= 0.03f ? lossyWindows + 1 : 0;
             boolean carryingVideo = received >= applied * 0.55f;
             boolean elevated = sustainedQueueDelay(rttMs, carryingVideo);
+            if (loss >= 0.03f || elevated || applied >= encoderCeiling) probingStartup = false;
+            boolean fastProbe = probingStartup && rttMs > 0 && rttMs < 200;
+            int recoveryWindows = rttMs >= 200 ? 18 : fastProbe ? 4 : 10;
             cleanWindows = lost == 0 && carryingVideo && !elevated ? cleanWindows + 1 : 0;
             if (nowMs < nextChangeMs) return 0;
             int target;
@@ -125,8 +171,8 @@ final class AutoBitratePolicy {
                 target = Math.max(Math.min(750, encoderCeiling), applied * 80 / 100);
                 delayReductionApplied = true;
                 lastIncreaseMs = -1;
-            } else if (cleanWindows >= (rttMs >= 200 ? 18 : 10) + recoveryDelay) {
-                target = Math.min(encoderCeiling, applied + Math.max(200, applied / 6));
+            } else if (cleanWindows >= recoveryWindows + recoveryDelay) {
+                target = Math.min(encoderCeiling, applied + Math.max(200, applied / (fastProbe ? 3 : 6)));
                 if (target > applied) {
                     if (lastIncreaseMs >= 0) recoveryDelay = Math.max(0, recoveryDelay - 10);
                     lastIncreaseMs = nowMs;

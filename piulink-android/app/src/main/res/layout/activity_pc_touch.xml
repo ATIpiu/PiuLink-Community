@@ -27,6 +27,15 @@
                 android:textColor="@color/home_ink"
                 android:textSize="30sp" />
             <ImageButton
+                android:id="@+id/homeHistory"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="12dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_stream_clock"
+                android:tint="@color/home_ink"
+                android:contentDescription="@string/connection_history" />
+            <ImageButton
                 android:id="@+id/manuallyAddPc"
                 android:layout_width="48dp"
                 android:layout_height="48dp"

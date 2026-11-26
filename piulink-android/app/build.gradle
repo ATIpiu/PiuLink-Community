@@ -46,8 +46,8 @@ android {
         minSdk 26
         targetSdk 36
 
-        versionName "0.3.206"
-        versionCode = 226
+        versionName "0.3.209"
+        versionCode = 229
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes

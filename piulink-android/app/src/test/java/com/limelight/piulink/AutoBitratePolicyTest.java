@@ -5,6 +5,58 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 public class AutoBitratePolicyTest {
+    @Test public void frameLossHoldsQualityThroughRecoveryOnVpnAndLan() {
+        for (boolean vpn : new boolean[] {true, false}) {
+            AutoBitratePolicy.Feedback f = new AutoBitratePolicy.Feedback(vpn, 4000, 14000, true);
+            for (int i = 0; i < 30; i++)
+                assertEquals(0, f.nextEncoderTarget(2708, 800, 16, 60, 180, i * 1000L));
+            for (int i = 30; i < 42; i++)
+                assertEquals(0, f.nextEncoderTarget(2708, 2600, 0, 60, 30, i * 1000L));
+            org.junit.Assert.assertTrue(f.nextEncoderTarget(2708, 2600, 0, 60, 30, 42000) > 2708);
+        }
+    }
+    @Test public void onlyVpnInvitesSeparateHandshakeFromBudget() {
+        assertEquals(14000, AutoBitratePolicy.handshakeBudget(14000, false));
+        assertEquals(4000, AutoBitratePolicy.handshakeBudget(14000, true));
+        assertEquals(3000, AutoBitratePolicy.handshakeBudget(6000, true));
+        assertEquals(3000, AutoBitratePolicy.handshakeBudget(3000, true));
+    }
+
+    @Test public void healthyVpnInviteProbesUpToItsOriginalVideoShare() {
+        AutoBitratePolicy.Feedback f = new AutoBitratePolicy.Feedback(true, 4000, 14000);
+        int applied = 3000;
+        for (int sec = 0; sec < 30; sec++) {
+            int next = f.nextEncoderTarget(applied, applied, 0, 60, 25, sec * 1000L);
+            if (next > 0) applied = next;
+            if (sec == 3) assertEquals(4000, applied);
+        }
+        assertEquals(10500, applied);
+    }
+
+    @Test public void sparseLostFramesCutVpnRateAndStopFastProbing() {
+        AutoBitratePolicy.Feedback f = new AutoBitratePolicy.Feedback(true, 4000, 14000);
+        assertEquals(0, f.nextEncoderTarget(3000, 200, 0, 3, 50, 0));
+        int reduced = f.nextEncoderTarget(3000, 200, 3, 7, 180, 1000);
+        assertEquals(1650, reduced);
+        for (int sec = 2; sec < 11; sec++)
+            assertEquals(0, f.nextEncoderTarget(reduced, reduced, 0, 60, 50, sec * 1000L));
+        assertEquals(1925, f.nextEncoderTarget(reduced, reduced, 0, 60, 50, 11000));
+    }
+
+    @Test public void slowIdleOrInterruptedSamplesDoNotTriggerFastProbes() {
+        for (int rtt : new int[]{0, 220}) {
+            AutoBitratePolicy.Feedback f = new AutoBitratePolicy.Feedback(true, 4000, 14000);
+            for (int sec = 0; sec < 9; sec++)
+                assertEquals(0, f.nextEncoderTarget(3000, 3000, 0, 60, rtt, sec * 1000L));
+        }
+        AutoBitratePolicy.Feedback f = new AutoBitratePolicy.Feedback(true, 4000, 14000);
+        for (int sec = 0; sec < 20; sec++)
+            assertEquals(0, f.nextEncoderTarget(3000, 90, 0, 60, 20, sec * 1000L));
+        for (int sec : new int[]{20, 21, 22, 30, 31, 32})
+            assertEquals(0, f.nextEncoderTarget(3000, 3000, 0, 60, 20, sec * 1000L));
+        assertEquals(4000, f.nextEncoderTarget(3000, 3000, 0, 60, 20, 33000));
+    }
+
     @Test public void tvKeepsFrameRateWithinSupportedOutputModes() {
         DisplayInventoryClient.Mode fullHd = new DisplayInventoryClient.Mode(1920, 1080, 60);
         DisplayInventoryClient.Mode source = new DisplayInventoryClient.Mode(3840, 2160, 60);
@@ -87,9 +139,9 @@ public class AutoBitratePolicyTest {
 
     @Test public void localTargetWinsEvenWhenTailscaleVpnIsActive() {
         assertEquals("local", AutoBitrateManager.classifyRoute(
-                "192.168.50.8", true, false, true));
+                "192.168.1.8", true, false, true));
         assertEquals("private", AutoBitrateManager.classifyRoute(
-                "100.64.0.42", true, false, true));
+                "100.70.102.126", true, false, true));
     }
 
     @Test public void privateAddressReachedThroughVpnUsesOverlayBudget() {

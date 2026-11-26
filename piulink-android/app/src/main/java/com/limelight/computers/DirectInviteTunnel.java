@@ -1,6 +1,11 @@
 package com.limelight.computers;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.LinkProperties;
+import android.os.ParcelFileDescriptor;
+import com.limelight.utils.NetHelper;
 import android.os.SystemClock;
 import android.util.Base64;
 import com.limelight.LimeLog;
@@ -42,24 +47,36 @@ public final class DirectInviteTunnel {
         private final Session session;
         private final String hostId;
         final AddressTuple address;
+        final Network defaultNetwork, boundNetwork;
+        final boolean preferPhysical;
 
-        private Path(Session session, String hostId, AddressTuple address) {
+        private Path(Session session, String hostId, AddressTuple address, Network defaultNetwork, Network boundNetwork, boolean preferPhysical) {
             this.session = session;
             this.hostId = hostId;
             this.address = address;
+            this.defaultNetwork = defaultNetwork;
+            this.boundNetwork = boundNetwork;
+            this.preferPhysical = preferPhysical;
+        }
+
+        boolean current(Context ctx) {
+            ConnectivityManager cm = ctx.getSystemService(ConnectivityManager.class);
+            return session.alive() && preferPhysical == NetHelper.preferPhysicalInviteNetwork(ctx)
+                    && java.util.Objects.equals(defaultNetwork, cm.getActiveNetwork())
+                    && (boundNetwork == null || cm.getNetworkCapabilities(boundNetwork) != null);
         }
     }
 
     private static final ConcurrentHashMap<String, Path> sessions = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Path> preferredPaths = new ConcurrentHashMap<>();
 
-    static AddressTuple preferred(String uuid) {
+    static AddressTuple preferred(Context ctx, String uuid) {
         Path path = uuid == null ? null : preferredPaths.get(uuid.toLowerCase(java.util.Locale.ROOT));
-        return path != null && path.session.alive() ? path.address : null;
+        return path != null && path.current(ctx) ? path.address : null;
     }
-    static Path active(HostInvite invite) {
+    static Path active(Context ctx, HostInvite invite) {
         Path path = sessions.get(pathKey(invite));
-        return path != null && path.session.alive() ? path : null;
+        return path != null && path.current(ctx) ? path : null;
     }
     private static String pathKey(HostInvite invite) {
         return invite.serviceBase + "#" + invite.room + "." + invite.uuid;
@@ -68,6 +85,11 @@ public final class DirectInviteTunnel {
         if (address == null || !address.startsWith("127.")) return false;
         for (Path path : sessions.values()) if (address.equals(path.address.address) && path.session.alive()) return true;
         return false;
+    }
+    public static Network boundNetwork(String address) {
+        for (Path path : sessions.values())
+            if (path.address.address.equals(address) && path.session.alive()) return path.boundNetwork;
+        return null;
     }
     private static final SecureRandom random = new SecureRandom();
     private static final OkHttpClient signaling = new OkHttpClient.Builder()
@@ -125,7 +147,7 @@ public final class DirectInviteTunnel {
             Path existing = sessions.get(inviteKey);
             if (existing != null && existing.session.alive()) {
                 // A second caller may already have replaced the exact path we probed.
-                if (existing != failedProbe) return existing;
+                if (existing != failedProbe && existing.current(ctx)) return existing;
                 stopPath(inviteKey, existing);
                 LimeLog.info("PiuLink P2P reconnecting after Host discovery failed on the previous tunnel");
             }
@@ -148,33 +170,37 @@ public final class DirectInviteTunnel {
                         .generateCertificate(new ByteArrayInputStream(peer));
             }
 
-            random.nextBytes(key);
-            Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, cert.getPublicKey(),
-                    new OAEPParameterSpec("SHA-256","MGF1",MGF1ParameterSpec.SHA256,PSource.PSpecified.DEFAULT));
-            String wrapped = encode(cipher.doFinal(key));
-            String id = UUID.randomUUID().toString().replace("-", "");
-            long time = System.currentTimeMillis() / 1000;
-            LimelightCryptoProvider local = PlatformBinding.getCryptoProvider(ctx);
-            Signature signature = Signature.getInstance("SHA256withRSA");
-            signature.initSign(local.getClientPrivateKey());
-            signature.update(("piulink-punch-v2\n" + invite.room + "\n" + id + "\n" + time + "\n" + wrapped)
-                    .getBytes(StandardCharsets.US_ASCII));
-            JSONObject offer = new JSONObject().put("id", id).put("time", time)
-                    .put("cert", encode(local.getClientCertificate().getEncoded()))
-                    .put("wrapped", wrapped).put("signature", encode(signature.sign()));
-            String ticket = post("open", invite, offer).getString("ticket");
-            JSONObject lease = new JSONObject().put("serviceBase", invite.serviceBase).put("leaseId", id).put("ticket", ticket)
-                    .put("transportKey", Base64.encodeToString(key, Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP))
-                    .put("sourceClientId", "source").put("hostClientId", "host");
-            if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
-            Session session = Mobile.start(new JSONObject().put("role","source").put("clientId","source")
-                    .put("listenHost",listener).put("lease",lease).toString());
+            ConnectivityManager cm = ctx.getSystemService(ConnectivityManager.class);
+            Network defaultNetwork = cm.getActiveNetwork();
+            boolean preferPhysical = NetHelper.preferPhysicalInviteNetwork(ctx);
+            Network network = NetHelper.allowedInviteNetwork(ctx);
+            LinkProperties link = network == null ? null : cm.getLinkProperties(network);
+            String config = openConfiguration(ctx, invite, cert, key, listener);
+            Session session;
+            if (link != null && link.getInterfaceName() != null) {
+                final Network physical = network;
+                try {
+                    session = Mobile.startOnNetwork(config, link.getInterfaceName(), fd -> {
+                        try (ParcelFileDescriptor duplicate = ParcelFileDescriptor.fromFd(Math.toIntExact(fd))) {
+                            physical.bindSocket(duplicate.getFileDescriptor());
+                        }
+                    });
+                } catch (Exception unavailable) {
+                    if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+                    LimeLog.info("PiuLink direct bearer unavailable; retrying the system route");
+                    network = null;
+                    session = Mobile.start(openConfiguration(ctx, invite, cert, key, listener));
+                }
+            } else {
+                network = null;
+                session = Mobile.start(config);
+            }
             if (Thread.currentThread().isInterrupted()) { session.stop(); throw new InterruptedException(); }
-            Path path = new Path(session, invite.uuid, address);
+            Path path = new Path(session, invite.uuid, address, defaultNetwork, network, preferPhysical);
             sessions.put(inviteKey, path);
             preferredPaths.put(invite.uuid, path);
             monitor(inviteKey, path);
+            LimeLog.info("PiuLink P2P media route " + (network == null ? "system" : "bound physical network"));
             LimeLog.info("PiuLink P2P ready in " + (SystemClock.elapsedRealtime()-start) + " ms, selected peer " + session.peerAddress());
             return path;
         } catch (InterruptedException cancelled) { throw cancelled; }
@@ -183,6 +209,32 @@ public final class DirectInviteTunnel {
             if (failure instanceof IOException) throw (IOException)failure;
             throw new IOException("Could not establish a direct P2P session", failure);
         } finally { Arrays.fill(key,(byte)0); }
+    }
+
+    private static String openConfiguration(Context ctx, HostInvite invite, X509Certificate cert, byte[] key,
+                                            String listener) throws Exception {
+        random.nextBytes(key);
+        Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, cert.getPublicKey(),
+                new OAEPParameterSpec("SHA-256","MGF1",MGF1ParameterSpec.SHA256,PSource.PSpecified.DEFAULT));
+        String wrapped = encode(cipher.doFinal(key));
+        String id = UUID.randomUUID().toString().replace("-", "");
+        long time = System.currentTimeMillis() / 1000;
+        LimelightCryptoProvider local = PlatformBinding.getCryptoProvider(ctx);
+        Signature signature = Signature.getInstance("SHA256withRSA");
+        signature.initSign(local.getClientPrivateKey());
+        signature.update(("piulink-punch-v2\n" + invite.room + "\n" + id + "\n" + time + "\n" + wrapped)
+                .getBytes(StandardCharsets.US_ASCII));
+        JSONObject offer = new JSONObject().put("id", id).put("time", time)
+                .put("cert", encode(local.getClientCertificate().getEncoded()))
+                .put("wrapped", wrapped).put("signature", encode(signature.sign()));
+        String ticket = post("open", invite, offer).getString("ticket");
+        JSONObject lease = new JSONObject().put("serviceBase", invite.serviceBase).put("leaseId", id).put("ticket", ticket)
+                .put("transportKey", Base64.encodeToString(key, Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP))
+                .put("sourceClientId", "source").put("hostClientId", "host");
+        if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+        return new JSONObject().put("role", "source").put("clientId", "source")
+                .put("listenHost", listener).put("lease", lease).toString();
     }
 
     static synchronized void close(String uuid) {

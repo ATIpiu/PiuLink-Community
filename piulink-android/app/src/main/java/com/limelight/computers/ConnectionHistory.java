@@ -67,6 +67,21 @@ public final class ConnectionHistory {
         return context.getSharedPreferences("host-route-history", Context.MODE_PRIVATE);
     }
 
+    static String lastAcceptedInvite(Context context, String uuid) {
+        if (uuid == null) return null;
+        SharedPreferences saved = context.getSharedPreferences("host-invitations", Context.MODE_PRIVATE);
+        String link = saved.getString(uuid.toLowerCase(Locale.ROOT), null);
+        if (link != null) return link;
+        // Older installations used the spelling of the UUID returned by the Host.
+        for (String key : saved.getAll().keySet())
+            if (uuid.equalsIgnoreCase(key)) return saved.getString(key, null);
+        return null;
+    }
+
+    public static boolean hasAcceptedInvite(Context context, String uuid) {
+        return lastAcceptedInvite(context, uuid) != null;
+    }
+
     static String address(ComputerDetails.AddressTuple address) {
         if (address == null) return null;
         String host = address.address;

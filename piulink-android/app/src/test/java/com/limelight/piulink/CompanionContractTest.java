@@ -87,7 +87,7 @@ public class CompanionContractTest {
         DisplayInventoryClient.Inventory inventory = new DisplayInventoryClient.Inventory(true,
                 java.util.Arrays.asList(virtual, unplugged, current), java.util.Collections.emptyList(), java.util.Collections.emptyList());
         assertSame(current, DisplayInventoryClient.defaultDisplay(inventory, "", false));
-        assertSame(virtual, DisplayInventoryClient.defaultDisplay(inventory, "v", false));
+        assertSame(current, DisplayInventoryClient.defaultDisplay(inventory, "v", false));
         assertSame(virtual, DisplayInventoryClient.defaultDisplay(inventory, "", true));
         assertSame(virtual, DisplayInventoryClient.defaultDisplay(inventory, current.deviceId, true));
         assertSame(virtual, DisplayInventoryClient.defaultDisplay(inventory, "reinstalled", true));

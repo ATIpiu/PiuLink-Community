@@ -255,6 +255,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         homeTabs.settings.select(savedSettingsSection);
         homeTabs.select(savedHomeTab);
         findViewById(R.id.manuallyAddPc).setOnClickListener(v -> openAddComputer());
+        View history = findViewById(R.id.homeHistory);
+        if (history != null) history.setOnClickListener(v -> openRoutePicker(null));
         View emptyAddComputerButton = findViewById(R.id.emptyAddPcButton);
         View emptyTailscaleButton = findViewById(R.id.emptyTailscaleButton);
         View emptyHelpButton = findViewById(R.id.emptyHelpButton);
@@ -295,6 +297,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     }
 
     private void autoOpenDesktop(ComputerDetails pc) {
+        openSavedDesktop(pc, false);
+    }
+
+    private void openSavedDesktop(ComputerDetails pc, boolean invitationOnly) {
         if (desktopRouteRequest != null || openingLibrary) return;
         if (pc.serverCert == null) {
             openHost(pc);
@@ -309,7 +315,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             Thread request = Thread.currentThread();
             ComputerDetails peer = null;
             try {
-                peer = manager.resolveDesktopRoute(pc.uuid);
+                peer = invitationOnly ? manager.resolveSavedInvitation(pc.uuid) : manager.resolveDesktopRoute(pc.uuid);
             } catch (InterruptedException cancelled) {
                 return;
             } catch (IOException | RuntimeException error) {
@@ -323,7 +329,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     doAppList(result, false, false, true);
                 } else {
                     DiagnosticReport.connection(this, "host", "unreachable", 0);
-                    openRoutePicker(pc);
+                    openRoutePicker(pc, !invitationOnly);
                 }
             });
         }, "PiuLink desktop route");
@@ -362,21 +368,28 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         ComputerDetails peer = managerBinder.getComputer(manualDesktopId);
         manualDesktopId = null;
         if (peer != null && peer.serverCert != null) doAppList(peer, false, false, true);
+        else if (peer != null) openHost(peer);
     }
 
     private void openRoutePicker(ComputerDetails pc) {
+        openRoutePicker(pc, false);
+    }
+
+    private void openRoutePicker(ComputerDetails pc, boolean autoFailed) {
         if (managerBinder == null) {
             Toast.makeText(this, R.string.error_manager_not_running, Toast.LENGTH_SHORT).show();
             return;
         }
-        com.limelight.preferences.ConnectionRoutePicker.show(this, managerBinder, pc.uuid, (host, route) ->
+        int title = pc == null ? R.string.connection_history :
+                autoFailed ? R.string.route_choose_after_failure : R.string.connection_methods;
+        com.limelight.preferences.ConnectionRoutePicker.show(this, managerBinder, pc == null ? null : pc.uuid, title, (host, route) ->
                 startActivityForResult(new Intent(this, AddComputerManually.class)
                         .putExtra(AddComputerManually.EXTRA_ROUTE_HOST, host.uuid)
                         .putExtra(AddComputerManually.EXTRA_ROUTE_KEY, route.key), REQUEST_DESKTOP_ROUTE));
     }
 
     private void openAddComputer() {
-        startActivity(new Intent(this, AddComputerManually.class));
+        startActivityForResult(new Intent(this, AddComputerManually.class), REQUEST_DESKTOP_ROUTE);
     }
 
     private void updateSetupStatus() {
@@ -480,7 +493,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
         pcGridAdapter = new PcGridAdapter(this, PreferenceConfiguration.readPreferences(this),
                 UiHelper.isTouchscreenClient(this) ? this::autoOpenDesktop : null, this::openHost,
-                computer -> doAppList(computer, false, false, true, 0, true));
+                computer -> doAppList(computer, false, false, true, 0, true),
+                computer -> openSavedDesktop(computer, true));
 
         initializeViews();
         android.content.SharedPreferences setup = getSharedPreferences("connection_setup", MODE_PRIVATE);

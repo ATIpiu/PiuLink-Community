@@ -125,8 +125,10 @@ final class DisplayInventoryClient {
     static Display defaultDisplay(Inventory inventory, String saved, boolean virtualApp) {
         if (!saved.isEmpty()) {
             for (Display display : inventory.displays)
-                if (display.deviceId.equalsIgnoreCase(saved) && (!virtualApp || display.virtual) &&
-                        (display.virtual || (display.width > 0 && display.height > 0))) return display;
+                if (display.deviceId.equalsIgnoreCase(saved) && (!virtualApp || display.virtual)) {
+                    if (virtualApp || display.width > 0 && display.height > 0) return display;
+                    if (display.virtual) return activeDesktop(inventory);
+                }
             if (!virtualApp) return null;
         }
         if (virtualApp) {

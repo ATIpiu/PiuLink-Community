@@ -31,7 +31,7 @@ public final class SessionDisplayControls {
     private final LinearLayout content;
     private final ScrollView scroll;
     private final TextView status;
-    private final LinearLayout targets, options;
+    private final LinearLayout targets, options, displayPage, virtualMode;
     private final Button more;
     private final CaptureOptions captureOptions;
     private final MonitorSelection.StreamMode streamMode;
@@ -81,9 +81,11 @@ public final class SessionDisplayControls {
         status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         status.setVisibility(View.GONE);
         panel.addView(status);
+        displayPage = new LinearLayout(activity);
+        displayPage.setOrientation(LinearLayout.VERTICAL);
         targets = new LinearLayout(activity);
         targets.setOrientation(LinearLayout.VERTICAL);
-        panel.addView(targets);
+        displayPage.addView(targets);
         content = new LinearLayout(activity);
         content.setOrientation(LinearLayout.VERTICAL);
         panel.addView(content);
@@ -91,11 +93,16 @@ public final class SessionDisplayControls {
         styleAction(more, R.drawable.ic_computer);
         more.setText(R.string.screen_more_options);
         more.setVisibility(View.GONE);
-        panel.addView(more);
+        virtualMode = new LinearLayout(activity);
+        virtualMode.setOrientation(LinearLayout.VERTICAL);
+        displayPage.addView(virtualMode);
+        displayPage.addView(more);
         options = new LinearLayout(activity);
         options.setOrientation(LinearLayout.VERTICAL);
         options.setVisibility(View.GONE);
-        panel.addView(options);
+        displayPage.addView(options);
+        panel.addView(displayPage);
+        displayPage.setVisibility(View.GONE);
         more.setOnClickListener(v -> options.setVisibility(options.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
         scroll = new ScrollView(activity);
         scroll.addView(panel);
@@ -106,8 +113,28 @@ public final class SessionDisplayControls {
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         title.setPadding(dp(20), dp(18), dp(20), dp(8));
         if (android.os.Build.VERSION.SDK_INT >= 28) title.setAccessibilityHeading(true);
+        LinearLayout header = new LinearLayout(activity);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.addView(title);
+        LinearLayout tabs = new LinearLayout(activity);
+        tabs.setPadding(dp(16), 0, dp(16), dp(8));
+        header.addView(tabs);
+        Button picture = choice(activity.getString(R.string.session_picture), true);
+        Button displays = choice(activity.getString(R.string.session_displays), false);
+        tabs.addView(picture, equalCell());
+        tabs.addView(displays, equalCell());
+        View.OnClickListener switchPage = tab -> {
+            boolean showPicture = tab == picture;
+            setChosen(picture, showPicture);
+            setChosen(displays, !showPicture);
+            content.setVisibility(showPicture ? View.VISIBLE : View.GONE);
+            displayPage.setVisibility(showPicture ? View.GONE : View.VISIBLE);
+            scroll.scrollTo(0, 0);
+        };
+        picture.setOnClickListener(switchPage);
+        displays.setOnClickListener(switchPage);
         dialog = new AlertDialog.Builder(activity)
-                .setTitle(R.string.monitor_select_title).setCustomTitle(title).setView(scroll)
+                .setTitle(R.string.monitor_select_title).setCustomTitle(header).setView(scroll)
                 .setNeutralButton(R.string.monitor_refresh, null).setNegativeButton(R.string.screen_close_panel, null).create();
         dialog.setOnShowListener(d -> {
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> refresh());
@@ -396,19 +423,9 @@ public final class SessionDisplayControls {
                 }
             }
         }
+        if (captured && content.getChildCount() == 0) label(activity.getString(R.string.screen_video_resize_update));
+        virtualMode.removeAllViews();
         if (captured) addResolutionPicker(state.optJSONObject("virtualDesktop"), state.optJSONObject("encodedVideo"));
-        int count = state.optInt("virtualCount", -1);
-        Button create = new Button(activity);
-        styleAction(create, R.drawable.ic_add);
-        create.setText(R.string.screen_create);
-        create.setEnabled(captured && count >= 0 && count < 16 && "available".equals(state.optString("createStatus")));
-        create.setOnClickListener(v -> new AlertDialog.Builder(activity)
-                .setMessage(R.string.screen_create_confirm).setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.screen_create, (d, w) ->
-                        request("create", null, count, activity.getString(R.string.screen_creating))).show());
-        content.addView(create);
-        if (!create.isEnabled()) create.setAlpha(0.75f);
-        if (!create.isEnabled()) label(activity.getString(createHint(state.optString("createStatus"))));
         if (scrollY > 0) scroll.post(() -> scroll.scrollTo(0, scrollY));
     }
 
@@ -436,29 +453,61 @@ public final class SessionDisplayControls {
     }
 
     private void streamPicker(String key, JSONObject video, java.util.List<DisplayInventoryClient.Mode> modes, boolean fps) {
-        String[] labels = new String[modes.size()];
-        int selected = 0;
+        String title = activity.getString(fps ? R.string.session_fps : R.string.session_resolution);
+        TextView heading = label(title);
+        heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        heading.setTextColor(activity.getColor(R.color.home_ink));
+        if (android.os.Build.VERSION.SDK_INT >= 28) heading.setAccessibilityHeading(true);
+        int columns = fps ? 3 : 2;
+        LinearLayout row = null;
         for (int i = 0; i < modes.size(); i++) {
+            if (i % columns == 0) { row = new LinearLayout(activity); content.addView(row); }
             DisplayInventoryClient.Mode mode = modes.get(i);
-            labels[i] = fps ? mode.fps + " FPS" : mode.width + " × " + mode.height;
-            if (video.optInt("width") == mode.width && video.optInt("height") == mode.height && video.optInt("fps") == mode.fps) selected = i;
+            String value = fps ? mode.fps + " FPS" : mode.width + " × " + mode.height;
+            boolean selected = video.optInt("width") == mode.width && video.optInt("height") == mode.height &&
+                    video.optInt("fps") == mode.fps;
+            Button button = choice(value, selected);
+            button.setContentDescription(title + " · " + value);
+            button.setOnClickListener(v -> {
+                if (!selected && !requesting) request("stream-mode", key, -1,
+                        activity.getString(R.string.screen_resizing), mode);
+            });
+            row.addView(button, equalCell());
         }
-        final int checked = selected;
+        for (int i = modes.size(); i % columns != 0; i++) row.addView(new View(activity), equalCell());
+    }
+
+    private LinearLayout.LayoutParams equalCell() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
+        params.setMargins(dp(2), dp(2), dp(2), dp(2));
+        return params;
+    }
+
+    private Button choice(String text, boolean selected) {
         Button button = new Button(activity);
-        styleAction(button, R.drawable.ic_computer);
-        button.setText(fps ? activity.getString(R.string.stream_fps, video.optInt("fps")) :
-                activity.getString(R.string.stream_size, labels[checked]));
-        button.setOnClickListener(v -> new AlertDialog.Builder(activity).setTitle(button.getText())
-                .setSingleChoiceItems(labels, checked, (picker, i) -> {
-                    picker.dismiss();
-                    if (i != checked) request("stream-mode", key, -1, activity.getString(R.string.screen_resizing), modes.get(i));
-                }).setNegativeButton(android.R.string.cancel, null).show());
-        content.addView(button);
+        button.setAllCaps(false);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setMinHeight(dp(48));
+        button.setTextSize(14);
+        button.setText(text);
+        button.setGravity(Gravity.CENTER);
+        button.setStateListAnimator(null);
+        button.setPadding(dp(4), dp(4), dp(4), dp(4));
+        setChosen(button, selected);
+        return button;
+    }
+
+    private void setChosen(Button button, boolean selected) {
+        button.setSelected(selected);
+        button.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        button.setTextColor(activity.getColor(selected ? R.color.piulink_on_accent : R.color.home_ink));
+        button.setBackgroundResource(selected ? R.drawable.bg_home_desktop : R.drawable.bg_home_add);
     }
 
     private void addResolutionPicker(JSONObject desktop, JSONObject video) {
         if (desktop == null) return;
-        if (video == null) { label(activity.getString(R.string.screen_video_resize_update)); return; }
+        if (video == null) return;
         JSONObject current = desktop.optJSONObject("current");
         JSONArray modes = desktop.optJSONArray("modes");
         if (current == null || modes == null || modes.length() == 0) return;
@@ -477,7 +526,7 @@ public final class SessionDisplayControls {
             choices.add(new DisplayInventoryClient.Mode(w, h, item.optInt("fps")));
             labels.add(w + " × " + h);
         }
-        if (choices.isEmpty()) { label(activity.getString(R.string.screen_video_resize_decoder)); return; }
+        if (choices.isEmpty()) { label(virtualMode, activity.getString(R.string.screen_video_resize_decoder)); return; }
         Button resize = new Button(activity);
         styleAction(resize, R.drawable.ic_computer);
         resize.setText(activity.getString(R.string.screen_virtual_resolution, current.optInt("width"), current.optInt("height")));
@@ -490,23 +539,14 @@ public final class SessionDisplayControls {
                         if (which != checked) request("resize-stream", key, -1, activity.getString(R.string.screen_resizing), choices.get(which));
                     }).setNegativeButton(android.R.string.cancel, null).show();
         });
-        content.addView(resize);
-    }
-
-    private static int createHint(String reason) {
-        switch (reason) {
-            case "driver_required": return R.string.screen_driver_required;
-            case "enable_driver": return R.string.screen_driver_disabled;
-            case "physical_capture_required": return R.string.screen_physical_required;
-            case "limit_reached": return R.string.screen_limit;
-            default: return R.string.screen_driver_unavailable;
-        }
+        virtualMode.addView(resize);
     }
 
     private void showError(String reason, boolean automatic) {
         requesting = false;
         renderedState = null;
         content.removeAllViews();
+        virtualMode.removeAllViews();
         liveOutputs = null;
         if (inventory != null) renderTargets(inventory);
         int message;
@@ -535,12 +575,16 @@ public final class SessionDisplayControls {
     }
 
     private TextView label(String text) {
+        return label(content, text);
+    }
+
+    private TextView label(LinearLayout parent, String text) {
         TextView label = new TextView(activity);
         label.setText(text);
         label.setTextColor(activity.getColor(R.color.home_muted));
         label.setTextSize(13);
         label.setPadding(dp(4), dp(6), dp(4), dp(10));
-        content.addView(label);
+        parent.addView(label);
         return label;
     }
 }

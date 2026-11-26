@@ -24,4 +24,16 @@
     <string name="route_remove_prompt">Remove “%1$s” from the connection history on this device?</string>
     <string name="route_connecting">Connecting to %1$s…</string>
     <string name="route_choose_after_failure">Couldn’t connect. Choose a connection method</string>
+    <string name="open_invite_named">Open %1$s desktop with the saved P2P invitation</string>
+    <string name="direct_invite_network">P2P outside the VPN</string>
+    <string name="direct_invite_summary">Use Wi-Fi or mobile data for invitation media when the VPN permits bypass. The Host sees the direct network address. Reconnect to apply.</string>
+    <string name="hold_loss_quality">Keep image quality during frame loss</string>
+    <string name="hold_loss_summary">Hold the last intact frame during recovery and keep the encoder bitrate.</string>
+    <string name="session_picture">Picture</string>
+    <string name="session_displays">Displays</string>
+    <string name="session_resolution">Resolution</string>
+    <string name="session_fps">Frame rate</string>
+    <string name="route_bound_media">P2P · physical network</string>
+    <string name="route_system_vpn">P2P · system VPN route</string>
+    <string name="super_screen_missing">The Host has no virtual display available for Super Screen.</string>
 </resources>

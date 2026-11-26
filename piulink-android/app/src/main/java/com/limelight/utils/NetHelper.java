@@ -17,6 +17,34 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 public class NetHelper {
+    public static final String DIRECT_INVITE_NETWORK = "checkbox_direct_invite_network";
+
+    public static boolean preferPhysicalInviteNetwork(Context context) {
+        return android.preference.PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(DIRECT_INVITE_NETWORK, false);
+    }
+
+    /** Choose an already active Internet bearer only when Android permits binding to it. */
+    public static Network allowedInviteNetwork(Context context) {
+        ConnectivityManager cm = context.getSystemService(ConnectivityManager.class);
+        if (cm == null || !preferPhysicalInviteNetwork(context) || !isActiveNetworkVpn(context)) return null;
+        Network[] networks = cm.getAllNetworks();
+        for (int transport : new int[]{NetworkCapabilities.TRANSPORT_ETHERNET, NetworkCapabilities.TRANSPORT_WIFI,
+                NetworkCapabilities.TRANSPORT_CELLULAR}) {
+            for (Network network : networks) {
+                NetworkCapabilities caps = cm.getNetworkCapabilities(network);
+                LinkProperties link = cm.getLinkProperties(network);
+                if (caps == null || !caps.hasTransport(transport) || caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+                        || !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        || link == null || link.getInterfaceName() == null) continue;
+                try (java.net.DatagramSocket probe = new java.net.DatagramSocket(null)) {
+                    network.bindSocket(probe);
+                    return network;
+                } catch (java.io.IOException | SecurityException denied) { /* Keep the system route if restricted. */ }
+            }
+        }
+        return null;
+    }
     public static boolean isPrivateHostAddress(String host) {
         if (host == null || host.trim().isEmpty()) {
             return false;

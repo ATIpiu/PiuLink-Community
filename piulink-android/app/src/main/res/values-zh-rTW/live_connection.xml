@@ -24,4 +24,16 @@
     <string name="route_remove_prompt">從本機的連線記錄移除「%1$s」？</string>
     <string name="route_connecting">正在連線至 %1$s…</string>
     <string name="route_choose_after_failure">自動連線失敗，選擇連線方式</string>
+    <string name="open_invite_named">用已儲存的 P2P 邀請開啟 %1$s 的桌面</string>
+    <string name="direct_invite_network">P2P 串流優先直連</string>
+    <string name="direct_invite_summary">VPN 允許繞行時，使用 Wi-Fi 或行動數據傳輸邀請串流，Host 可見直連位址。重新連線後生效。</string>
+    <string name="hold_loss_quality">掉幀時保持清晰度</string>
+    <string name="hold_loss_summary">保留最後的完整畫面，恢復期間維持編碼位元率。</string>
+    <string name="session_picture">畫面</string>
+    <string name="session_displays">顯示器</string>
+    <string name="session_resolution">解析度</string>
+    <string name="session_fps">幀率</string>
+    <string name="route_bound_media">P2P · 實體網路直連</string>
+    <string name="route_system_vpn">P2P · 系統 VPN 路由</string>
+    <string name="super_screen_missing">這台電腦還沒有可供超級螢幕使用的虛擬顯示器。</string>
 </resources>

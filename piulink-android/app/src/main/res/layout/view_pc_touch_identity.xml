@@ -51,4 +51,19 @@
             android:textColor="@color/home_muted"
             android:textSize="13sp" />
     </LinearLayout>
+    <Button
+        android:id="@+id/pcSavedInvite"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="0dp"
+        android:minHeight="48dp"
+        android:layout_marginStart="8dp"
+        android:focusable="false"
+        android:paddingHorizontal="12dp"
+        android:background="@drawable/bg_home_add"
+        android:text="@string/route_invitation"
+        android:textAllCaps="false"
+        android:textColor="@color/home_ink"
+        android:textSize="14sp"
+        android:visibility="gone" />
 </LinearLayout>

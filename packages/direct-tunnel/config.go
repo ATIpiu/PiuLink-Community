@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/pion/transport/v5"
 )
 
 const (
@@ -48,6 +50,8 @@ func ServiceBase(value string) (string, error) {
 }
 
 type Config struct {
+	ICENetwork     transport.Net `json:"-"`
+	ICEInterface   string        `json:"-"`
 	Lease          Lease
 	ClientID       string
 	Role           Role

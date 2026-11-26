@@ -313,8 +313,9 @@ public class ComputerManagerService extends Service {
             return saved;
         }
 
-        public boolean addInvite(String link, boolean directOnly) throws IOException, InterruptedException {
+        public boolean addInvite(String link, boolean directOnly, String expectedHostId) throws IOException, InterruptedException {
             HostInvite invite = HostInvite.parse(link);
+            if (expectedHostId != null && !expectedHostId.equalsIgnoreCase(invite.uuid)) return false;
             ConnectionHistory.explicit(ComputerManagerService.this, invite.uuid, link);
             ComputerDetails expected = new ComputerDetails();
             expected.uuid = invite.uuid;
@@ -322,6 +323,13 @@ public class ComputerManagerService extends Service {
             if (saved != null) expected.serverCert = saved.serverCert;
             ComputerDetails found;
             try {
+                if (directOnly && saved != null && saved.serverCert != null) {
+                    // A paired historical invitation needs only the authenticated endpoint probe.
+                    found = verifyInvitation(saved, invite);
+                    if (found == null || !keepVerifiedRoute(found)) return false;
+                    rememberAcceptedInvitation(found.uuid, link);
+                    return true;
+                }
                 found = resolveInvite(expected, invite, directOnly);
             } catch (IOException failure) {
                 // An already-paired LAN computer remains reachable during a directory outage.
@@ -336,10 +344,23 @@ public class ComputerManagerService extends Service {
                 ComputerDetails peer = verifyDesktopEndpoint(saved, found.activeAddress);
                 if (peer == null || !keepVerifiedRoute(peer)) return false;
             } else if (!finishAddAtAddress(found)) return false;
-            synchronized (ConnectionHistory.class) {
-                if (ConnectionHistory.used(ComputerManagerService.this, found.uuid, link)) storeInvitation(found.uuid, link);
-            }
+            rememberAcceptedInvitation(found.uuid, link);
             return true;
+        }
+
+        private void rememberAcceptedInvitation(String uuid, String link) {
+            synchronized (ConnectionHistory.class) {
+                if (ConnectionHistory.used(ComputerManagerService.this, uuid, link)) storeInvitation(uuid, link);
+            }
+        }
+
+        public ComputerDetails resolveSavedInvitation(String uuid) throws IOException, InterruptedException {
+            ComputerDetails saved = getComputer(uuid);
+            String link = savedInvitation(uuid);
+            if (saved == null || saved.serverCert == null || HostInvite.parseUri(link) == null) return null;
+            HostInvite invite = HostInvite.parse(link);
+            if (!uuid.equalsIgnoreCase(invite.uuid)) return null;
+            return verifyInvitation(new ComputerDetails(saved), invite);
         }
 
         private boolean finishAddAtAddress(ComputerDetails found) throws InterruptedException {
@@ -367,7 +388,7 @@ public class ComputerManagerService extends Service {
             String accepted = savedInvitation(uuid);
             HostInvite invite = HostInvite.parseUri(accepted) == null ? null : HostInvite.parse(accepted);
             if (invite != null) {
-                DirectInviteTunnel.Path active = DirectInviteTunnel.active(invite);
+                DirectInviteTunnel.Path active = DirectInviteTunnel.active(ComputerManagerService.this, invite);
                 if (active != null) addresses.add(active.address);
             }
             for (ConnectionHistory.Route route : history.routes) {
@@ -398,7 +419,7 @@ public class ComputerManagerService extends Service {
         }
 
         private ComputerDetails verifyInvitation(ComputerDetails saved, HostInvite invite) throws IOException, InterruptedException {
-            DirectInviteTunnel.Path active = DirectInviteTunnel.active(invite);
+            DirectInviteTunnel.Path active = DirectInviteTunnel.active(ComputerManagerService.this, invite);
             if (active != null) {
                 ComputerDetails peer = verifyDesktopEndpoint(saved, active.address);
                 if (peer != null) return peer;
@@ -409,6 +430,8 @@ public class ComputerManagerService extends Service {
         }
 
         private ComputerDetails verifyDesktopEndpoint(ComputerDetails saved, ComputerDetails.AddressTuple address) {
+            if (DirectInviteTunnel.isEndpoint(address.address) &&
+                    !address.equals(DirectInviteTunnel.preferred(ComputerManagerService.this, saved.uuid))) return null;
             try {
                 int httpsPort = address.equals(saved.activeAddress) ? saved.httpsPort : 0;
                 NvHTTP http = new NvHTTP(address, httpsPort, idManager.getUniqueId(), saved.serverCert,
@@ -1070,7 +1093,7 @@ public class ComputerManagerService extends Service {
     private ComputerDetails parallelPollPc(ComputerDetails details) throws InterruptedException {
         String id = details.uuid == null ? null : details.uuid.toLowerCase(java.util.Locale.ROOT);
         ComputerDetails.AddressTuple selected = id == null ? null : selectedRoutes.get(id);
-        if (selected == null) selected = DirectInviteTunnel.preferred(details.uuid);
+        if (selected == null || selected.address.startsWith("127.")) selected = DirectInviteTunnel.preferred(this, details.uuid);
         if (selected != null) {
             ComputerDetails connected = pollAddresses(details, java.util.Collections.singletonList(selected));
             if (connected != null) return connected;
@@ -1081,7 +1104,7 @@ public class ComputerManagerService extends Service {
     }
 
     private ComputerDetails resolveInvite(ComputerDetails details, HostInvite invite, boolean directOnly) throws IOException, InterruptedException {
-        DirectInviteTunnel.Path active = DirectInviteTunnel.active(invite);
+        DirectInviteTunnel.Path active = DirectInviteTunnel.active(ComputerManagerService.this, invite);
         if (active != null) {
             ComputerDetails reachable = pollAddresses(details, java.util.Collections.singletonList(active.address));
             if (reachable != null) return reachable;
@@ -1204,15 +1227,7 @@ public class ComputerManagerService extends Service {
     }
 
     private String savedInvitation(String uuid) {
-        android.content.SharedPreferences preferences = getSharedPreferences("host-invitations", MODE_PRIVATE);
-        String normalized = uuid.toLowerCase(java.util.Locale.ROOT);
-        String link = preferences.getString(normalized, null);
-        if (link != null) return link;
-        // Earlier releases stored the spelling returned by Sunshine (often uppercase).
-        for (String key : preferences.getAll().keySet()) {
-            if (normalized.equalsIgnoreCase(key)) return preferences.getString(key, null);
-        }
-        return null;
+        return ConnectionHistory.lastAcceptedInvite(this, uuid);
     }
 
     private void storeInvitation(String uuid, String link) {

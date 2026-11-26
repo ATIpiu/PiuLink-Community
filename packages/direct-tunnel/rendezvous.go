@@ -107,7 +107,12 @@ func rendezvous(ctx context.Context, cfg Config, cert *ephemeralCertificate) (re
 	if err != nil {
 		return nil, err
 	}
-	return rendezvousOn(ctx, cfg, cert, directICEConfig(stunURL), base+"v2/exchange")
+	network := directICEConfig(stunURL)
+	if cfg.ICENetwork != nil {
+		network.Net = cfg.ICENetwork
+		network.InterfaceFilter = func(name string) bool { return name == cfg.ICEInterface && physical(name) }
+	}
+	return rendezvousOn(ctx, cfg, cert, network, base+"v2/exchange")
 }
 
 func directICEConfig(stunURL *stun.URI) *ice.AgentConfig {

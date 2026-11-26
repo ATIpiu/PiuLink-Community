@@ -152,7 +152,7 @@ public final class MonitorSelection {
                 DisplayInventoryClient.Display target = DisplayInventoryClient.defaultDisplay(inventory, saved, virtualApp);
                 if (target == null && virtualApp) {
                     loading.dismiss();
-                    new AlertDialog.Builder(activity).setMessage("Host 尚未提供虚拟屏幕，请先在电脑启用虚拟显示器，再打开虚拟应用。")
+                    new AlertDialog.Builder(activity).setMessage(R.string.super_screen_missing)
                         .setPositiveButton(android.R.string.ok, null).show();
                     return;
                 }
@@ -177,7 +177,7 @@ public final class MonitorSelection {
                     return;
                 }
                 int width = 0, height = 0, fps = 0;
-                if (target.virtual) {
+                if (virtualApp && target.virtual) {
                     DisplayInventoryClient.Mode mode = preferredMode(activity, host, supportedModes(activity, target));
                     if (mode == null) {
                         loading.dismiss();
@@ -191,7 +191,7 @@ public final class MonitorSelection {
                     DisplayInventoryClient.Mode mode = physicalMode(activity, address, target);
                     width = mode.width; height = mode.height; fps = mode.fps;
                 }
-                boolean exclusive = target.virtual || usesPhysicalDisplayExclusively(activity, host);
+                boolean exclusive = target.virtual ? virtualApp : !isVirtualSelected(activity, host) && usesPhysicalDisplayExclusively(activity, host);
                 int scalePercent = preferredScale(activity, host, target);
                 prepareAndAccept(activity, host, address, selected, target, exclusive,
                         width, height, fps, scalePercent);
@@ -386,7 +386,7 @@ public final class MonitorSelection {
                 panel.addTarget(display, false, inventory.supportsSessionDisplays
                         ? () -> switchTo(activity, host, selection, display) : null);
             }
-            if (current >= 0) showDisplays(activity, host, address, false, selection, inventory.exclusive,
+            if (current >= 0 && !inventory.displays.get(current).virtual) showDisplays(activity, host, address, false, selection, inventory.exclusive,
                     java.util.Collections.singletonList(inventory.displays.get(current)),
                     inventory.virtualResolutions, inventory.virtualRefreshRates, panel);
         });
@@ -409,7 +409,10 @@ public final class MonitorSelection {
         SharedPreferences preferences = preferences(activity);
         String savedDevice = preferences.getString(key(hostId) + DEVICE_SUFFIX, "");
         List<DisplayInventoryClient.Display> choices = new ArrayList<>();
-        choices.addAll(displays);
+        boolean superScreen = hostId != null && hostId.endsWith(":super_screen");
+        for (DisplayInventoryClient.Display display : displays) {
+            if (superScreen ? display.virtual : !display.virtual || display.isActive()) choices.add(display);
+        }
         if (choices.isEmpty()) {
             showUnavailable(activity, hostId, hostAddress, beforeConnection, selected);
             return;
@@ -421,7 +424,7 @@ public final class MonitorSelection {
         String[] rows = new String[choices.size()];
         for (int i = 0; i < choices.size(); i++) {
             DisplayInventoryClient.Display display = choices.get(i);
-            rows[i] = display.virtual ? formatMerge(activity, display) : format(activity, display);
+            rows[i] = display.virtual && superScreen ? formatMerge(activity, display) : format(activity, display);
             if (display.deviceId.equalsIgnoreCase(savedDevice)) selectedRow = i;
             if (display.selected) configuredRow = i;
             if (!display.virtual && display.primary) primaryPhysicalRow = i;
@@ -528,7 +531,7 @@ public final class MonitorSelection {
             DisplayInventoryClient.Display display = choices.get(choice[0]);
             boolean exclusive = physicalExclusive.isChecked();
             virtualOptions.setVisibility(display.virtual ? View.GONE : View.VISIBLE);
-            virtualGatherHint.setVisibility(display.virtual ? View.VISIBLE : View.GONE);
+            virtualGatherHint.setVisibility(display.virtual && superScreen ? View.VISIBLE : View.GONE);
             physicalExclusive.setVisibility(display.virtual ? View.GONE : View.VISIBLE);
             gather.setVisibility(!display.virtual && !exclusive ? View.VISIBLE : View.GONE);
             boolean canScale = !display.scaleOptions.isEmpty();
@@ -551,12 +554,12 @@ public final class MonitorSelection {
         final AlertDialog[] dialogReference = new AlertDialog[1];
         applyButton.setOnClickListener(view -> {
             DisplayInventoryClient.Display display = choices.get(choice[0]);
-            if (display.virtual) {
+            if (display.virtual && superScreen) {
                 if (dialogReference[0] != null) dialogReference[0].dismiss();
                 showVirtualResolution(activity, hostId, hostAddress, selected, display,
                     virtualResolutions, virtualRefreshRates, beforeConnection); return;
             }
-            boolean exclusive = physicalExclusive.isChecked();
+            boolean exclusive = !display.virtual && physicalExclusive.isChecked();
             if (selected instanceof GuardedSelection)
                 ((GuardedSelection) selected).gatherDraft = gather.isChecked();
             DisplayInventoryClient.Mode mode = physicalMode(activity, hostAddress, display);

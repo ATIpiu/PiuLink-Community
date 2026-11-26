@@ -261,6 +261,22 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private static final long CONTENT_ADAPTIVE_RETRY_MS = 750;
     private static final int CONTENT_ADAPTIVE_MAX_ATTEMPTS = 8;
     private AutoBitrateManager.Session autoBitrateSession;
+    private String inviteRouteStatus = "";
+    private int lastRequestedNetworkBitrate;
+    private final Runnable restoreInviteBitrate = this::restoreNetworkTargetAfterModeChange;
+
+    private void restoreNetworkTargetAfterModeChange() {
+        if (connected && !streamPageStopped && conn != null && lastRequestedNetworkBitrate > 0 &&
+                conn.setLiveBitrate(lastRequestedNetworkBitrate))
+            LimeLog.info("Restored P2P network bitrate after mode change: " + lastRequestedNetworkBitrate + " Kbps");
+    }
+
+    private void scheduleInviteBitrateRestore() {
+        if (autoBitrateSession == null || !autoBitrateSession.isVpnInvite() || lastRequestedNetworkBitrate <= 0) return;
+        // A resolution change can arrive through both Host confirmation and first rendered frame.
+        autoBitrateHandler.removeCallbacks(restoreInviteBitrate);
+        autoBitrateHandler.postDelayed(restoreInviteBitrate, 250);
+    }
     private long streamConnectedAtMs;
     private boolean videoStallReported;
     private int contentAdaptiveAttempts;
@@ -548,6 +564,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         pcName = Game.this.getIntent().getStringExtra(EXTRA_PC_NAME);
 
         String host = Game.this.getIntent().getStringExtra(EXTRA_HOST);
+        if (com.limelight.computers.DirectInviteTunnel.isEndpoint(host) && NetHelper.isActiveNetworkVpn(this)) {
+            inviteRouteStatus = "\n" + getString(com.limelight.computers.DirectInviteTunnel.boundNetwork(host) != null ?
+                    R.string.route_bound_media : R.string.route_system_vpn);
+        }
         prefConfig.preferAv1ForAuto = AutoCodecPolicy.preferAv1(host, prefConfig.width, prefConfig.height,
                 connMgr.isActiveNetworkMetered());
         LimeLog.info("PiuLink automatic codec mode: " +
@@ -584,10 +604,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     host, prefConfig.saveDataOnMeteredNetwork,
                     prefConfig.width, prefConfig.height, prefConfig.fps, prefConfig.autoBitrateMode);
             LimeLog.info("Auto bitrate initial target " + autoBitrateSession.getSelectedKbps() +
-                    " Kbps, negotiated ceiling=" + autoBitrateSession.getCeilingKbps() + " Kbps" +
+                    " Kbps, bandwidth budget=" + autoBitrateSession.getCeilingKbps() + " Kbps" +
                     " route=" + autoBitrateSession.getRoute() +
+                    " vpnInvite=" + autoBitrateSession.isVpnInvite() +
                     " downstreamEstimate=" + autoBitrateSession.getDownstreamEstimateKbps() + " Kbps");
-            // The handshake sets the ceiling; live feedback adjusts the running encoder within it.
             prefConfig.bitrate = autoBitrateSession.getSelectedKbps();
         }
 
@@ -1403,6 +1423,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (inputHints != null) { inputHints.close(); inputHints = null; }
         stopRemoteMicrophone();
         autoBitrateHandler.removeCallbacks(autoBitrateStableSample);
+        autoBitrateHandler.removeCallbacks(restoreInviteBitrate);
         autoBitrateHandler.removeCallbacks(contentAdaptiveControlRetry);
         reconnectHandler.removeCallbacksAndMessages(null);
 
@@ -2501,6 +2522,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 streamView.setDesiredAspectRatio(width / (double)height);
             }
             onLiveCaptureChanged(lastCaptureWidth, lastCaptureHeight);
+            scheduleInviteBitrateRestore();
         });
     }
 
@@ -3030,6 +3052,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     public void applied(int fps) {
                         prefConfig.fps = fps;
                         decoderRenderer.setLiveFrameRate(fps);
+                        scheduleInviteBitrateRestore();
                         Surface surface = streamView.getHolder().getSurface();
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && surface.isValid())
                             surface.setFrameRate(fps, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
@@ -5182,7 +5205,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 String touchStats = touchInputStats.takeSummary(android.os.SystemClock.uptimeMillis())
                         .replace("Mouse input:", "Touch input:");
                 String engineStats = buildEnginePerformanceStatus();
-                performanceOverlayView.setText(text + engineStats +
+                performanceOverlayView.setText(text + engineStats + inviteRouteStatus +
                         (mouseStats.isEmpty() ? "" : "\n" + mouseStats) +
                         (touchStats.isEmpty() ? "" : "\n" + touchStats));
             }
@@ -5197,9 +5220,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 if (conn == null || !conn.supportsPiuLinkControl()) return;
                 int applied = conn.getAppliedLiveBitrate();
                 int target = autoBitrateSession.nextEncoderTarget(applied, receivedKbps, lost, frames, rttMs, sampledAtMs);
-                if (target > 0 && conn.setLiveBitrate(target))
+                if (target > 0 && conn.setLiveBitrate(target)) {
+                    lastRequestedNetworkBitrate = target;
                     LimeLog.info("Adaptive bitrate request " + applied + " -> " + target +
                             " Kbps, lost " + lost + "/" + frames + " frames, RTT " + rttMs + " ms");
+                }
             }
         });
     }
@@ -5207,7 +5232,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private String buildEnginePerformanceStatus() {
         NvConnection connection = conn;
         int ceilingKbps = autoBitrateSession != null
-                ? autoBitrateSession.getCeilingKbps() : prefConfig.bitrate;
+                ? autoBitrateSession.getSelectedKbps() : prefConfig.bitrate;
         if (connection == null || !connection.supportsPiuLinkControl()) {
             return "\n" + getString(R.string.perf_compact_rate_unsupported,
                     ceilingKbps / 1000f);

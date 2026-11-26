@@ -32,7 +32,12 @@ public final class ConnectionRoutePicker {
 
     public static void show(Activity activity, ComputerManagerBinder manager, String hostId,
                             BiConsumer<ConnectionHistory, ConnectionHistory.Route> connect) {
-        ConnectionRoutePicker picker = new ConnectionRoutePicker(activity, manager, hostId, connect);
+        show(activity, manager, hostId, hostId == null ? R.string.connection_history : R.string.connection_methods, connect);
+    }
+
+    public static void show(Activity activity, ComputerManagerBinder manager, String hostId, int title,
+                            BiConsumer<ConnectionHistory, ConnectionHistory.Route> connect) {
+        ConnectionRoutePicker picker = new ConnectionRoutePicker(activity, manager, hostId, title, connect);
         picker.render();
         picker.dialog.show();
         if (picker.dialog.getWindow() != null) {
@@ -42,7 +47,7 @@ public final class ConnectionRoutePicker {
         }
     }
 
-    private ConnectionRoutePicker(Activity activity, ComputerManagerBinder manager, String hostId,
+    private ConnectionRoutePicker(Activity activity, ComputerManagerBinder manager, String hostId, int title,
                                   BiConsumer<ConnectionHistory, ConnectionHistory.Route> connect) {
         this.activity = activity;
         this.manager = manager;
@@ -54,7 +59,7 @@ public final class ConnectionRoutePicker {
         ScrollView scroll = new ScrollView(activity);
         scroll.addView(rows);
         dialog = new AlertDialog.Builder(activity)
-                .setTitle(hostId == null ? R.string.connection_history : R.string.route_choose_after_failure)
+                .setTitle(title)
                 .setView(scroll).setNegativeButton(android.R.string.cancel, null).create();
     }
 
