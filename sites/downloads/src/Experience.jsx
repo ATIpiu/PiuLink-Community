@@ -305,8 +305,8 @@ function Downloads({ selected, setSystem }) {
           <span> / </span>
           <time dateTime={edition.date}>{edition.displayDate}</time>
         </div>
-        <a href={repository + "/releases"}>
-          版本记录 <Icon name="external" size={13} />
+        <a href="#changelog">
+          更新记录 <Icon name="down" size={13} />
         </a>
       </div>
       <div className="platform-picker">
@@ -379,14 +379,55 @@ function Downloads({ selected, setSystem }) {
   );
 }
 
+const androidUpdates = [
+  {
+    version: "0.3.206",
+    date: "2026-11-26",
+    changes: [
+      "同一台电脑的内网 IP、外网 IP 和邀请链接保存在一起。切换网络后，点电脑即可自动选路，连接失败时可以手动选。",
+      "开启 VPN 时，如果同一 Wi-Fi 上的电脑可直连，客户端会优先走局域网。经 VPN 串流时，自动码率会根据持续升高的往返延迟提前下调。",
+      "连接支持实时调整的 Host 后，可在串流菜单的「屏幕」面板切换帧率和分辨率，无需重新连接。",
+    ],
+  },
+  {
+    version: "0.3.186",
+    date: "2026-11-25",
+    changes: ["触控板新增七档鼠标速度。在串流菜单里调节后立即生效，下次连接也会记住。"],
+  },
+];
+
+function Changelog() {
+  return (
+    <section id="changelog" className="wrap changelog" aria-labelledby="changelog-title">
+      <div className="changelog-heading">
+        <h2 id="changelog-title">更新记录</h2>
+        <a href={repository + "/releases"}>所有平台的发布记录 <Icon name="external" size={13} /></a>
+      </div>
+      <div className="changelog-list">
+        {androidUpdates.map(({ version, date, changes }) => (
+          <article key={version}>
+            <time dateTime={date}>{date.replaceAll("-", ".")}</time>
+            <h3>
+              <a href={repository + "/releases/tag/android-" + version}>
+                Android {version} <Icon name="external" size={13} />
+              </a>
+            </h3>
+            <ul>{changes.map((change) => <li key={change}>{change}</li>)}</ul>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function Experience() {
   const [selected, setSelected] = useState(initial);
   const page = useRef(null);
   const player = useRef(null);
   useSceneMotion(page);
   useEffect(() => {
-    if (location.hash === "#film") {
-      document.getElementById("film").scrollIntoView({ behavior: "instant" });
+    if (["#film", "#downloads", "#changelog"].includes(location.hash)) {
+      document.getElementById(location.hash.slice(1)).scrollIntoView({ behavior: "instant" });
     }
   }, []);
   function playFilm(event) {
@@ -426,6 +467,7 @@ export function Experience() {
       <main>
         <Hero selected={selected} setSystem={setSystem} playFilm={playFilm} />
         <Downloads selected={selected} setSystem={setSystem} />
+        <Changelog />
         <ProductFilm player={player} />
       </main>
       <footer className="wrap footer">

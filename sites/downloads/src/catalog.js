@@ -2,8 +2,8 @@ export const repository = "https://github.com/ATIpiu/PiuLink-Community";
 const appleTestNote =
   "博主的钱包还没解锁苹果全家桶，Mac、iPhone 和 iPad 都没做过真机实测。";
 export const edition = {
-  date: "2026-11-25",
-  displayDate: "2026.11.25",
+  date: "2026-11-26",
+  displayDate: "2026.11.26",
   channel: "公开预览版",
 };
 
@@ -58,13 +58,13 @@ export const platforms = [
         title: "通用版（推荐）",
         role: "mobile",
         description: "手机、平板和电视都可选。不确定设备架构就下载这一版。",
-        version: "0.3.186",
+        version: "0.3.206",
         arch: "通用",
         format: "APK",
-        bytes: 56139609,
+        bytes: 57779618,
         url: published(
-          "android-0.3.186",
-          "PiuLink-Android-0.3.186-nonRoot-universal-release.apk",
+          "android-0.3.206",
+          "PiuLink-Android-0.3.206-nonRoot-universal-release.apk",
         ),
       },
       {
@@ -72,13 +72,13 @@ export const platforms = [
         title: "ARM64 专用版",
         role: "mobile",
         description: "适合确认系统支持 arm64-v8a 的设备。功能与通用版相同。",
-        version: "0.3.186",
+        version: "0.3.206",
         arch: "ARM64",
         format: "APK",
-        bytes: 17093962,
+        bytes: 17570707,
         url: published(
-          "android-0.3.186",
-          "PiuLink-Android-0.3.186-nonRoot-arm64-v8a-release.apk",
+          "android-0.3.206",
+          "PiuLink-Android-0.3.206-nonRoot-arm64-v8a-release.apk",
         ),
       },
     ],

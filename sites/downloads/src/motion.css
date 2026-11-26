@@ -577,6 +577,65 @@ h2 {
 .platform-picker {
   min-width: 0;
 }
+.changelog {
+  border-top: 1px solid #45403d;
+  padding-block: clamp(26px, 4vw, 52px);
+  scroll-margin-top: 20px;
+}
+.changelog-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px 20px;
+  margin-bottom: 20px;
+}
+.changelog a {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.changelog a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.changelog-heading a,
+.changelog time {
+  color: #d1b7a6;
+  font-size: 13px;
+}
+.changelog article {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.5fr) minmax(135px, 0.7fr) minmax(0, 2.1fr);
+  align-items: baseline;
+  gap: 5px 20px;
+  padding-block: 15px;
+  border-top: 1px solid #37332f;
+}
+.changelog time {
+  font-variant-numeric: tabular-nums;
+}
+.changelog h3 {
+  font-size: 18px;
+}
+.changelog ul {
+  margin: 0;
+  padding-inline-start: 1.25em;
+  font-size: 14px;
+  color: #ccc7c3;
+  line-height: 1.7;
+}
+.changelog li + li {
+  margin-top: 5px;
+}
+@media (max-width: 710px) {
+  .changelog article {
+    grid-template-columns: auto 1fr;
+  }
+  .changelog ul {
+    grid-column: 1 / -1;
+  }
+}
 .platform-rail {
   position: relative;
   display: flex;
