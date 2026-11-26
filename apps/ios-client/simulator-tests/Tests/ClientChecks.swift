@@ -42,4 +42,47 @@ final class ClientChecks: XCTestCase {
         XCTAssertTrue(p720.isSelected)
         XCTAssertTrue(fps.isSelected)
     }
+
+    func testUploadReceipt() {
+        app.buttons["日志"].tap()
+        app.alerts.buttons["上传"].tap()
+        XCTAssertTrue(app.alerts["上传成功"].waitForExistence(timeout: 30), app.debugDescription)
+        app.alerts.buttons["好"].tap()
+    }
+
+    func testPairingAndApplicationLibrary() throws {
+        let label = "PiuLink Simulator Host"
+        let host = app.staticTexts[label].firstMatch
+        if !host.waitForExistence(timeout: 4) {
+            let tile = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Add Host Manually")).firstMatch
+            tile.tap()
+            let field = app.alerts.textFields.firstMatch
+            field.tap()
+            field.typeText("127.0.0.1")
+            app.alerts.buttons["OK"].tap()
+            XCTAssertTrue(host.waitForExistence(timeout: 25), app.debugDescription)
+        }
+        host.tap()
+        let alert = app.alerts["Pairing"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 15))
+        let message = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ")
+        let range = try XCTUnwrap(message.range(of: "[0-9]{4}", options: .regularExpression))
+        var request = URLRequest(url: URL(string: "http://127.0.0.1:18589/pin")!)
+        request.httpMethod = "POST"
+        request.httpBody = Data(message[range].utf8)
+        let response = expectation(description: "Host accepted the PIN")
+        URLSession.shared.dataTask(with: request) { _, result, _ in
+            XCTAssertEqual((result as? HTTPURLResponse)?.statusCode, 204)
+            response.fulfill()
+        }.resume()
+        wait(for: [response], timeout: 15)
+        let desktop = app.staticTexts["Desktop"].firstMatch
+        XCTAssertTrue(desktop.waitForExistence(timeout: 30), app.debugDescription)
+        desktop.tap()
+        sleep(7)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Desktop stream attempt"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
 }

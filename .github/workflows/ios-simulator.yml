@@ -43,7 +43,7 @@ jobs:
           command -v xcodegen || brew install xcodegen
           xcodegen generate
           device=$(xcrun simctl list devices booted -j | python3 -c 'import sys,json; print(next(d["udid"] for ds in json.load(sys.stdin)["devices"].values() for d in ds if d["state"]=="Booted"))')
-          xcodebuild -quiet test -scheme Checks -destination "id=$device" -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/Checks.xcresult"
+          bash with-peer.sh xcodebuild -quiet test -scheme Checks -destination "id=$device" -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/Checks.xcresult"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -51,5 +51,6 @@ jobs:
           path: |
             ${{ runner.temp }}/startup.png
             ${{ runner.temp }}/Checks.xcresult/
+
 
 
