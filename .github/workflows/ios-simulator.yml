@@ -21,17 +21,31 @@ jobs:
         with:
           go-version: '1.26.6'
           cache-dependency-path: packages/direct-tunnel/go.sum
+      - name: Cache simulator application across UI test revisions
+        id: sim-app
+        uses: actions/cache@v4
+        with:
+          path: ~/piulink-simulator-app.zip
+          key: ios-sim-macos15-v1-${{ hashFiles('apps/ios-client/*.py', 'apps/ios-client/*.patch', 'apps/ios-client/*.m', 'apps/ios-client/*.h', 'apps/ios-client/*.png', 'packages/direct-tunnel/**') }}
       - name: Prepare pinned PiuLink sources
+        if: steps.sim-app.outputs.cache-hit != 'true'
         run: python3 apps/ios-client/prepare.py "$RUNNER_TEMP/iphone"
       - name: Boot simulator and verify startup
-        working-directory: ${{ runner.temp }}/iphone
+        working-directory: ${{ runner.temp }}
         run: |
           set -euo pipefail
           device=$(xcrun simctl list devices available -j | python3 -c 'import sys,json; print(next(d["udid"] for k,ds in json.load(sys.stdin)["devices"].items() if ".iOS-" in k for d in ds if d["name"].startswith("iPhone")))')
           xcrun simctl boot "$device"
           xcrun simctl bootstatus "$device" -b
-          xcodebuild -quiet -project Moonlight.xcodeproj -scheme Moonlight -configuration Debug -destination "id=$device" -derivedDataPath "$RUNNER_TEMP/derived" CODE_SIGNING_ALLOWED=NO build
-          xcrun simctl install "$device" "$RUNNER_TEMP"/derived/Build/Products/Debug-iphonesimulator/*.app
+          if [[ ! -f "$HOME/piulink-simulator-app.zip" ]]; then
+            cd "$RUNNER_TEMP/iphone"
+            xcodebuild -quiet -project Moonlight.xcodeproj -scheme Moonlight -configuration Debug -destination "id=$device" -derivedDataPath "$RUNNER_TEMP/derived" CODE_SIGNING_ALLOWED=NO build
+            app=("$RUNNER_TEMP"/derived/Build/Products/Debug-iphonesimulator/*.app)
+            ditto -c -k --keepParent "${app[0]}" "$HOME/piulink-simulator-app.zip"
+          fi
+          mkdir -p "$RUNNER_TEMP/installed"
+          ditto -x -k "$HOME/piulink-simulator-app.zip" "$RUNNER_TEMP/installed"
+          xcrun simctl install "$device" "$RUNNER_TEMP"/installed/*.app
           xcrun simctl launch "$device" labs.atipiu.piulink.ios
           sleep 8
           xcrun simctl spawn "$device" launchctl list | awk '/labs[.]atipiu[.]piulink[.]ios/ && $1 ~ /^[0-9]+$/ {alive=1} END{exit !alive}'
@@ -59,6 +73,7 @@ jobs:
             ${{ runner.temp }}/startup.png
             ${{ runner.temp }}/Checks.xcresult/
             ${{ runner.temp }}/Controls.xcresult/
+
 
 
 

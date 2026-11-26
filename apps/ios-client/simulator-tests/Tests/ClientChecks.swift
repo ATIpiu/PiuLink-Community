@@ -39,6 +39,7 @@ final class ClientChecks: XCTestCase {
         app.terminate()
         app.launch()
         app.buttons["Settings"].tap()
+        XCTAssertTrue(p720.waitForExistence(timeout: 15), app.debugDescription)
         XCTAssertTrue(p720.isSelected)
         XCTAssertTrue(fps.isSelected)
     }
@@ -121,4 +122,5 @@ final class ClientChecks: XCTestCase {
         add(shot)
     }
 }
+
 

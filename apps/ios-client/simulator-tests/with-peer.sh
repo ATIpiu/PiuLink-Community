@@ -1,6 +1,7 @@
 #!/bin/bash
 # Run a disposable GameStream peer on the same macOS runner as the iPhone.
 set -euo pipefail
+test_dir="$PWD"
 scratch="$RUNNER_TEMP/sunshine-test"
 mkdir -p "$scratch/volume" "$scratch/state"
 cd "$scratch"
@@ -31,5 +32,7 @@ curl --noproxy '*' -fsS http://127.0.0.1:47989/serverinfo | grep -q 'PiuLink Sim
 python3 "$GITHUB_WORKSPACE/apps/ios-client/simulator-tests/pin_helper.py" &
 helper_pid=$!
 trap 'kill "$host_pid" "$helper_pid" 2>/dev/null || true' EXIT
+cd "$test_dir"
 "$@"
+
 
