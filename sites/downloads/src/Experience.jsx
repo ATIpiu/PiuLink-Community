@@ -379,9 +379,19 @@ function Downloads({ selected, setSystem }) {
   );
 }
 
-const androidUpdates = [
+const updates = [
   {
-    version: "0.3.206",
+    title: "Windows Host 0.2.131",
+    tag: "host-0.2.131",
+    date: "2026-11-26",
+    changes: [
+      "Android 0.3.206 连接这台电脑后，可在串流菜单打开「屏幕」，直接调整串流帧率和分辨率。画面在当前会话中切换，无需断开重连。",
+      "已用安卓平板实测普通桌面和「超级屏」在 4K 与 1080p 之间往返切换，帧率可在 30 与 60 FPS 之间切换。GameViewer 虚拟显示器占用桌面时会阻止「超级屏」启动。",
+    ],
+  },
+  {
+    title: "Android 0.3.206",
+    tag: "android-0.3.206",
     date: "2026-11-26",
     changes: [
       "同一台电脑的内网 IP、外网 IP 和邀请链接保存在一起。切换网络后，点电脑即可自动选路，连接失败时可以手动选。",
@@ -390,7 +400,8 @@ const androidUpdates = [
     ],
   },
   {
-    version: "0.3.186",
+    title: "Android 0.3.186",
+    tag: "android-0.3.186",
     date: "2026-11-25",
     changes: ["触控板新增七档鼠标速度。在串流菜单里调节后立即生效，下次连接也会记住。"],
   },
@@ -404,12 +415,12 @@ function Changelog() {
         <a href={repository + "/releases"}>所有平台的发布记录 <Icon name="external" size={13} /></a>
       </div>
       <div className="changelog-list">
-        {androidUpdates.map(({ version, date, changes }) => (
-          <article key={version}>
+        {updates.map(({ title, tag, date, changes }) => (
+          <article key={tag}>
             <time dateTime={date}>{date.replaceAll("-", ".")}</time>
             <h3>
-              <a href={repository + "/releases/tag/android-" + version}>
-                Android {version} <Icon name="external" size={13} />
+              <a href={repository + "/releases/tag/" + tag}>
+                {title} <Icon name="external" size={13} />
               </a>
             </h3>
             <ul>{changes.map((change) => <li key={change}>{change}</li>)}</ul>
