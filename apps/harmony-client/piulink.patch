@@ -56,10 +56,34 @@ index 1bf5c85..0d81e24 100644
        this.isValidInput = false;
        return;
 diff --git a/entry/src/main/ets/pages/PcListPageV2.ets b/entry/src/main/ets/pages/PcListPageV2.ets
-index 62b0973..3a89120 100644
+index 62b0973..a10a28f 100644
 --- a/entry/src/main/ets/pages/PcListPageV2.ets
 +++ b/entry/src/main/ets/pages/PcListPageV2.ets
-@@ -609,13 +609,13 @@ struct PcListPageV2 {
+@@ -514,7 +514,11 @@ struct PcListPageV2 {
+         if (this.isInitializing) {
+           this.LoadingState()
+         } else if (this.viewModel.computers.length === 0) {
+-          this.EmptyState()
++          Scroll() {
++            this.EmptyState()
++          }
++          .width('100%')
++          .layoutWeight(1)
+         } else {
+           this.ComputerList()
+         }
+@@ -594,8 +598,8 @@ struct PcListPageV2 {
+           .height(48)
+           .fillColor(AppColors.Primary)
+       }
+-      .width(120)
+-      .height(120)
++      .width(this.isLandscape ? 64 : 120)
++      .height(this.isLandscape ? 64 : 120)
+       .borderRadius(60)
+       .backgroundColor(AppColors.Surface)
+       .borderWidth(2)
+@@ -609,13 +613,13 @@ struct PcListPageV2 {
          .fontColor(AppColors.Primary)
          .margin({ bottom: AppSpacing.Small })
  
@@ -75,6 +99,15 @@ index 62b0973..3a89120 100644
          .fontSize(AppSizes.FontCaption)
          .fontColor(AppColors.TextTertiary)
          .margin({ top: AppSpacing.Small })
+@@ -667,7 +671,7 @@ struct PcListPageV2 {
+       .margin({ top: AppSpacing.XXLarge })
+     }
+     .width('100%')
+-    .height('100%')
++    .padding({ top: AppSpacing.Large, bottom: AppSpacing.Large })
+     .justifyContent(FlexAlign.Center)
+   }
+ 
 diff --git a/entry/src/main/ets/service/streaming/BackgroundStreamService.ets b/entry/src/main/ets/service/streaming/BackgroundStreamService.ets
 index ec134b1..8d4b5f3 100644
 --- a/entry/src/main/ets/service/streaming/BackgroundStreamService.ets
