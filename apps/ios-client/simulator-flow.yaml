@@ -1,0 +1,19 @@
+appId: labs.atipiu.piulink.ios
+---
+- launchApp
+- tapOn: "日志"
+- assertVisible: "上传诊断日志？"
+- tapOn: "取消"
+- tapOn: "Add Host Manually"
+- assertVisible: "Cancel"
+- tapOn: "Cancel"
+- tapOn: "Settings"
+- assertVisible: "720p"
+- tapOn: "1080p"
+- tapOn: "30 FPS"
+- tapOn: "720p"
+- tapOn: "60 FPS"
+- takeScreenshot: ios-settings
+- stopApp
+- launchApp
+- assertVisible: "Settings"

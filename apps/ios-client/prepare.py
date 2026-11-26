@@ -36,6 +36,9 @@ def main():
         git("apply", str(sources / "piulink-ios.patch"))
         git("apply", str(sources / "rendezvous.patch"))
         git("apply", str(sources / "p2p.patch"))
+        git("apply", str(sources / "diagnostics.patch"))
+        for name in ("PLDiagnostics.h", "PLDiagnostics.m"):
+            shutil.copyfile(sources / name, checkout / "Limelight" / name)
         if not args.sources_only:
             if sys.platform != "darwin":
                 parser.error("Building the iOS transport requires Xcode. Use --sources-only to inspect the sources.")
@@ -50,7 +53,7 @@ def main():
                            cwd=transport, env=env, check=True)
             shutil.copytree(transport / "licenses", checkout / "PiuLink-Transport-Licenses")
         shutil.copyfile(sources / "PiuLink.png", checkout / "Limelight/Images.xcassets/AppIcon.appiconset/PiuLink.png")
-        checkout.rename(dest)
+        shutil.move(str(checkout), str(dest))
     print(dest / "Moonlight.xcodeproj")
 
 
