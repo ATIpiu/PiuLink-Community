@@ -14,7 +14,17 @@ parser.add_argument("--output", required=True, type=Path)
 args = parser.parse_args()
 groups = ["视频", "音频", "振动", "手柄", "USB 驱动", "屏幕控制器", "鼠标和触控", "主机",
           "后处理", "性能与调试", "界面", "备份与恢复", "关于"]
-toggles = {"音频": "音频兼容模式", "视频": "串流中自动调节码率"}
+toggles = {
+    "视频": ["启用远程串流设置", "开流前自动选码率", "串流中自动调节码率"],
+    "音频": ["主机同时播放音频", "空间音频", "音频兼容模式"],
+    "振动": ["振动反馈", "音频振动"],
+    "手柄": ["多手柄输入", "翻转 A/B X/Y", "手柄运动传感器", "设备运动传感器回退", "手柄触摸板作鼠标"],
+    "屏幕控制器": ["显示屏幕控制器", "显示屏幕键盘"],
+    "鼠标和触控": ["显示本地光标", "触屏作为触控板", "三指唤出输入法", "低延迟触摸参数", "双击拖动"],
+    "主机": ["NVIDIA 游戏优化", "断开后锁定屏幕"],
+    "性能与调试": ["同步解码 / 极低延迟 (实验性)", "VRR 可变刷新率 (实验性)"],
+    "界面": ["小图标模式"],
+}
 results = {}
 
 
@@ -92,19 +102,26 @@ for name in groups:
     if not samples:
         raise RuntimeError("No visible controls in " + name)
     results[name] = {"visibleItems": samples}
-    label = toggles.get(name)
-    if label:
-        toggle = matching_toggle(nodes, label)
+    for label in toggles.get(name, []):
+        try:
+            toggle = matching_toggle(layout(), label)
+        except StopIteration:
+            results[name].setdefault("unavailableInViewport", []).append(label)
+            continue
         original = toggle["checked"]
         tap(toggle)
         changed = matching_toggle(layout(), label)
         if changed["checked"] == original:
-            raise RuntimeError("Toggle did not change: " + label)
+            results[name].setdefault("unchanged", []).append(label)
+            continue
         tap(changed)
         if matching_toggle(layout(), label)["checked"] != original:
             raise RuntimeError("Toggle did not restore: " + label)
-        results[name]["toggleRoundTrip"] = label
+        results[name].setdefault("toggleRoundTrips", []).append(label)
     args.output.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
     tap(find_header(name))
     print(name, flush=True)
 
+
+if any(row.get("unchanged") for row in results.values()):
+    raise SystemExit("Some settings did not change; see the output JSON")
