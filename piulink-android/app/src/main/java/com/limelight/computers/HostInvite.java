@@ -23,19 +23,30 @@ import java.util.regex.Pattern;
 
 public final class HostInvite {
     static final String BASE = "https://atipiu.org:8443/piulink/";
-    private static final Pattern LINK = Pattern.compile(Pattern.quote(BASE + "join#") +
-            "([a-f0-9]{64})\\.([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})");
-    final String room, uuid;
-    private HostInvite(String room, String uuid) { this.room = room; this.uuid = uuid; }
+    private static final Pattern FRAGMENT = Pattern.compile("([a-f0-9]{64})\\.([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})");
+    final String room, uuid, serviceBase;
+    private HostInvite(URI uri, Matcher match) {
+        serviceBase = "https://" + uri.getRawAuthority() + "/piulink/";
+        room = match.group(1); uuid = match.group(2);
+    }
 
     public static URI parseUri(String text) {
-        return LINK.matcher(text).matches() ? URI.create(text) : null;
+        if (text == null) return null;
+        try {
+            URI uri = URI.create(text);
+            if (!"https".equals(uri.getScheme()) || uri.getHost() == null || uri.getUserInfo() != null ||
+                    uri.getRawQuery() != null || !"/piulink/join".equals(uri.getRawPath()) ||
+                    uri.getRawFragment() == null || !FRAGMENT.matcher(uri.getRawFragment()).matches()) return null;
+            return uri;
+        } catch (IllegalArgumentException ignored) { return null; }
     }
 
     static HostInvite parse(String text) {
-        Matcher match = LINK.matcher(text);
+        URI uri = parseUri(text);
+        if (uri == null) throw new IllegalArgumentException("Invalid Host invitation");
+        Matcher match = FRAGMENT.matcher(uri.getRawFragment());
         if (!match.matches()) throw new IllegalArgumentException("Invalid Host invitation");
-        return new HostInvite(match.group(1), match.group(2));
+        return new HostInvite(uri, match);
     }
 
     static final class ServiceUnavailable extends IOException {
@@ -53,7 +64,7 @@ public final class HostInvite {
     }
 
     List<AddressTuple> resolve() throws IOException {
-        HttpURLConnection connection = (HttpURLConnection)new URL(BASE + "v1/resolve").openConnection();
+        HttpURLConnection connection = (HttpURLConnection)new URL(serviceBase + "v1/resolve").openConnection();
         try {
             connection.setInstanceFollowRedirects(false);
             connection.setUseCaches(false);

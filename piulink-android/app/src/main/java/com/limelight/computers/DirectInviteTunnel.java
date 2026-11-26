@@ -31,21 +31,42 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.crypto.Cipher;
 import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
 
 public final class DirectInviteTunnel {
-    private static final HashMap<String,Session> sessions = new HashMap<>();
-    private static final java.util.concurrent.ConcurrentHashMap<String,AddressTuple> activeAddresses = new java.util.concurrent.ConcurrentHashMap<>();
+    static final class Path {
+        private final Session session;
+        private final String hostId;
+        final AddressTuple address;
+
+        private Path(Session session, String hostId, AddressTuple address) {
+            this.session = session;
+            this.hostId = hostId;
+            this.address = address;
+        }
+    }
+
+    private static final ConcurrentHashMap<String, Path> sessions = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Path> preferredPaths = new ConcurrentHashMap<>();
+
     static AddressTuple preferred(String uuid) {
-        return uuid == null ? null : activeAddresses.get(uuid.toLowerCase(java.util.Locale.ROOT));
+        Path path = uuid == null ? null : preferredPaths.get(uuid.toLowerCase(java.util.Locale.ROOT));
+        return path != null && path.session.alive() ? path.address : null;
+    }
+    static Path active(HostInvite invite) {
+        Path path = sessions.get(pathKey(invite));
+        return path != null && path.session.alive() ? path : null;
+    }
+    private static String pathKey(HostInvite invite) {
+        return invite.serviceBase + "#" + invite.room + "." + invite.uuid;
     }
     public static boolean isEndpoint(String address) {
         if (address == null || !address.startsWith("127.")) return false;
-        for (AddressTuple endpoint : activeAddresses.values()) if (address.equals(endpoint.address)) return true;
+        for (Path path : sessions.values()) if (address.equals(path.address.address) && path.session.alive()) return true;
         return false;
     }
     private static final SecureRandom random = new SecureRandom();
@@ -54,10 +75,10 @@ public final class DirectInviteTunnel {
             .connectTimeout(4, TimeUnit.SECONDS).readTimeout(7, TimeUnit.SECONDS)
             .callTimeout(9, TimeUnit.SECONDS).build();
 
-    private static JSONObject post(String route, String room, JSONObject body) throws IOException, JSONException {
+    private static JSONObject post(String route, HostInvite invite, JSONObject body) throws IOException, JSONException {
         byte[] data = body == null ? new byte[0] : body.toString().getBytes(StandardCharsets.UTF_8);
-        Request request = new Request.Builder().url(HostInvite.BASE + "v2/" + route)
-                .header("Authorization", "Bearer " + room)
+        Request request = new Request.Builder().url(invite.serviceBase + "v2/" + route)
+                .header("Authorization", "Bearer " + invite.room)
                 .post(RequestBody.create(data, MediaType.get("application/json"))).build();
         for (int attempt = 1; ; attempt++) {
             try {
@@ -92,20 +113,27 @@ public final class DirectInviteTunnel {
 
     private static String encode(byte[] bytes) { return Base64.encodeToString(bytes, Base64.NO_WRAP); }
 
-    static synchronized AddressTuple connect(Context ctx, HostInvite invite, X509Certificate pinned)
+    static synchronized Path connect(Context ctx, HostInvite invite, X509Certificate pinned, Path failedProbe)
             throws IOException, InterruptedException {
         byte[] key = new byte[32];
         long start = SystemClock.elapsedRealtime();
         try {
-            byte[] tag = MessageDigest.getInstance("SHA-256").digest(invite.uuid.getBytes(StandardCharsets.US_ASCII));
+            String inviteKey = pathKey(invite);
+            byte[] tag = MessageDigest.getInstance("SHA-256").digest(inviteKey.getBytes(StandardCharsets.US_ASCII));
             String listener = "127." + (1 + (tag[0] & 0xff) % 254) + "." + (tag[1] & 0xff) + "." + (1 + (tag[2] & 0xff) % 254);
             AddressTuple address = new AddressTuple(listener, NvHTTP.DEFAULT_HTTP_PORT);
-            Session existing = sessions.get(invite.uuid);
-            if (existing != null && existing.alive()) return address;
+            Path existing = sessions.get(inviteKey);
+            if (existing != null && existing.session.alive()) {
+                // A second caller may already have replaced the exact path we probed.
+                if (existing != failedProbe) return existing;
+                stopPath(inviteKey, existing);
+                LimeLog.info("PiuLink P2P reconnecting after Host discovery failed on the previous tunnel");
+            }
             sessions.entrySet().removeIf(e -> {
-                if (e.getValue().alive()) return false;
-                activeAddresses.remove(e.getKey());
-                e.getValue().stop();
+                if (e.getValue().session.alive()) return false;
+                Path expired = e.getValue();
+                preferredPaths.remove(expired.hostId, expired);
+                expired.session.stop();
                 return true;
             });
             if (sessions.size() >= 4) throw new IOException("Too many active P2P hosts");
@@ -114,7 +142,7 @@ public final class DirectInviteTunnel {
             // the session. A paired device already has the trusted certificate.
             X509Certificate cert = pinned;
             if (cert == null) {
-                JSONObject identity = post("identity", invite.room, null);
+                JSONObject identity = post("identity", invite, null);
                 byte[] peer = Base64.decode(identity.getString("cert"), Base64.DEFAULT);
                 cert = (X509Certificate)CertificateFactory.getInstance("X.509")
                         .generateCertificate(new ByteArrayInputStream(peer));
@@ -135,19 +163,20 @@ public final class DirectInviteTunnel {
             JSONObject offer = new JSONObject().put("id", id).put("time", time)
                     .put("cert", encode(local.getClientCertificate().getEncoded()))
                     .put("wrapped", wrapped).put("signature", encode(signature.sign()));
-            String ticket = post("open", invite.room, offer).getString("ticket");
-            JSONObject lease = new JSONObject().put("leaseId", id).put("ticket", ticket)
+            String ticket = post("open", invite, offer).getString("ticket");
+            JSONObject lease = new JSONObject().put("serviceBase", invite.serviceBase).put("leaseId", id).put("ticket", ticket)
                     .put("transportKey", Base64.encodeToString(key, Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP))
                     .put("sourceClientId", "source").put("hostClientId", "host");
             if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
             Session session = Mobile.start(new JSONObject().put("role","source").put("clientId","source")
                     .put("listenHost",listener).put("lease",lease).toString());
             if (Thread.currentThread().isInterrupted()) { session.stop(); throw new InterruptedException(); }
-            sessions.put(invite.uuid,session);
-            activeAddresses.put(invite.uuid,address);
-            monitor(invite.uuid, session);
+            Path path = new Path(session, invite.uuid, address);
+            sessions.put(inviteKey, path);
+            preferredPaths.put(invite.uuid, path);
+            monitor(inviteKey, path);
             LimeLog.info("PiuLink P2P ready in " + (SystemClock.elapsedRealtime()-start) + " ms, selected peer " + session.peerAddress());
-            return address;
+            return path;
         } catch (InterruptedException cancelled) { throw cancelled; }
         catch (Exception failure) {
             LimeLog.warning("PiuLink P2P failed: " + failure.getMessage());
@@ -159,28 +188,34 @@ public final class DirectInviteTunnel {
     static synchronized void close(String uuid) {
         if (uuid == null) return;
         String id = uuid.toLowerCase(java.util.Locale.ROOT);
-        activeAddresses.remove(id);
-        Session session = sessions.remove(id);
-        if (session != null) session.stop();
+        for (java.util.Map.Entry<String, Path> entry : sessions.entrySet())
+            if (id.equals(entry.getValue().hostId)) stopPath(entry.getKey(), entry.getValue());
     }
 
-    private static void monitor(String id, Session session) {
+    private static void stopPath(String key, Path path) {
+        if (sessions.remove(key, path)) {
+            preferredPaths.remove(path.hostId, path);
+            path.session.stop();
+        }
+    }
+
+    private static void monitor(String id, Path path) {
+        Session session = path.session;
         Thread worker = new Thread(() -> {
-            long lastMedia = SystemClock.elapsedRealtime(), previousBytes = 0;
+            long previousBytes = 0;
             try {
                 while (session.alive()) {
                     Thread.sleep(10000);
                     JSONObject stats = new JSONObject(session.statsJSON());
                     long bytes = stats.optLong("UDPBytesSent") + stats.optLong("UDPBytesRecv");
                     if (bytes != previousBytes) {
-                        lastMedia = SystemClock.elapsedRealtime();
                         previousBytes = bytes;
                         LimeLog.info("PiuLink P2P media bytes=" + bytes + " dropped=" + stats.optLong("DroppedDatagrams"));
-                    } else if (SystemClock.elapsedRealtime() - lastMedia >= 180000) break;
+                    }
                 }
             } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
             catch (JSONException ignored) { }
-            finally { synchronized (DirectInviteTunnel.class) { if (sessions.get(id) == session) close(id); } }
+            finally { synchronized (DirectInviteTunnel.class) { stopPath(id, path); } }
         }, "PiuLink P2P session");
         worker.setDaemon(true);
         worker.start();

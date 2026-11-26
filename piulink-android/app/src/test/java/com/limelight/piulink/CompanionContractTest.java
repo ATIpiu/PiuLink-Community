@@ -9,6 +9,27 @@ import java.nio.file.Paths;
 import static org.junit.Assert.*;
 
 public class CompanionContractTest {
+    @Test public void liveResizeRequiresMatchingCaptureAndWindowsReadback() throws Exception {
+        DisplayInventoryClient.Mode requested = new DisplayInventoryClient.Mode(2560, 1440, 60);
+        JSONObject current = new JSONObject().put("width", 2560).put("height", 1440).put("fps", 120);
+        JSONObject desktop = new JSONObject().put("key", "capture").put("current", current);
+        JSONObject state = new JSONObject().put("virtualDesktop", desktop).put("encodedVideo", current);
+        assertEquals(120, DisplayInventoryClient.confirmedVirtualMode(state, "capture", requested).fps);
+        try {
+            DisplayInventoryClient.confirmedVirtualMode(new JSONObject().put("virtualDesktop", desktop)
+                    .put("encodedVideo", new JSONObject().put("width", 1920).put("height", 1080)), "capture", requested);
+            fail("Desktop-only resize accepted as encoded video");
+        } catch (DisplayInventoryClient.SessionError error) { assertEquals("outputs_changed", error.reason); }
+        for (JSONObject invalid : new JSONObject[] { new JSONObject(), new JSONObject().put("virtualDesktop",
+                new JSONObject().put("key", "stale").put("current", current)), new JSONObject().put("virtualDesktop",
+                new JSONObject().put("key", "capture").put("current", new JSONObject().put("width", 1920).put("height", 1080))) }) {
+            try {
+                DisplayInventoryClient.confirmedVirtualMode(invalid, "capture", requested);
+                fail("Unconfirmed resize updated the viewport");
+            } catch (DisplayInventoryClient.SessionError error) { assertEquals("outputs_changed", error.reason); }
+        }
+    }
+
     @Test public void directionalSwitchUsesSignedWindowsCoordinatesAndSkipsUnknownGeometry() throws Exception {
         java.util.List<DisplayInventoryClient.Display> screens =
                 DisplayInventoryClient.parseInventory(fixture().getJSONObject("inventory").toString()).displays;
@@ -68,6 +89,8 @@ public class CompanionContractTest {
         assertSame(current, DisplayInventoryClient.defaultDisplay(inventory, "", false));
         assertSame(virtual, DisplayInventoryClient.defaultDisplay(inventory, "v", false));
         assertSame(virtual, DisplayInventoryClient.defaultDisplay(inventory, "", true));
+        assertSame(virtual, DisplayInventoryClient.defaultDisplay(inventory, current.deviceId, true));
+        assertSame(virtual, DisplayInventoryClient.defaultDisplay(inventory, "reinstalled", true));
         assertNull(DisplayInventoryClient.defaultDisplay(inventory, "old", false));
     }
     @Test public void liveControlsRequireTheCapabilityAdvertisedByTheHost() throws Exception {

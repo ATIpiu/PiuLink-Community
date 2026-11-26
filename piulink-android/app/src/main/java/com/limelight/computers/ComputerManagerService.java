@@ -8,6 +8,8 @@ import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -91,6 +93,7 @@ public class ComputerManagerService extends Service {
     private IdentityManager idManager;
     private final LinkedList<PollingTuple> pollingTuples = new LinkedList<>();
     private final HashSet<String> pendingHostUuids = new HashSet<>();
+    private final java.util.concurrent.ConcurrentMap<String, ComputerDetails.AddressTuple> selectedRoutes = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentMap<String, Long> inviteRetries = new java.util.concurrent.ConcurrentHashMap<>();
     private final HashSet<String> pendingDiscoveryAddresses = new HashSet<>();
     private volatile ComputerManagerListener listener = null;
@@ -124,10 +127,12 @@ public class ComputerManagerService extends Service {
 
     // Returns true if the details object was modified
     private boolean runPoll(ComputerDetails details, boolean newPc, int offlineCount) throws InterruptedException {
-        if (!getLocalDatabaseReference()) {
-            return false;
-        }
+        return runPoll(details, newPc, offlineCount, null);
+    }
 
+    private boolean runPoll(ComputerDetails details, boolean newPc, int offlineCount,
+                            ComputerDetails.AddressTuple exact) throws InterruptedException {
+        if (!getLocalDatabaseReference()) return false;
         final int pollTriesBeforeOffline = details.state == ComputerDetails.State.UNKNOWN ?
                 INITIAL_POLL_TRIES : OFFLINE_POLL_TRIES;
 
@@ -135,7 +140,9 @@ public class ComputerManagerService extends Service {
 
         // Poll the machine
         try {
-            if (!pollComputer(details)) {
+            ComputerDetails found = exact == null ? null : pollAddresses(details, java.util.Collections.singletonList(exact));
+            if (found != null) details.update(found);
+            if (exact == null ? !pollComputer(details) : found == null) {
                 if (!newPc && offlineCount < pollTriesBeforeOffline) {
                     // Return without calling the listener
                     releaseLocalDatabaseReference();
@@ -168,6 +175,7 @@ public class ComputerManagerService extends Service {
             // due to detecting the PC via mDNS) without the saved external address. If we
             // write to the DB without doing this first, we can overwrite our existing data.
             if (existingComputer != null) {
+                if (newPc) rememberRoutes(existingComputer);
                 existingComputer.update(details);
                 dbManager.updateComputer(existingComputer);
             }
@@ -239,7 +247,8 @@ public class ComputerManagerService extends Service {
             ComputerManagerService.this.listener = listener;
 
             // Start mDNS autodiscovery too
-            discoveryBinder.startDiscovery(MDNS_QUERY_PERIOD_MS);
+            DiscoveryService.DiscoveryBinder discovery = discoveryBinder;
+            if (discovery != null) discovery.startDiscovery(MDNS_QUERY_PERIOD_MS);
 
             synchronized (pollingTuples) {
                 for (PollingTuple tuple : pollingTuples) {
@@ -295,11 +304,18 @@ public class ComputerManagerService extends Service {
         }
 
         public boolean addComputerBlocking(ComputerDetails fakeDetails) throws InterruptedException {
-            return ComputerManagerService.this.addComputerBlocking(fakeDetails);
+            String typed = ConnectionHistory.address(fakeDetails.manualAddress);
+            boolean saved = ComputerManagerService.this.addComputerBlocking(fakeDetails);
+            if (saved && typed != null) {
+                ConnectionHistory.explicit(ComputerManagerService.this, fakeDetails.uuid, typed);
+                ConnectionHistory.used(ComputerManagerService.this, fakeDetails.uuid, typed);
+            }
+            return saved;
         }
 
         public boolean addInvite(String link, boolean directOnly) throws IOException, InterruptedException {
             HostInvite invite = HostInvite.parse(link);
+            ConnectionHistory.explicit(ComputerManagerService.this, invite.uuid, link);
             ComputerDetails expected = new ComputerDetails();
             expected.uuid = invite.uuid;
             ComputerDetails saved = getComputer(invite.uuid);
@@ -316,11 +332,171 @@ public class ComputerManagerService extends Service {
                 if (found == null) throw failure;
             }
             if (found == null) return false;
-            expected.uuid = found.uuid;
-            expected.manualAddress = found.activeAddress;
-            if (!addComputerBlocking(expected)) return false;
-            storeInvitation(expected.uuid, link);
+            if (saved != null && saved.serverCert != null) {
+                ComputerDetails peer = verifyDesktopEndpoint(saved, found.activeAddress);
+                if (peer == null || !keepVerifiedRoute(peer)) return false;
+            } else if (!finishAddAtAddress(found)) return false;
+            synchronized (ConnectionHistory.class) {
+                if (ConnectionHistory.used(ComputerManagerService.this, found.uuid, link)) storeInvitation(found.uuid, link);
+            }
             return true;
+        }
+
+        private boolean finishAddAtAddress(ComputerDetails found) throws InterruptedException {
+            // Discovery has already checked the UUID on this exact route. Refresh pairing once
+            // on the winning endpoint, without probing every route a second and third time.
+            ComputerDetails exact = new ComputerDetails();
+            exact.uuid = found.uuid;
+            exact.manualAddress = found.activeAddress;
+            addressProbeBackoff.recordSuccess(exact.manualAddress.toString());
+            boolean saved = ComputerManagerService.this.addComputerBlocking(exact, true);
+            if (saved) selectedRoutes.put(found.uuid.toLowerCase(java.util.Locale.ROOT), found.activeAddress);
+            return saved;
+        }
+
+        // Only the caller that is still opening this computer commits the chosen route.
+        public ComputerDetails resolveDesktopRoute(String uuid) throws InterruptedException, IOException {
+            ComputerDetails current = getComputer(uuid);
+            if (current == null || current.serverCert == null) return null;
+            ConnectivityManager connectivity = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            if (connectivity.getActiveNetworkInfo() == null) return null;
+
+            ComputerDetails saved = new ComputerDetails(current);
+            ConnectionHistory history = ConnectionHistory.snapshot(ComputerManagerService.this, uuid, saved.name);
+            LinkedHashSet<ComputerDetails.AddressTuple> addresses = new LinkedHashSet<>();
+            String accepted = savedInvitation(uuid);
+            HostInvite invite = HostInvite.parseUri(accepted) == null ? null : HostInvite.parse(accepted);
+            if (invite != null) {
+                DirectInviteTunnel.Path active = DirectInviteTunnel.active(invite);
+                if (active != null) addresses.add(active.address);
+            }
+            for (ConnectionHistory.Route route : history.routes) {
+                if (route.value.startsWith("https://")) continue;
+                try {
+                    java.net.URI address = new java.net.URI("moonlight://" + route.value);
+                    if (address.getHost() != null && address.getPort() > 0)
+                        addresses.add(new ComputerDetails.AddressTuple(address.getHost(), address.getPort()));
+                } catch (java.net.URISyntaxException ignored) { }
+            }
+
+            // A few stale addresses must not make the P2P invitation wait through TCP timeouts.
+            List<ComputerDetails.AddressTuple> queue = new ArrayList<>();
+            boolean vpn = NetHelper.isActiveNetworkVpn(ComputerManagerService.this);
+            for (ComputerDetails.AddressTuple address : addresses) {
+                // Rank literal IPs without doing synchronous DNS before other probes can start.
+                String host = address.address;
+                if (host.indexOf(':') < 0 && !host.matches("[0-9.]+")) continue;
+                Network lan = vpn ? NetHelper.getBindableLocalNetworkForAddress(ComputerManagerService.this, host)
+                        : NetHelper.getLocalNetworkForAddress(ComputerManagerService.this, host);
+                if (lan != null) queue.add(address);
+            }
+            List<ComputerDetails.AddressTuple> preferredLan = vpn ? new ArrayList<>(queue) : java.util.Collections.emptyList();
+            addresses.removeAll(queue);
+            queue.addAll(addresses);
+            return DesktopRouteSelector.firstVerified(queue, preferredLan, address -> verifyDesktopEndpoint(saved, address),
+                    invite == null ? null : () -> verifyInvitation(saved, invite), DIRECT_LAN_PREFERENCE_WINDOW_MS, 40000);
+        }
+
+        private ComputerDetails verifyInvitation(ComputerDetails saved, HostInvite invite) throws IOException, InterruptedException {
+            DirectInviteTunnel.Path active = DirectInviteTunnel.active(invite);
+            if (active != null) {
+                ComputerDetails peer = verifyDesktopEndpoint(saved, active.address);
+                if (peer != null) return peer;
+            }
+            if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+            DirectInviteTunnel.Path path = DirectInviteTunnel.connect(ComputerManagerService.this, invite, saved.serverCert, active);
+            return verifyDesktopEndpoint(saved, path.address);
+        }
+
+        private ComputerDetails verifyDesktopEndpoint(ComputerDetails saved, ComputerDetails.AddressTuple address) {
+            try {
+                int httpsPort = address.equals(saved.activeAddress) ? saved.httpsPort : 0;
+                NvHTTP http = new NvHTTP(address, httpsPort, idManager.getUniqueId(), saved.serverCert,
+                        PlatformBinding.getCryptoProvider(ComputerManagerService.this));
+                Network bound = NetHelper.bindToDirectLocalNetworkWithNetwork(ComputerManagerService.this, http, address.address);
+                ComputerDetails peer;
+                try {
+                    peer = http.getPinnedLanComputerDetails();
+                } catch (IOException failure) {
+                    if (bound == null || !NetHelper.isNetworkBindingDenied(failure)) throw failure;
+                    NetHelper.noteDirectNetworkBindingDenied(bound);
+                    http = new NvHTTP(address, httpsPort, idManager.getUniqueId(), saved.serverCert,
+                            PlatformBinding.getCryptoProvider(ComputerManagerService.this));
+                    peer = http.getPinnedLanComputerDetails();
+                }
+                if (!saved.uuid.equalsIgnoreCase(peer.uuid) || peer.pairState != PairingManager.PairState.PAIRED) return null;
+                peer.activeAddress = address;
+                peer.serverCert = saved.serverCert;
+                return peer;
+            } catch (IOException | XmlPullParserException unavailable) {
+                return null;
+            }
+        }
+
+        private boolean keepVerifiedRoute(ComputerDetails peer) {
+            synchronized (pollingTuples) {
+                ComputerDetails saved = getComputer(peer.uuid);
+                if (saved == null || !peer.serverCert.equals(saved.serverCert)) return false;
+                selectedRoutes.put(peer.uuid.toLowerCase(java.util.Locale.ROOT), peer.activeAddress);
+                saved.update(peer);
+            }
+            return true;
+        }
+
+        public boolean selectDesktopRoute(ComputerDetails peer) {
+            if (!keepVerifiedRoute(peer)) return false;
+            String value = ConnectionHistory.address(peer.activeAddress);
+            if (value == null && DirectInviteTunnel.isEndpoint(peer.activeAddress.address)) value = savedInvitation(peer.uuid);
+            ConnectionHistory.used(ComputerManagerService.this, peer.uuid, value);
+            return true;
+        }
+
+        public boolean addHistoricalAddress(String uuid, ComputerDetails.AddressTuple address) throws InterruptedException {
+            ComputerDetails expected = new ComputerDetails();
+            expected.uuid = uuid;
+            addressProbeBackoff.recordSuccess(address.toString());
+            ComputerDetails saved = getComputer(uuid);
+            if (saved != null && saved.serverCert != null) {
+                ComputerDetails peer = verifyDesktopEndpoint(saved, address);
+                return peer != null && selectDesktopRoute(peer);
+            }
+            ComputerDetails found = pollAddresses(expected, java.util.Collections.singletonList(address));
+            return found != null && acceptHistoricalAddress(found, address);
+        }
+
+        private boolean acceptHistoricalAddress(ComputerDetails peer, ComputerDetails.AddressTuple address) throws InterruptedException {
+            if (!finishAddAtAddress(peer)) return false;
+            ConnectionHistory.used(ComputerManagerService.this, peer.uuid, ConnectionHistory.address(address));
+            return true;
+        }
+
+        public void renameRoute(String uuid, String value, String label) {
+            ConnectionHistory.rename(ComputerManagerService.this, uuid, value, label.trim());
+        }
+
+        public void removeRoute(String uuid, String value) {
+            synchronized (ConnectionHistory.class) {
+                if (value.equals(savedInvitation(uuid))) storeInvitation(uuid, null);
+                ConnectionHistory.remove(ComputerManagerService.this, uuid, value);
+            }
+        }
+
+        public List<ConnectionHistory> connectionHistory() {
+            java.util.Map<String,String> names = new java.util.LinkedHashMap<>();
+            synchronized (pollingTuples) {
+                for (PollingTuple tuple : pollingTuples) {
+                    ComputerDetails pc = tuple.computer;
+                    rememberRoutes(pc);
+                    names.put(pc.uuid.toLowerCase(java.util.Locale.ROOT), pc.name);
+                }
+            }
+            List<ConnectionHistory> result = new java.util.ArrayList<>();
+            for (String id : ConnectionHistory.hostIds(ComputerManagerService.this)) {
+                ConnectionHistory host = ConnectionHistory.snapshot(ComputerManagerService.this, id, names.get(id));
+                if (!host.routes.isEmpty()) result.add(host);
+            }
+            java.util.Collections.sort(result, (a, b) -> a.name.compareToIgnoreCase(b.name));
+            return result;
         }
 
         private ComputerDetails probePairedLan(ComputerDetails saved) {
@@ -329,17 +505,12 @@ public class ComputerManagerService extends Service {
                     saved.localAddress, saved.activeAddress, saved.manualAddress))) {
                 if (address == null || DirectInviteTunnel.isEndpoint(address.address) ||
                         address.address.startsWith("127.") || !NetHelper.isAddressOnLocalNetwork(ComputerManagerService.this, address.address)) continue;
-                try {
-                    NvHTTP http = new NvHTTP(address, saved.httpsPort, idManager.getUniqueId(),
-                            saved.serverCert, PlatformBinding.getCryptoProvider(ComputerManagerService.this));
-                    ComputerDetails peer = http.getPinnedLanComputerDetails();
-                    if (saved.uuid.equalsIgnoreCase(peer.uuid) && peer.pairState == PairingManager.PairState.PAIRED) {
-                        peer.serverCert = saved.serverCert;
-                        peer.activeAddress = peer.localAddress = address;
-                        LimeLog.info("PiuLink verified paired LAN endpoint during invitation service interruption");
-                        return peer;
-                    }
-                } catch (IOException | XmlPullParserException ignored) { }
+                ComputerDetails peer = verifyDesktopEndpoint(saved, address);
+                if (peer != null) {
+                    peer.localAddress = address;
+                    LimeLog.info("PiuLink verified paired LAN endpoint during invitation service interruption");
+                    return peer;
+                }
             }
             return null;
         }
@@ -616,18 +787,22 @@ public class ComputerManagerService extends Service {
     }
 
     public boolean addComputerBlocking(ComputerDetails fakeDetails) throws InterruptedException {
+        return addComputerBlocking(fakeDetails, false);
+    }
+
+    private boolean addComputerBlocking(ComputerDetails fakeDetails, boolean alreadyDiscovered) throws InterruptedException {
         boolean reservedNewHost = false;
         try {
             // We cannot use runPoll() here because it will attempt to persist the state of the
             // machine before we have loaded a pinned certificate.
-            if (pollComputer(fakeDetails)) {
+            if (alreadyDiscovered || pollComputer(fakeDetails)) {
                 // See if we have record of this PC to pull its pinned cert. New-host capacity is
                 // reserved until addTuple() completes, closing the race between concurrent mDNS
                 // and manual additions on the one-host Free tier.
                 synchronized (pollingTuples) {
                     boolean existingHost = false;
                     for (PollingTuple tuple : pollingTuples) {
-                        if (tuple.computer.uuid.equals(fakeDetails.uuid)) {
+                        if (tuple.computer.uuid.equalsIgnoreCase(fakeDetails.uuid)) {
                             fakeDetails.serverCert = tuple.computer.serverCert;
                             existingHost = true;
                             break;
@@ -646,7 +821,7 @@ public class ComputerManagerService extends Service {
 
                 // Poll again, possibly with the pinned cert, to get accurate pairing information.
                 // This will insert the host into the database too.
-                runPoll(fakeDetails, true, 0);
+                if (!runPoll(fakeDetails, true, 0, alreadyDiscovered ? fakeDetails.manualAddress : null)) return false;
             }
 
             // If the machine is reachable, it was successful
@@ -656,6 +831,7 @@ public class ComputerManagerService extends Service {
                 // Add before releasing the capacity reservation so a concurrent discovery cannot
                 // pass the Free-tier capacity check in between persistence and tuple creation.
                 addTuple(fakeDetails);
+                rememberRoutes(fakeDetails);
                 return true;
             }
             return false;
@@ -666,6 +842,12 @@ public class ComputerManagerService extends Service {
                 }
             }
         }
+    }
+
+    private void rememberRoutes(ComputerDetails pc) {
+        ConnectionHistory.remember(this, pc.uuid, ConnectionHistory.address(pc.manualAddress),
+                ConnectionHistory.address(pc.localAddress), ConnectionHistory.address(pc.remoteAddress),
+                ConnectionHistory.address(pc.ipv6Address), savedInvitation(pc.uuid));
     }
 
     private boolean hasCapacityForNewHostLocked() {
@@ -681,7 +863,9 @@ public class ComputerManagerService extends Service {
         // Remove it from the database
         dbManager.deleteComputer(computer);
         storeInvitation(computer.uuid, null);
+        ConnectionHistory.forget(this, computer.uuid);
         inviteRetries.remove(computer.uuid);
+        selectedRoutes.remove(computer.uuid.toLowerCase(java.util.Locale.ROOT));
         DirectInviteTunnel.close(computer.uuid);
         clearWarmedDesktop();
 
@@ -846,7 +1030,8 @@ public class ComputerManagerService extends Service {
         }
 
         String addressKey = tuple.address.toString();
-        if (!addressProbeBackoff.shouldProbe(addressKey)) {
+        boolean activeTunnel = DirectInviteTunnel.isEndpoint(tuple.address.address);
+        if (!addressProbeBackoff.shouldProbe(addressKey, activeTunnel)) {
             tuple.complete = true;
             tuple.returnedDetails = null;
             LimeLog.info("Skipping backed-off Host address " + tuple.address + " for " +
@@ -865,7 +1050,7 @@ public class ComputerManagerService extends Service {
                 if (details != null) {
                     addressProbeBackoff.recordSuccess(addressKey);
                 }
-                else if (unreachable[0] || !isInterrupted()) {
+                else if (!activeTunnel && (unreachable[0] || !isInterrupted())) {
                     addressProbeBackoff.recordFailure(addressKey);
                 }
 
@@ -883,25 +1068,63 @@ public class ComputerManagerService extends Service {
     }
 
     private ComputerDetails parallelPollPc(ComputerDetails details) throws InterruptedException {
-        ComputerDetails.AddressTuple selected = DirectInviteTunnel.preferred(details.uuid);
+        String id = details.uuid == null ? null : details.uuid.toLowerCase(java.util.Locale.ROOT);
+        ComputerDetails.AddressTuple selected = id == null ? null : selectedRoutes.get(id);
+        if (selected == null) selected = DirectInviteTunnel.preferred(details.uuid);
         if (selected != null) {
             ComputerDetails connected = pollAddresses(details, java.util.Collections.singletonList(selected));
             if (connected != null) return connected;
+            if (id != null) selectedRoutes.remove(id, selected);
         }
         return pollAddresses(details, java.util.Arrays.asList(details.localAddress,
                 details.manualAddress, details.remoteAddress, details.ipv6Address));
     }
 
     private ComputerDetails resolveInvite(ComputerDetails details, HostInvite invite, boolean directOnly) throws IOException, InterruptedException {
-        if (!directOnly) {
-            ComputerDetails reachable = pollAddresses(details, invite.resolve());
+        DirectInviteTunnel.Path active = DirectInviteTunnel.active(invite);
+        if (active != null) {
+            ComputerDetails reachable = pollAddresses(details, java.util.Collections.singletonList(active.address));
             if (reachable != null) return reachable;
         }
-        ComputerDetails.AddressTuple tunnel = DirectInviteTunnel.connect(this, invite, details.serverCert);
-        return pollAddresses(details, java.util.Collections.singletonList(tunnel));
+        List<ComputerDetails.AddressTuple> published = java.util.Collections.emptyList();
+        if (!directOnly) {
+            try {
+                published = invite.resolve();
+                ComputerDetails reachable = pollAddresses(details, published, SystemClock.elapsedRealtime() + DIRECT_LAN_PREFERENCE_WINDOW_MS);
+                if (reachable != null) return reachable;
+            } catch (IOException failure) {
+                if (!HostInvite.isTransient(failure)) throw failure;
+                // The address directory and the authenticated punch exchange are separate requests.
+                LimeLog.info("PiuLink invitation address lookup interrupted (" + failure.getClass().getSimpleName() +
+                        "); trying P2P signaling");
+            }
+        }
+        try {
+            DirectInviteTunnel.Path tunnel = DirectInviteTunnel.connect(this, invite, details.serverCert, active);
+            ComputerDetails reachable = pollAddresses(details, java.util.Collections.singletonList(tunnel.address));
+            if (reachable != null) {
+                LimeLog.info("PiuLink P2P Host UUID verified through tunnel");
+                return reachable;
+            }
+            LimeLog.warning("PiuLink P2P tunnel opened but Host discovery did not verify the expected UUID");
+        } catch (IOException failure) {
+            if (published.isEmpty() || failure instanceof java.io.FileNotFoundException) throw failure;
+            // A UDP negotiation failure says nothing about a slower TCP route. Recheck the
+            // invitation before falling back after a definitive (non-network) signaling error.
+            if (!HostInvite.isTransient(failure)) published = invite.resolve();
+            ComputerDetails slowRoute = pollAddresses(details, published);
+            if (slowRoute != null) return slowRoute;
+            throw failure;
+        }
+        return published.isEmpty() ? null : pollAddresses(details, published);
     }
 
     private ComputerDetails pollAddresses(ComputerDetails details, List<ComputerDetails.AddressTuple> addresses) throws InterruptedException {
+        return pollAddresses(details, addresses, Long.MAX_VALUE);
+    }
+
+    private ComputerDetails pollAddresses(ComputerDetails details, List<ComputerDetails.AddressTuple> addresses,
+                                         long deadline) throws InterruptedException {
         ParallelPollTuple[] candidates = new ParallelPollTuple[addresses.size()];
         HashSet<ComputerDetails.AddressTuple> uniqueAddresses = new HashSet<>();
         for (int i = 0; i < candidates.length; i++) {
@@ -931,8 +1154,8 @@ public class ComputerManagerService extends Service {
                                 SystemClock.elapsedRealtime() >= directLanDeadline)) {
                     return selectPollResult(quickestSuccess);
                 }
-                if (allComplete) {
-                    return null;
+                if (allComplete || SystemClock.elapsedRealtime() >= deadline) {
+                    return quickestSuccess == null ? null : selectPollResult(quickestSuccess);
                 }
 
                 Thread.sleep(ADDRESS_POLL_WAIT_INTERVAL_MS);
@@ -1018,11 +1241,12 @@ public class ComputerManagerService extends Service {
                         if (polledDetails != null) polledDetails.manualAddress = polledDetails.activeAddress;
                     }
                 } catch (IOException | IllegalArgumentException unavailable) {
-                    LimeLog.info("Host invitation lookup unavailable");
+                    LimeLog.info("Host invitation lookup unavailable (" + unavailable.getClass().getSimpleName() + ")");
                 }
             }
         }
-        LimeLog.info("Parallel poll for "+details.name+" returned address: "+details.activeAddress);
+        LimeLog.info("Parallel poll for "+details.name+" returned address: "+
+                (polledDetails == null ? null : polledDetails.activeAddress));
 
         if (polledDetails != null) {
             details.update(polledDetails);
@@ -1052,7 +1276,7 @@ public class ComputerManagerService extends Service {
         }
 
         for (ComputerDetails computer : dbManager.getAllComputers()) {
-            // Add tuples for each computer
+            rememberRoutes(computer);
             addTuple(computer);
         }
 
@@ -1064,6 +1288,9 @@ public class ComputerManagerService extends Service {
                 @Override
                 public void onAvailable(Network network) {
                     LimeLog.info("Resetting PC state for new available network");
+                    NetHelper.resetDirectNetworkBindingState();
+                    selectedRoutes.clear();
+                    inviteRetries.clear();
                     addressProbeBackoff.resetForNetworkChange();
                     clearWarmedDesktop();
                     if (!pollingActive) {
@@ -1083,6 +1310,9 @@ public class ComputerManagerService extends Service {
                 @Override
                 public void onLost(Network network) {
                     LimeLog.info("Offlining PCs due to network loss");
+                    NetHelper.resetDirectNetworkBindingState();
+                    selectedRoutes.clear();
+                    inviteRetries.clear();
                     addressProbeBackoff.resetForNetworkChange();
                     clearWarmedDesktop();
                     ComputerManagerListener activeListener = listener;

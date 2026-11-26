@@ -70,6 +70,28 @@ public final class LogActivity extends Activity {
         actions.addView(copy);
         actions.addView(clear);
         root.addView(actions);
+        Button upload = new Button(this);
+        upload.setText(R.string.diag_upload);
+        upload.setOnClickListener(v -> new android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.diag_upload_title)
+                .setMessage(R.string.diag_upload_body)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.diag_upload_confirm, (dialog, which) -> {
+                    upload.setEnabled(false);
+                    worker.execute(() -> {
+                        String msg;
+                        try { msg = getString(R.string.diag_receipt) + "  " + com.limelight.DiagnosticReport.upload(getApplicationContext()); }
+                        catch (Exception ex) { msg = getString(R.string.diag_upload_failed); }
+                        final String result = msg;
+                        runOnUiThread(() -> {
+                            if (isFinishing() || isDestroyed()) return;
+                            upload.setEnabled(true);
+                            summary.setText(result);
+                            summary.setTextIsSelectable(true);
+                        });
+                    });
+                }).show());
+        root.addView(upload);
         LinearLayout navigation = new LinearLayout(this);
         older = new Button(this);
         older.setText(R.string.logs_older);

@@ -711,7 +711,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
             Toast.makeText(this, R.string.pc_choose_desktop, Toast.LENGTH_LONG).show();
             return;
         }
-        openStreamTarget(target, runningApp);
+        openStreamTarget(target, runningApp, getIntent().getBooleanExtra(Game.EXTRA_SUPER_SCREEN, false));
     }
 
     private NvApp findPublishedDesktop(List<NvApp> apps) {
@@ -738,10 +738,14 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     }
 
     private void openStreamTarget(NvApp target, int running) {
+        openStreamTarget(target, running, false);
+    }
+
+    private void openStreamTarget(NvApp target, int running, boolean superScreen) {
         if (running != 0 && running != target.getAppId()) {
-            UiHelper.displayQuitConfirmationDialog(this, () -> startStreamApp(target, running), null);
+            UiHelper.displayQuitConfirmationDialog(this, () -> startStreamApp(target, running, superScreen), null);
         } else {
-            startStreamApp(target, 0);
+            startStreamApp(target, 0, superScreen);
         }
     }
 
@@ -751,11 +755,11 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
             com.limelight.piulink.ssh.ComputerSsh.openSsh(this, computer, false);
             return;
         }
-        startStreamApp(app.app, 0);
+        startStreamApp(app.app, 0, false);
     }
 
-    private void startStreamApp(NvApp app, int confirmedRunningAppId) {
-        ServerHelper.doStart(this, app, computer, managerBinder, intent -> {
+    private void startStreamApp(NvApp app, int confirmedRunningAppId, boolean superScreen) {
+        ServerHelper.doStart(this, app, computer, managerBinder, superScreen, intent -> {
             if (confirmedRunningAppId > 0) intent.putExtra(Game.EXTRA_CONFIRMED_SWITCH_FROM, confirmedRunningAppId);
             stopComputerUpdates();
             try { startActivity(intent); }
@@ -813,7 +817,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         super.onDestroy();
 
         SpinnerDialog.closeDialogs(this);
-        Dialog.closeDialogs();
+        Dialog.closeDialogs(this);
 
         connectedBinder = null;
         managerBinder = null;
@@ -904,7 +908,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                 UiHelper.displayQuitConfirmationDialog(this, new Runnable() {
                     @Override
                     public void run() {
-                        startStreamApp(app.app, runningId);
+                        startStreamApp(app.app, runningId, false);
                     }
                 }, null);
                 return true;

@@ -60,11 +60,11 @@ public final class MonitorSelection {
         if (pending != null) release(activity, pending.host, pending.requestId);
     }
     public static boolean beginSwitch(Activity activity, String address, String requestId) {
-        return DisplayInventoryClient.beginSwitch(activity.getApplicationContext(), address, requestId);
+        return DisplayInventoryClient.beginSwitch(activity, address, requestId);
     }
 
     public static void release(Activity activity, String address, String requestId) {
-        DisplayInventoryClient.abort(activity.getApplicationContext(), address, requestId);
+        DisplayInventoryClient.abort(activity, address, requestId);
     }
     private static int generation(Activity activity) {
         Integer value = generations.get(activity);
@@ -84,6 +84,8 @@ public final class MonitorSelection {
         Boolean gatherDraft;
         StreamSwitch streamSwitch;
         CaptureChanged captureChanged;
+        StreamMode streamMode;
+        java.util.function.BiPredicate<Integer,Integer> canDecodeSize;
         String session;
         String address;
         AlertDialog progress;
@@ -116,7 +118,7 @@ public final class MonitorSelection {
         connectDefault(activity, host, address, false, selected);
     }
     public static void connectDefault(Activity activity, String host, String address, boolean virtualApp, Selected selected) {
-        connectDefaultRequest(activity, host, address, virtualApp, guard(activity, selected));
+        connectDefaultRequest(activity, displayProfile(host, virtualApp), address, virtualApp, guard(activity, selected));
     }
     private static void connectDefaultRequest(Activity activity, String host, String address, boolean virtualApp, Selected selected) {
         AlertDialog loading = connectionDialog(activity, true)
@@ -238,17 +240,25 @@ public final class MonitorSelection {
         loadChoices(activity, hostId, hostAddress, beforeConnection, selected, false, null);
     }
 
+    public interface StreamMode {
+        boolean supports(int width, int height, int fps);
+        void applied(int fps);
+    }
+
     public interface CaptureChanged { void move(int width, int height); }
     private static final java.util.Set<Activity> liveChanges = java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
 
     public static void openStreamDisplays(Activity activity, String host, String address, String session,
-            boolean quick, int dx, int dy, CaptureChanged captureChanged, StreamSwitch callback, Selected onReady) {
+            boolean quick, int dx, int dy, CaptureChanged captureChanged, java.util.function.BiPredicate<Integer,Integer> canDecodeSize,
+            StreamMode streamMode, StreamSwitch callback, Selected onReady) {
         if (liveChanges.contains(activity)) return;
         GuardedSelection selection = guard(activity, onReady);
         selection.address = address;
         selection.streamSwitch = callback;
         selection.session = session;
         selection.captureChanged = captureChanged;
+        selection.canDecodeSize = canDecodeSize;
+        selection.streamMode = streamMode;
         if (!quick) {
             showSessionPanel(activity, host, address, selection, null);
             return;
@@ -362,7 +372,12 @@ public final class MonitorSelection {
 
     private static void showSessionPanel(Activity activity, String host, String address, GuardedSelection selection,
             DisplayInventoryClient.Inventory initial) {
-        SessionDisplayControls.show(activity, address, selection.session, initial, (panel, inventory) -> {
+        SessionDisplayControls.show(activity, address, selection.session, initial, selection.streamMode, selection.canDecodeSize, mode -> {
+            if (!isCurrent(activity, selection)) return;
+            selection.captureChanged.move(mode.width, mode.height);
+            preferences(activity).edit().putString(key(host) + RESOLUTION_SUFFIX, mode.resolution())
+                    .putInt(key(host) + REFRESH_RATE_SUFFIX, mode.fps).apply();
+        }, (panel, inventory) -> {
             int current = currentScreen(activity, host, inventory.displays);
             if (current >= 0) panel.addTarget(inventory.displays.get(current), true, null);
             for (int i = 0; i < inventory.displays.size(); i++) {
@@ -991,6 +1006,10 @@ public final class MonitorSelection {
 
     private static SharedPreferences preferences(Activity activity) {
         return activity.getSharedPreferences(PREFERENCES, 0);
+    }
+
+    public static String displayProfile(String host, boolean superScreen) {
+        return superScreen ? host + ":super_screen" : host;
     }
 
     private static String key(String host) { return host == null ? "" : host; }

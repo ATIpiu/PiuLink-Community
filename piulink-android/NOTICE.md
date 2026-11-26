@@ -8,4 +8,24 @@ PiuLink opens or links to the separately installed official Tailscale Android ap
 
 Sunshine runs separately on the user's Windows computer and is not bundled in this repository.
 
-Before every public build, generate an exact dependency/SBOM report and update this notice from the resolved artifacts. This file is not a substitute for the license texts shipped by each dependency.
+## Android 0.3.206 runtime dependencies
+
+The release resolves the following Maven artifacts for the nonRoot release runtime classpath. Native inputs are pinned in the source tree and the Go transport dependencies in [go.mod](../packages/direct-tunnel/go.mod). The Protobuf runtime license is included in the APK and in the [source distribution](../licenses/Protobuf-3.25.5.txt).
+
+- `com.github.cgutman:ShieldControllerExtensions:1.0.1`
+- `com.github.mwiede:jsch:2.28.0`
+- `com.google.protobuf:protobuf-java:3.25.5`
+- `com.squareup.okhttp3:okhttp:4.12.0`
+- `com.squareup.okio:okio-jvm:3.6.0`
+- `com.squareup.okio:okio:3.6.0`
+- `org.bouncycastle:bcpkix-jdk18on:1.84`
+- `org.bouncycastle:bcprov-jdk18on:1.84`
+- `org.bouncycastle:bcutil-jdk18on:1.84`
+- `org.jcodec:jcodec:0.2.5`
+- `org.jetbrains.kotlin:kotlin-stdlib-common:1.9.10`
+- `org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10`
+- `org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10`
+- `org.jetbrains.kotlin:kotlin-stdlib:1.9.10`
+- `org.jetbrains:annotations:13.0`
+- `org.jmdns:jmdns:3.5.9`
+- `org.slf4j:slf4j-api:2.0.7`

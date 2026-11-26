@@ -19,6 +19,7 @@ public final class PiuLinkApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        DiagnosticReport.install(this);
         LimeLog.initialize(this);
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             public void onActivityResumed(Activity activity) {

@@ -119,6 +119,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     private NvHTTP pinConnection;
     private boolean pairingInProgress;
     private boolean openingLibrary;
+    private static final int REQUEST_DESKTOP_ROUTE = 4803;
+    private Thread desktopRouteRequest;
+    private android.app.ProgressDialog routeProgress;
+    private String manualDesktopId;
     private volatile boolean pairingCancelled;
     private boolean freezeUpdates, runningPolling, inForeground, completeOnCreateCalled;
     private final java.util.Map<String, String> warmedDisplayRoutes = new java.util.HashMap<>();
@@ -130,6 +134,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             // ServiceConnection callbacks run on the main thread. Publish the binder here instead
             // of from the worker below so onPause()/onResume() cannot observe a stale null value.
             managerBinder = localBinder;
+            startComputerUpdates();
+            openSelectedDesktop();
 
             // Wait in a separate thread to avoid stalling the UI
             new Thread() {
@@ -187,6 +193,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     private final static int TEST_NETWORK_ID = 10;
     private final static int GAMESTREAM_EOL_ID = 11;
     private final static int TERMINAL_ID = 12;
+    private static final int CONNECTION_METHODS_ID = 25;
     private static final int AUTO_MIC_ID = 13;
 
     private void initializeViews() {
@@ -285,6 +292,87 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         pcGridAdapter.notifyDataSetChanged();
         refreshTvContinue();
         updateSetupStatus();
+    }
+
+    private void autoOpenDesktop(ComputerDetails pc) {
+        if (desktopRouteRequest != null || openingLibrary) return;
+        if (pc.serverCert == null) {
+            openHost(pc);
+            return;
+        }
+        ComputerManagerService.ComputerManagerBinder manager = managerBinder;
+        if (manager == null) {
+            Toast.makeText(this, R.string.error_manager_not_running, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        desktopRouteRequest = new Thread(() -> {
+            Thread request = Thread.currentThread();
+            ComputerDetails peer = null;
+            try {
+                peer = manager.resolveDesktopRoute(pc.uuid);
+            } catch (InterruptedException cancelled) {
+                return;
+            } catch (IOException | RuntimeException error) {
+                LimeLog.warning("Desktop route unavailable (" + error.getClass().getSimpleName() + ")");
+            }
+            ComputerDetails result = peer;
+            runOnUiThread(() -> {
+                if (desktopRouteRequest != request || !inForeground || isFinishing()) return;
+                cancelRouteRequest();
+                if (manager == managerBinder && result != null && manager.selectDesktopRoute(result)) {
+                    doAppList(result, false, false, true);
+                } else {
+                    DiagnosticReport.connection(this, "host", "unreachable", 0);
+                    openRoutePicker(pc);
+                }
+            });
+        }, "PiuLink desktop route");
+        Thread request = desktopRouteRequest;
+        request.start();
+        getWindow().getDecorView().postDelayed(() -> {
+            if (desktopRouteRequest != request || !inForeground || isFinishing()) return;
+            routeProgress = new android.app.ProgressDialog(this);
+            routeProgress.setMessage(getString(R.string.route_connecting, pc.name));
+            routeProgress.setOnCancelListener(dialog -> cancelRouteRequest());
+            routeProgress.show();
+        }, 300);
+    }
+
+    private void cancelRouteRequest() {
+        if (desktopRouteRequest != null) {
+            desktopRouteRequest.interrupt();
+            desktopRouteRequest = null;
+        }
+        if (routeProgress != null) {
+            routeProgress.dismiss();
+            routeProgress = null;
+        }
+    }
+
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request == REQUEST_DESKTOP_ROUTE && result == RESULT_OK && data != null) {
+            manualDesktopId = data.getStringExtra(AddComputerManually.EXTRA_ROUTE_HOST);
+            openSelectedDesktop();
+        }
+    }
+
+    private void openSelectedDesktop() {
+        if (manualDesktopId == null || !inForeground || managerBinder == null) return;
+        ComputerDetails peer = managerBinder.getComputer(manualDesktopId);
+        manualDesktopId = null;
+        if (peer != null && peer.serverCert != null) doAppList(peer, false, false, true);
+    }
+
+    private void openRoutePicker(ComputerDetails pc) {
+        if (managerBinder == null) {
+            Toast.makeText(this, R.string.error_manager_not_running, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        com.limelight.preferences.ConnectionRoutePicker.show(this, managerBinder, pc.uuid, (host, route) ->
+                startActivityForResult(new Intent(this, AddComputerManually.class)
+                        .putExtra(AddComputerManually.EXTRA_ROUTE_HOST, host.uuid)
+                        .putExtra(AddComputerManually.EXTRA_ROUTE_KEY, route.key), REQUEST_DESKTOP_ROUTE));
     }
 
     private void openAddComputer() {
@@ -391,7 +479,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 Service.BIND_AUTO_CREATE);
 
         pcGridAdapter = new PcGridAdapter(this, PreferenceConfiguration.readPreferences(this),
-                UiHelper.isTouchscreenClient(this) ? computer -> doAppList(computer, false, false, true) : null, this::openHost);
+                UiHelper.isTouchscreenClient(this) ? this::autoOpenDesktop : null, this::openHost,
+                computer -> doAppList(computer, false, false, true, 0, true));
 
         initializeViews();
         android.content.SharedPreferences setup = getSharedPreferences("connection_setup", MODE_PRIVATE);
@@ -477,6 +566,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         UiHelper.showDecoderCrashDialog(this);
 
         inForeground = true;
+        openSelectedDesktop();
         startComputerUpdates();
         if (completeOnCreateCalled) {
             refreshTvContinue();
@@ -489,6 +579,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         super.onPause();
 
         inForeground = false;
+        cancelRouteRequest();
         warmedDisplayRoutes.clear();
         stopComputerUpdates(false);
     }
@@ -501,7 +592,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         // Pairing can legitimately outlive a transient onStop() (permission UI, notification
         // shade, task switch, etc). The PIN prompt has its own lifecycle and must not be swept
         // up with ordinary informational dialogs while Sunshine is waiting for the PIN.
-        Dialog.closeDialogs();
+        Dialog.closeDialogs(this);
         if (connectionAssistantDialog != null) {
             connectionAssistantDialog.dismiss();
             connectionAssistantDialog = null;
@@ -536,6 +627,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
 
         menu.setHeaderTitle(headerTitle);
+        if (computer.details.uuid != null) menu.add(Menu.NONE, CONNECTION_METHODS_ID, 0, R.string.connection_methods);
         menu.add(Menu.NONE, TERMINAL_ID, 0, R.string.ssh_title);
 
         if (computer.details.pairState == PairState.PAIRED && computer.details.uuid != null) {
@@ -751,6 +843,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 }
 
                 final String toastMessage = message;
+                if (!success && !pairingCancelled) DiagnosticReport.connection(PcView.this, "pair", "unknown", 0);
                 final boolean toastSuccess = success;
                 runOnUiThread(new Runnable() {
                     @Override
@@ -1024,6 +1117,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
     private void doAppList(ComputerDetails computer, boolean newlyPaired, boolean showHiddenGames,
                            boolean openDesktop, int tvAppId) {
+        doAppList(computer, newlyPaired, showHiddenGames, openDesktop, tvAppId, false);
+    }
+
+    private void doAppList(ComputerDetails computer, boolean newlyPaired, boolean showHiddenGames,
+                           boolean openDesktop, int tvAppId, boolean superScreen) {
         if (openingLibrary) return;
         if (computer.state == ComputerDetails.State.OFFLINE) {
             Toast.makeText(PcView.this, getResources().getString(R.string.error_pc_offline), Toast.LENGTH_SHORT).show();
@@ -1042,6 +1140,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         if (tvAppId > 0) i.putExtra(AppView.TV_CONTINUE_ID, tvAppId);
         if (openDesktop) {
             i.putExtra(AppView.OPEN_DESKTOP, true);
+            i.putExtra(Game.EXTRA_SUPER_SCREEN, superScreen);
             i.putExtra(AppView.DESKTOP_TAP_TIME, android.os.SystemClock.elapsedRealtime());
         }
         openingLibrary = true;
@@ -1053,6 +1152,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         switch (item.getItemId()) {
             case AUTO_MIC_ID:
                 Game.setAutoMicrophone(this, computer.details.uuid, !item.isChecked());
+                return true;
+            case CONNECTION_METHODS_ID:
+                openRoutePicker(computer.details);
                 return true;
             case TERMINAL_ID:
                 openTerminal(computer.details);
@@ -1268,7 +1370,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             public void onItemClick(AdapterView<?> arg0, View arg1, int pos,
                                     long id) {
                 ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(pos);
-                openHost(computer.details);
+                if (UiHelper.isTouchscreenClient(PcView.this)) autoOpenDesktop(computer.details);
+                else openHost(computer.details);
             }
         });
         UiHelper.applyStatusBarPadding(listView);

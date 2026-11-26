@@ -81,13 +81,13 @@ public class ServerHelper {
 
     public static void doStart(Activity parent, NvApp app, ComputerDetails computer,
                                ComputerManagerService.ComputerManagerBinder managerBinder) {
-        doStart(parent, app, computer, managerBinder, parent::startActivity);
+        doStart(parent, app, computer, managerBinder, false, parent::startActivity);
     }
 
     public static void doStart(Activity parent, NvApp app, ComputerDetails computer,
                                ComputerManagerService.ComputerManagerBinder managerBinder,
-                               java.util.function.Consumer<Intent> launch) {
-        if (Game.resumeActiveStream(parent, computer.uuid, app.getAppId())) {
+                               boolean superScreen, java.util.function.Consumer<Intent> launch) {
+        if (Game.resumeActiveStream(parent, computer.uuid, app.getAppId(), superScreen)) {
             return;
         }
         if (managerBinder == null) {
@@ -100,7 +100,7 @@ public class ServerHelper {
         }
         final String preparedAddress = computer.activeAddress.address;
         com.limelight.piulink.MonitorSelection.connectDefault(parent, computer.uuid,
-                preparedAddress, false, (index, width, height, fps, requestId) -> {
+                preparedAddress, superScreen, (index, width, height, fps, requestId) -> {
             if (computer.state == ComputerDetails.State.OFFLINE || computer.activeAddress == null ||
                     !preparedAddress.equals(computer.activeAddress.address)) {
                 com.limelight.piulink.MonitorSelection.release(parent, preparedAddress, requestId);
@@ -108,6 +108,7 @@ public class ServerHelper {
                 return;
             }
             Intent intent = createStartIntent(parent, app, computer, managerBinder, width, height);
+            intent.putExtra(Game.EXTRA_SUPER_SCREEN, superScreen);
             if (fps > 0) intent.putExtra(Game.EXTRA_STREAM_FPS, fps);
             intent.putExtra(Game.EXTRA_DISPLAY_PREPARATION, requestId);
             try { launch.accept(intent); }

@@ -61,6 +61,12 @@
     <string name="screen_live_failed">Could not switch to that display. Open screen settings to refresh the available displays.</string>
     <string name="screen_switch">Switch</string>
     <string name="screen_more_options">Display options</string>
+    <string name="screen_virtual_resolution">Display and video resolution　%1$d × %2$d</string>
+    <string name="screen_virtual_resolution_title">Change virtual display and video resolution</string>
+    <string name="screen_video_resize_update">Waiting for the Host to report the encoded size. Older Hosts need an update for live video resizing.</string>
+    <string name="screen_video_resize_decoder">The active decoder has no compatible live resolution options.</string>
+    <string name="screen_resizing">Resizing virtual desktop…</string>
+    <string name="screen_resize_unavailable">This virtual display could not apply the selected resolution. Refresh and try again.</string>
     <string name="screen_apply_options">Apply settings and reconnect</string>
     <string name="screen_targets_retry">Could not load streaming displays. Tap Refresh to try again.</string>
     <string name="screen_dock_help">Screen settings. Swipe toward a display to switch directly.</string>

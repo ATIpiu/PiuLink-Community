@@ -120,9 +120,8 @@ public class NvConnection {
 
         // A VPN/TUN may be Android's default network despite the host being on
         // the same Wi-Fi. Bind the native media sockets to the Wi-Fi underlay.
-        Network directLanNetwork = NetHelper.getBindableLocalNetworkForAddress(appContext, host.address);
-        this.directLanNetworkHandle = directLanNetwork == null ? 0 :
-                directLanNetwork.getNetworkHandle();
+        // Select the network on the launch worker, together with the actual HTTP route.
+        // A saved hostname may require DNS and the default VPN can change before launch.
 
         // This is unique per connection
         this.context.riKey = generateRiAesKey();
@@ -215,11 +214,14 @@ public class NvConnection {
     }
 
     private int detectServerConnectionType() {
-        if (directLanNetworkHandle != 0 ||
-                NetHelper.isAddressOnLocalNetwork(appContext, context.serverAddress.address)) {
+        if (directLanNetworkHandle != 0) {
             return StreamConfiguration.STREAM_CFG_LOCAL;
         }
 
+        if (!NetHelper.isActiveNetworkVpn(appContext) &&
+                NetHelper.isAddressOnLocalNetwork(appContext, context.serverAddress.address)) {
+            return StreamConfiguration.STREAM_CFG_LOCAL;
+        }
         ConnectivityManager connMgr = (ConnectivityManager) appContext.getSystemService(Context.CONNECTIVITY_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Network activeNetwork = connMgr.getActiveNetwork();
@@ -318,8 +320,8 @@ public class NvConnection {
     {
         long preparationStarted = System.nanoTime();
         NvHTTP h = new NvHTTP(context.serverAddress, context.httpsPort, uniqueId, context.serverCert, cryptoProvider);
-        boolean boundToLocalNetwork = NetHelper.bindToDirectLocalNetwork(
-                appContext, h, context.serverAddress.address);
+        Network directNetwork = NetHelper.bindToDirectLocalNetworkWithNetwork(appContext, h, context.serverAddress.address);
+        directLanNetworkHandle = directNetwork == null ? 0 : directNetwork.getNetworkHandle();
 
         long requestStarted = System.nanoTime();
         // The discovery document is public and contains everything needed for
@@ -332,13 +334,14 @@ public class NvConnection {
                     h.getPublicServerInfo(true) : h.getServerInfo(true);
         }
         catch (IOException bindingError) {
-            if (!boundToLocalNetwork || !NetHelper.isNetworkBindingDenied(bindingError)) {
+            if (directNetwork == null || !NetHelper.isNetworkBindingDenied(bindingError)) {
                 throw bindingError;
             }
             LimeLog.warning("Direct LAN binding denied during stream launch; retrying " +
                     context.serverAddress.address + " on the Android default route");
             // Use the same route for HTTPS launch and native media sockets. A
             // Wi-Fi Network handle that rejects HTTP binds will reject media too.
+            NetHelper.noteDirectNetworkBindingDenied(directNetwork);
             directLanNetworkHandle = 0;
             h = new NvHTTP(context.serverAddress, context.httpsPort, uniqueId,
                     context.serverCert, cryptoProvider);

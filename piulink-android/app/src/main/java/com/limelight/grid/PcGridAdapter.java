@@ -20,6 +20,8 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
     private final java.util.function.Consumer<ComputerDetails> openDesktop;
     private final java.util.function.Consumer<ComputerDetails> openLibrary;
 
+    private final java.util.function.Consumer<ComputerDetails> openSuperScreen;
+
     public PcGridAdapter(Context context, PreferenceConfiguration prefs, java.util.function.Consumer<ComputerDetails> openDesktop) {
         this(context, prefs, openDesktop, null);
     }
@@ -27,9 +29,17 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
     public PcGridAdapter(Context context, PreferenceConfiguration prefs,
                          java.util.function.Consumer<ComputerDetails> openDesktop,
                          java.util.function.Consumer<ComputerDetails> openLibrary) {
+        this(context, prefs, openDesktop, openLibrary, null);
+    }
+
+    public PcGridAdapter(Context context, PreferenceConfiguration prefs,
+                         java.util.function.Consumer<ComputerDetails> openDesktop,
+                         java.util.function.Consumer<ComputerDetails> openLibrary,
+                         java.util.function.Consumer<ComputerDetails> openSuperScreen) {
         super(context, openDesktop != null ? R.layout.pc_touch_item : R.layout.pc_grid_item);
         this.openDesktop = openDesktop;
         this.openLibrary = openLibrary;
+        this.openSuperScreen = openSuperScreen;
     }
 
     private int getColorCompat(int resource) {
@@ -92,7 +102,8 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
                         obj.details.activeAddress.equals(obj.details.localAddress)) {
                     statusText = context.getString(R.string.pcview_status_online_lan);
                 } else if (obj.details.activeAddress != null &&
-                        obj.details.activeAddress.equals(obj.details.manualAddress)) {
+                        obj.details.activeAddress.equals(obj.details.manualAddress) &&
+                        com.limelight.utils.NetHelper.isPrivateHostAddress(obj.details.activeAddress.address)) {
                     statusText = context.getString(R.string.pcview_status_online_private);
                 } else {
                     statusText = context.getString(R.string.pcview_menu_header_online);
@@ -129,6 +140,11 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
             imgView.setColorFilter(getColorCompat(available ? R.color.home_device_action : R.color.home_muted));
             statusView.setCompoundDrawablesRelativeWithIntrinsicBounds(available ? R.drawable.pc_online_dot : 0, 0, 0, 0);
             parentView.findViewById(R.id.pcActions).setVisibility(available ? View.VISIBLE : View.GONE);
+            View superScreen = parentView.findViewById(R.id.pcSuperScreen);
+            boolean superAvailable = available && openSuperScreen != null;
+            superScreen.setVisibility(superAvailable ? View.VISIBLE : View.GONE);
+            superScreen.setContentDescription(superAvailable ? context.getString(R.string.pc_super_screen_named, obj.details.name) : null);
+            superScreen.setOnClickListener(superAvailable ? v -> openSuperScreen.accept(obj.details) : null);
             View library = parentView.findViewById(R.id.pcOpenLibrary);
             boolean libraryAvailable = available && openLibrary != null;
             library.setVisibility(libraryAvailable ? View.VISIBLE : View.GONE);

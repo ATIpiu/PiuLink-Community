@@ -530,6 +530,8 @@
     <string name="stream_running_app_changed">The running app changed. Open the app list and select the app again.</string>
     <string name="addpc_invalid_address">Enter a computer name or IP address. An optional port must be between 1 and 65535.</string>
     <string name="applist_menu_start">Start app</string>
+    <string name="pc_super_screen">Super Screen</string>
+    <string name="pc_super_screen_named">Open Super Screen on %1$s</string>
     <string name="pc_open_desktop">Open desktop</string>
     <string name="pc_open_desktop_named">Open desktop on %1$s</string>
     <string name="pc_choose_desktop">Choose the desktop or application you want to open.</string>

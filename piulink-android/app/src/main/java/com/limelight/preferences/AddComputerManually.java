@@ -37,6 +37,8 @@ import android.widget.Toast;
 
 public class AddComputerManually extends Activity {
     public static final String EXTRA_AUTO_ADD_HOST = "labs.atipiu.piulink.AUTO_ADD_HOST";
+    public static final String EXTRA_ROUTE_HOST = "labs.atipiu.piulink.ROUTE_HOST";
+    public static final String EXTRA_ROUTE_KEY = "labs.atipiu.piulink.ROUTE_KEY";
     private TextView hostText;
     private ComputerManagerService.ComputerManagerBinder managerBinder;
     private Thread addThread;
@@ -45,10 +47,12 @@ public class AddComputerManually extends Activity {
     private boolean visible;
     private String autoAddHost;
     private URI pendingAddress;
+    private String pendingHostId;
     private boolean forcePunch;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName name, IBinder binder) {
             managerBinder = (ComputerManagerService.ComputerManagerBinder) binder;
+            startSavedRoute();
             startPendingAdd();
         }
 
@@ -121,6 +125,10 @@ public class AddComputerManually extends Activity {
     }
 
     private void submitAddress(String raw, boolean punch) {
+        submitAddress(raw, punch, null);
+    }
+
+    private void submitAddress(String raw, boolean punch, String expectedHostId) {
         if (pendingAddress != null || addThread != null) return;
         URI parsed = com.limelight.computers.HostInvite.parseUri(raw.trim());
         if (parsed == null && !punch) parsed = parseRawUserInputToUri(raw);
@@ -131,6 +139,7 @@ public class AddComputerManually extends Activity {
         }
         hostText.setError(null);
         pendingAddress = parsed;
+        pendingHostId = expectedHostId;
         forcePunch = punch;
         progress = new ProgressDialog(this);
         progress.setTitle(R.string.title_add_pc);
@@ -146,13 +155,14 @@ public class AddComputerManually extends Activity {
         if (!visible || managerBinder == null || pendingAddress == null || addThread != null) return;
         URI address = pendingAddress;
         boolean punch = forcePunch;
+        String expectedHostId = pendingHostId;
         pendingAddress = null;
         ComputerManagerService.ComputerManagerBinder binder = managerBinder;
         addThread = new Thread(() -> {
             Thread request = Thread.currentThread();
             int result;
             try {
-                result = addPc(binder, address, punch);
+                result = addPc(binder, address, punch, expectedHostId);
             } catch (InterruptedException cancelled) {
                 return;
             } catch (IllegalArgumentException invalid) {
@@ -160,14 +170,28 @@ public class AddComputerManually extends Activity {
             } catch (RuntimeException unavailable) {
                 result = R.string.addpc_fail;
             }
+            if (result != R.string.addpc_success && !request.isInterrupted()) {
+                boolean invite = "https".equals(address.getScheme());
+                String stage = result == R.string.invite_no_route || punch ? "p2p" : invite ? "signal" : "host";
+                String reason = result == R.string.invite_offline ? "offline" :
+                        result == R.string.addpc_invalid_address ? "invalid" : "unreachable";
+                com.limelight.DiagnosticReport.connection(this, stage, reason, 0);
+            }
             final int message = result;
             runOnUiThread(() -> {
                 if (addThread != request || !visible || isFinishing()) return;
                 addThread = null;
                 dismissProgress();
                 if (message == R.string.addpc_success) {
-                    Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                    if (expectedHostId != null) setResult(RESULT_OK, new Intent().putExtra(EXTRA_ROUTE_HOST, expectedHostId));
+                    else Toast.makeText(this, message, Toast.LENGTH_LONG).show();
                     finish();
+                } else if (expectedHostId != null && getIntent().hasExtra(EXTRA_ROUTE_HOST)) {
+                    Dialog.displayDialog(this, getString(R.string.conn_error_title), getString(message), () -> {
+                        if (visible && managerBinder != null && !isFinishing()) {
+                            ConnectionRoutePicker.show(this, managerBinder, expectedHostId, this::connectRoute);
+                        }
+                    });
                 } else {
                     Dialog.displayDialog(this, getString(R.string.conn_error_title), getString(message), false);
                 }
@@ -176,7 +200,7 @@ public class AddComputerManually extends Activity {
         addThread.start();
     }
 
-    private int addPc(ComputerManagerService.ComputerManagerBinder binder, URI address, boolean punch) throws InterruptedException {
+    private int addPc(ComputerManagerService.ComputerManagerBinder binder, URI address, boolean punch, String expectedHostId) throws InterruptedException {
         if ("https".equals(address.getScheme())) {
             try { return binder.addInvite(address.toString(), punch) ? R.string.addpc_success : R.string.invite_no_route; }
             catch (java.io.FileNotFoundException offline) { return R.string.invite_offline; }
@@ -187,6 +211,7 @@ public class AddComputerManually extends Activity {
         ComputerDetails details = new ComputerDetails();
         details.manualAddress = new ComputerDetails.AddressTuple(host,
                 address.getPort() == -1 ? NvHTTP.DEFAULT_HTTP_PORT : address.getPort());
+        if (expectedHostId != null) return binder.addHistoricalAddress(expectedHostId, details.manualAddress) ? R.string.addpc_success : R.string.addpc_fail;
         if (binder.addComputerBlocking(details)) return R.string.addpc_success;
         if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
         boolean vpn = NetHelper.isActiveNetworkVpn(this);
@@ -215,6 +240,7 @@ public class AddComputerManually extends Activity {
     @Override protected void onStart() {
         super.onStart();
         visible = true;
+        startSavedRoute();
         if (serviceBound && autoAddHost != null && !autoAddHost.isEmpty()) {
             String initial = autoAddHost;
             autoAddHost = null;
@@ -225,7 +251,7 @@ public class AddComputerManually extends Activity {
     @Override protected void onStop() {
         visible = false;
         cancelAdd();
-        Dialog.closeDialogs();
+        Dialog.closeDialogs(this);
         super.onStop();
     }
 
@@ -276,6 +302,7 @@ public class AddComputerManually extends Activity {
                 handleDoneEvent();
             }
         });
+        findViewById(R.id.historyButton).setOnClickListener(view -> showHistory());
         findViewById(R.id.punchButton).setOnClickListener(view -> submitAddress(hostText.getText().toString(), true));
         findViewById(R.id.addPcBackButton).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -293,6 +320,29 @@ public class AddComputerManually extends Activity {
         // Bind to the ComputerManager service
         serviceBound = bindService(new Intent(AddComputerManually.this,
                     ComputerManagerService.class), serviceConnection, Service.BIND_AUTO_CREATE);
+    }
+
+    private void startSavedRoute() {
+        String id = getIntent().getStringExtra(EXTRA_ROUTE_HOST);
+        String key = getIntent().getStringExtra(EXTRA_ROUTE_KEY);
+        if (!visible || managerBinder == null || id == null || key == null) return;
+        getIntent().removeExtra(EXTRA_ROUTE_KEY);
+        for (com.limelight.computers.ConnectionHistory host : managerBinder.connectionHistory()) {
+            if (!id.equalsIgnoreCase(host.uuid)) continue;
+            for (com.limelight.computers.ConnectionHistory.Route route : host.routes) {
+                if (key.equals(route.key)) { connectRoute(host, route); return; }
+            }
+        }
+        hostText.setError(getString(R.string.history_route_gone));
+    }
+
+    private void connectRoute(com.limelight.computers.ConnectionHistory host, com.limelight.computers.ConnectionHistory.Route route) {
+        submitAddress(route.value, com.limelight.computers.HostInvite.parseUri(route.value) != null, host.uuid);
+    }
+
+    private void showHistory() {
+        if (managerBinder == null) { hostText.setError(getString(R.string.error_manager_not_running)); return; }
+        ConnectionRoutePicker.show(this, managerBinder, null, this::connectRoute);
     }
 
     // Returns true if the event should be eaten

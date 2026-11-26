@@ -22,6 +22,19 @@
         android:fontFamily="sans-serif-medium"
         android:textSize="15sp" />
     <Button
+        android:id="@+id/pcSuperScreen"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:minHeight="48dp"
+        android:focusable="false"
+        android:background="@drawable/bg_home_desktop"
+        android:stateListAnimator="@null"
+        android:text="@string/pc_super_screen"
+        android:textColor="@color/home_desktop_text"
+        android:textSize="15sp"
+        android:textAllCaps="false" />
+    <Button
         android:id="@+id/pcOpenLibrary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

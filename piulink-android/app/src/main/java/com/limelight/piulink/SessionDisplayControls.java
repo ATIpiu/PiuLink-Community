@@ -34,6 +34,9 @@ public final class SessionDisplayControls {
     private final LinearLayout targets, options;
     private final Button more;
     private final CaptureOptions captureOptions;
+    private final MonitorSelection.StreamMode streamMode;
+    private final java.util.function.Consumer<DisplayInventoryClient.Mode> resized;
+    private final java.util.function.BiPredicate<Integer,Integer> canDecodeSize;
     final AlertDialog dialog;
     private final ExecutorService requests = Executors.newSingleThreadExecutor(r ->
             new Thread(r, "PiuLink session displays"));
@@ -51,19 +54,23 @@ public final class SessionDisplayControls {
     }
 
     static void show(Activity activity, String host, String session, DisplayInventoryClient.Inventory initial,
-            CaptureOptions captureOptions) {
-        SessionDisplayControls panel = new SessionDisplayControls(activity, host, session, captureOptions);
+            MonitorSelection.StreamMode streamMode, java.util.function.BiPredicate<Integer,Integer> canDecodeSize, java.util.function.Consumer<DisplayInventoryClient.Mode> resized, CaptureOptions captureOptions) {
+        SessionDisplayControls panel = new SessionDisplayControls(activity, host, session, streamMode, canDecodeSize, resized, captureOptions);
         panel.dialog.show();
         panel.request("list", null, -1, activity.getString(R.string.monitor_loading));
         if (initial == null) panel.loadTargets();
         else panel.renderTargets(initial);
     }
 
-    private SessionDisplayControls(Activity activity, String host, String session, CaptureOptions captureOptions) {
+    private SessionDisplayControls(Activity activity, String host, String session,
+            MonitorSelection.StreamMode streamMode, java.util.function.BiPredicate<Integer,Integer> canDecodeSize, java.util.function.Consumer<DisplayInventoryClient.Mode> resized, CaptureOptions captureOptions) {
         this.activity = activity;
         this.host = host;
         this.session = session;
         this.captureOptions = captureOptions;
+        this.resized = resized;
+        this.streamMode = streamMode;
+        this.canDecodeSize = canDecodeSize;
         LinearLayout panel = new LinearLayout(activity);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(dp(20), dp(6), dp(20), dp(6));
@@ -306,6 +313,10 @@ public final class SessionDisplayControls {
     }
 
     private void request(String action, String key, int count, String waiting) {
+        request(action, key, count, waiting, null);
+    }
+
+    private void request(String action, String key, int count, String waiting, DisplayInventoryClient.Mode mode) {
         if (requesting || !visible()) return;
         scroll.removeCallbacks(poll);
         boolean automatic = waiting == null;
@@ -328,7 +339,20 @@ public final class SessionDisplayControls {
         // An explicit tap queues behind an ongoing read. That older reply must not undo the pending action.
         requests.execute(() -> {
             try {
-                JSONObject result = DisplayInventoryClient.sessionDisplays(activity, host, session, action, key, count, automatic);
+                JSONObject result = DisplayInventoryClient.sessionDisplays(activity, host, session, action, key, count, automatic, mode);
+                if ("stream-mode".equals(action)) {
+                    JSONObject video = result.optJSONObject("encodedVideo");
+                    if (video == null || video.optInt("fps") != mode.fps || video.optInt("width") != mode.width ||
+                            video.optInt("height") != mode.height) throw new DisplayInventoryClient.SessionError("display_mode_unavailable");
+                    activity.runOnUiThread(() -> {
+                        if (!activity.isFinishing() && !activity.isDestroyed()) streamMode.applied(mode.fps);
+                    });
+                } else if (mode != null) {
+                    DisplayInventoryClient.Mode actual = DisplayInventoryClient.confirmedVirtualMode(result, key, mode);
+                    activity.runOnUiThread(() -> {
+                        if (!activity.isFinishing() && !activity.isDestroyed()) resized.accept(actual);
+                    });
+                }
                 activity.runOnUiThread(() -> { if (visible() && number == requestNumber) render(result); });
             } catch (Exception error) {
                 String reason = error instanceof DisplayInventoryClient.SessionError
@@ -363,6 +387,16 @@ public final class SessionDisplayControls {
         boolean captured = canManageOutputs();
         if (inventory != null) renderTargets(inventory);
         if (!captured) label(activity.getString(R.string.screen_capture_unknown));
+        if (captured) {
+            for (int i = 0; i < outputs.length(); i++) {
+                JSONObject output = outputs.optJSONObject(i);
+                if (output != null && output.optBoolean("capture") && output.optBoolean("active")) {
+                    addStreamModes(output.optString("key"), state.optJSONObject("encodedVideo"));
+                    break;
+                }
+            }
+        }
+        if (captured) addResolutionPicker(state.optJSONObject("virtualDesktop"), state.optJSONObject("encodedVideo"));
         int count = state.optInt("virtualCount", -1);
         Button create = new Button(activity);
         styleAction(create, R.drawable.ic_add);
@@ -380,6 +414,83 @@ public final class SessionDisplayControls {
 
     private String outputType(JSONObject row) {
         return activity.getString(row.optBoolean("virtual") ? R.string.monitor_virtual : R.string.monitor_physical);
+    }
+
+    private void addStreamModes(String key, JSONObject video) {
+        if (video == null || video.optInt("fps") <= 0) return;
+        int w = video.optInt("width"), h = video.optInt("height"), rate = video.optInt("fps");
+        if (w <= 0 || h <= 0 || key.length() != 64) return;
+        java.util.List<DisplayInventoryClient.Mode> sizes = new java.util.ArrayList<>();
+        java.util.SortedSet<Integer> edges = new java.util.TreeSet<>(java.util.Arrays.asList(1280, 1920, 2560, 3840, Math.max(w,h)));
+        for (int edge : edges) {
+            float scale = edge / (float)Math.max(w,h);
+            int width = 2 * Math.round(w * scale / 2), height = 2 * Math.round(h * scale / 2);
+            if (width == w && height == h || streamMode.supports(width, height, rate))
+                sizes.add(new DisplayInventoryClient.Mode(width, height, rate));
+        }
+        streamPicker(key, video, sizes, false);
+        java.util.List<DisplayInventoryClient.Mode> rates = new java.util.ArrayList<>();
+        for (int fps : new java.util.TreeSet<>(java.util.Arrays.asList(24, 30, 45, 60, 90, 120, 144, rate)))
+            if (fps == rate || streamMode.supports(w, h, fps)) rates.add(new DisplayInventoryClient.Mode(w, h, fps));
+        streamPicker(key, video, rates, true);
+    }
+
+    private void streamPicker(String key, JSONObject video, java.util.List<DisplayInventoryClient.Mode> modes, boolean fps) {
+        String[] labels = new String[modes.size()];
+        int selected = 0;
+        for (int i = 0; i < modes.size(); i++) {
+            DisplayInventoryClient.Mode mode = modes.get(i);
+            labels[i] = fps ? mode.fps + " FPS" : mode.width + " × " + mode.height;
+            if (video.optInt("width") == mode.width && video.optInt("height") == mode.height && video.optInt("fps") == mode.fps) selected = i;
+        }
+        final int checked = selected;
+        Button button = new Button(activity);
+        styleAction(button, R.drawable.ic_computer);
+        button.setText(fps ? activity.getString(R.string.stream_fps, video.optInt("fps")) :
+                activity.getString(R.string.stream_size, labels[checked]));
+        button.setOnClickListener(v -> new AlertDialog.Builder(activity).setTitle(button.getText())
+                .setSingleChoiceItems(labels, checked, (picker, i) -> {
+                    picker.dismiss();
+                    if (i != checked) request("stream-mode", key, -1, activity.getString(R.string.screen_resizing), modes.get(i));
+                }).setNegativeButton(android.R.string.cancel, null).show());
+        content.addView(button);
+    }
+
+    private void addResolutionPicker(JSONObject desktop, JSONObject video) {
+        if (desktop == null) return;
+        if (video == null) { label(activity.getString(R.string.screen_video_resize_update)); return; }
+        JSONObject current = desktop.optJSONObject("current");
+        JSONArray modes = desktop.optJSONArray("modes");
+        if (current == null || modes == null || modes.length() == 0) return;
+        String key = desktop.optString("key");
+        java.util.List<DisplayInventoryClient.Mode> choices = new java.util.ArrayList<>();
+        java.util.List<String> labels = new java.util.ArrayList<>();
+        int selected = -1;
+        for (int i = 0; i < modes.length(); i++) {
+            JSONObject item = modes.optJSONObject(i);
+            if (item == null || item.optInt("width") <= 0 || item.optInt("height") <= 0 ||
+                    item.optInt("fps") != current.optInt("fps")) continue;
+            int w = item.optInt("width"), h = item.optInt("height");
+            if (!canDecodeSize.test(w, h)) continue;
+            if (w == current.optInt("width") && h == current.optInt("height") &&
+                    w == video.optInt("width") && h == video.optInt("height")) selected = choices.size();
+            choices.add(new DisplayInventoryClient.Mode(w, h, item.optInt("fps")));
+            labels.add(w + " × " + h);
+        }
+        if (choices.isEmpty()) { label(activity.getString(R.string.screen_video_resize_decoder)); return; }
+        Button resize = new Button(activity);
+        styleAction(resize, R.drawable.ic_computer);
+        resize.setText(activity.getString(R.string.screen_virtual_resolution, current.optInt("width"), current.optInt("height")));
+        final int checked = selected;
+        resize.setOnClickListener(v -> {
+            if (requesting) return;
+            new AlertDialog.Builder(activity).setTitle(R.string.screen_virtual_resolution_title)
+                    .setSingleChoiceItems(labels.toArray(new String[0]), checked, (picker, which) -> {
+                        picker.dismiss();
+                        if (which != checked) request("resize-stream", key, -1, activity.getString(R.string.screen_resizing), choices.get(which));
+                    }).setNegativeButton(android.R.string.cancel, null).show();
+        });
+        content.addView(resize);
     }
 
     private static int createHint(String reason) {
@@ -400,6 +511,7 @@ public final class SessionDisplayControls {
         if (inventory != null) renderTargets(inventory);
         int message;
         switch (reason) {
+            case "display_mode_unavailable": message = R.string.screen_resize_unavailable; break;
             case "unsupported": message = R.string.screen_live_unavailable; break;
             case "session_required": message = R.string.screen_session_required; break;
             case "output_protected": message = R.string.screen_capture_unknown; break;

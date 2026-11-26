@@ -509,6 +509,8 @@
     <string name="summary_show_guide_button">在屏幕手柄上显示 Guide 主页键</string>
     <string name="title_checkbox_keyboard_interceptor">转发系统快捷键</string>
     <string name="summary_checkbox_keyboard_interceptor">把 Alt+Tab、Win、Ctrl+Shift+Esc 等按键发送到电脑。请在系统无障碍设置中开启 PiuLink 键盘拦截服务。</string>
+    <string name="pc_super_screen">超级屏</string>
+    <string name="pc_super_screen_named">打开 %1$s 的超级屏</string>
     <string name="pc_open_desktop">进入桌面</string>
     <string name="pc_open_desktop_named">进入 %1$s 的桌面</string>
     <string name="pc_choose_desktop">请从列表选择要连接的桌面或应用。</string>

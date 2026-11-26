@@ -29,16 +29,16 @@ public class Dialog implements Runnable {
         this.runOnDismiss = runOnDismiss;
     }
 
-    public static void closeDialogs()
+    public static void closeDialogs(Activity owner)
     {
         synchronized (rundownDialogs) {
-            for (Dialog d : rundownDialogs) {
-                if (d.alert.isShowing()) {
-                    d.alert.dismiss();
-                }
+            java.util.Iterator<Dialog> iterator = rundownDialogs.iterator();
+            while (iterator.hasNext()) {
+                Dialog dialog = iterator.next();
+                if (dialog.activity != owner) continue;
+                iterator.remove();
+                if (dialog.alert.isShowing()) dialog.alert.dismiss();
             }
-
-            rundownDialogs.clear();
         }
     }
 
@@ -62,7 +62,7 @@ public class Dialog implements Runnable {
     @Override
     public void run() {
         // If we're dying, don't bother creating a dialog
-        if (activity.isFinishing())
+        if (activity.isFinishing() || activity.isDestroyed())
             return;
 
         final String suppressionKey = "dialog_" + Integer.toHexString(title.hashCode());

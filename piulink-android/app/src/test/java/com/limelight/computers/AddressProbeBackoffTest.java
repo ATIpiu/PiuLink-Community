@@ -22,19 +22,19 @@ public class AddressProbeBackoffTest {
         AddressProbeBackoff backoff = new AddressProbeBackoff(clock);
 
         backoff.recordFailure("unreachable-v6");
-        assertTrue(backoff.shouldProbe("unreachable-v6"));
+        assertTrue(backoff.shouldProbe("unreachable-v6", false));
 
         backoff.recordFailure("unreachable-v6");
-        assertFalse(backoff.shouldProbe("unreachable-v6"));
+        assertFalse(backoff.shouldProbe("unreachable-v6", false));
         assertEquals(5_000, backoff.remainingDelayMs("unreachable-v6"));
 
         clock.now = 5_000;
-        assertTrue(backoff.shouldProbe("unreachable-v6"));
+        assertTrue(backoff.shouldProbe("unreachable-v6", false));
         backoff.recordFailure("unreachable-v6");
         assertEquals(10_000, backoff.remainingDelayMs("unreachable-v6"));
 
         backoff.recordSuccess("unreachable-v6");
-        assertTrue(backoff.shouldProbe("unreachable-v6"));
+        assertTrue(backoff.shouldProbe("unreachable-v6", false));
     }
 
     @Test
@@ -47,7 +47,7 @@ public class AddressProbeBackoffTest {
         }
 
         assertEquals(AddressProbeBackoff.MAX_DELAY_MS, backoff.remainingDelayMs("bad-v6"));
-        assertTrue(backoff.shouldProbe("good-v4"));
+        assertTrue(backoff.shouldProbe("good-v4", false));
     }
 
     @Test
@@ -59,7 +59,19 @@ public class AddressProbeBackoffTest {
 
         backoff.resetForNetworkChange();
 
-        assertTrue(backoff.shouldProbe("bad-v6"));
+        assertTrue(backoff.shouldProbe("bad-v6", false));
         assertEquals(0, backoff.remainingDelayMs("bad-v6"));
+    }
+
+    @Test
+    public void newlyOpenedTunnelGetsFirstHostProbeDuringOldListenerCooldown() {
+        AddressProbeBackoff backoff = new AddressProbeBackoff(new FakeClock());
+        String localAdapter = "127.42.17.31:47989";
+        for (int i = 0; i < 12; i++) backoff.recordFailure(localAdapter);
+        assertEquals(AddressProbeBackoff.MAX_DELAY_MS, backoff.remainingDelayMs(localAdapter));
+        assertFalse(backoff.shouldProbe(localAdapter, false));
+        assertTrue(backoff.shouldProbe(localAdapter, true));
+        backoff.recordSuccess(localAdapter);
+        assertTrue(backoff.shouldProbe(localAdapter, false));
     }
 }

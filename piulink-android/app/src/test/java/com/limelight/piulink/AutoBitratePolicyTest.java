@@ -87,9 +87,35 @@ public class AutoBitratePolicyTest {
 
     @Test public void localTargetWinsEvenWhenTailscaleVpnIsActive() {
         assertEquals("local", AutoBitrateManager.classifyRoute(
-                "192.168.1.8", true, false, true));
+                "192.168.50.8", true, false, true));
         assertEquals("private", AutoBitrateManager.classifyRoute(
                 "100.64.0.42", true, false, true));
+    }
+
+    @Test public void privateAddressReachedThroughVpnUsesOverlayBudget() {
+        String route = AutoBitrateManager.classifyRoute("192.168.8.2", true, false, false);
+        assertEquals("private", route);
+        assertEquals(8000, AutoBitratePolicy.startupBitrate(route, 3840, 2160, 60, 200000, false, "balanced"));
+    }
+
+    @Test public void vpnQueueReducesBeforeLossAndRecoversAfterDelayClears() {
+        AutoBitratePolicy.Feedback feedback = new AutoBitratePolicy.Feedback(true);
+        for (int i = 0; i < 3; i++) assertEquals(0, feedback.nextEncoderTarget(8000, 7500, 0, 60, 40, i * 1000));
+        assertEquals(0, feedback.nextEncoderTarget(8000, 7500, 0, 60, 120, 3000));
+        assertEquals(0, feedback.nextEncoderTarget(8000, 7500, 0, 60, 130, 4000));
+        assertEquals(6400, feedback.nextEncoderTarget(8000, 7500, 0, 60, 125, 5000));
+        for (int i = 6; i < 21; i++) assertEquals(0, feedback.nextEncoderTarget(6400, 6000, 0, 60, 127, i * 1000));
+        for (int i = 21; i < 30; i++) assertEquals(0, feedback.nextEncoderTarget(6400, 6000, 0, 60, 40, i * 1000));
+        org.junit.Assert.assertTrue(feedback.nextEncoderTarget(6400, 6000, 0, 60, 40, 30000) > 6400);
+    }
+
+    @Test public void quietDesktopAndStableHighLatencyDoNotTriggerDelayCuts() {
+        AutoBitratePolicy.Feedback feedback = new AutoBitratePolicy.Feedback(true);
+        for (int i = 0; i < 15; i++) {
+            int rtt = (i == 0 || i == 7) ? 1 : 220;
+            assertEquals(0, feedback.nextEncoderTarget(14000, 13500, 0, 60, rtt, i * 1000));
+        }
+        for (int i = 15; i < 30; i++) assertEquals(0, feedback.nextEncoderTarget(14000, 400, 0, 60, 400, i * 1000));
     }
 
     @Test public void aFailedIncreaseWaitsForALongerCleanRun() {

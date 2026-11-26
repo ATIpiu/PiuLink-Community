@@ -16,38 +16,50 @@ public final class AutoBitrateManager {
 
     public Session beginSession(String hostAddress, boolean saveDataOnMeteredNetwork,
                                 int width, int height, int fps, String tuningMode) {
-        String route = routeFor(context, hostAddress);
-        int downstreamEstimateKbps = getDownstreamEstimateKbps();
-        int selectedKbps = AutoBitratePolicy.startupBitrate(route, width, height, fps,
-                downstreamEstimateKbps, saveDataOnMeteredNetwork, tuningMode);
-        return new Session(route, selectedKbps, downstreamEstimateKbps);
+        StreamPath path = streamPath(context, hostAddress);
+        int selectedKbps = AutoBitratePolicy.startupBitrate(path.route, width, height, fps,
+                path.downstreamKbps, saveDataOnMeteredNetwork, tuningMode);
+        return new Session(path, selectedKbps);
     }
 
     static String routeFor(Context context, String address) {
+        return streamPath(context, address).route;
+    }
+
+    private static final class StreamPath {
+        final String route;
+        final int downstreamKbps;
+        final boolean vpnTransport;
+
+        StreamPath(String route, int downstreamKbps, boolean vpnTransport) {
+            this.route = route;
+            this.downstreamKbps = downstreamKbps;
+            this.vpnTransport = vpnTransport;
+        }
+    }
+
+    private static StreamPath streamPath(Context context, String address) {
         ConnectivityManager manager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (com.limelight.computers.DirectInviteTunnel.isEndpoint(address))
-            return manager != null && manager.isActiveNetworkMetered() ? "metered" : "remote";
-        return classifyRoute(address, NetHelper.isActiveNetworkVpn(context),
-                manager != null && manager.isActiveNetworkMetered(), NetHelper.isPrivateHostAddress(address));
+        boolean vpn = NetHelper.isActiveNetworkVpn(context);
+        boolean tunnel = com.limelight.computers.DirectInviteTunnel.isEndpoint(address);
+        boolean literal = address != null && (address.contains(":") || address.matches("[0-9.]+"));
+        // Do not perform DNS on the UI thread. A name without verified local routing
+        // uses the VPN budget until a concrete on-link endpoint is selected.
+        Network lan = !tunnel && literal && vpn ? NetHelper.getBindableLocalNetworkForAddress(context, address) : null;
+        Network network = lan != null ? lan : manager == null || Build.VERSION.SDK_INT < 23 ? null : manager.getActiveNetwork();
+        NetworkCapabilities caps = manager == null || network == null ? null : manager.getNetworkCapabilities(network);
+        boolean metered = caps != null ? !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+                : manager != null && manager.isActiveNetworkMetered();
+        boolean local = !tunnel && (vpn ? lan != null : NetHelper.isPrivateHostAddress(address));
+        String route = tunnel ? (metered ? "metered" : "remote") : classifyRoute(address, vpn, metered, local);
+        return new StreamPath(route, caps == null ? 0 : caps.getLinkDownstreamBandwidthKbps(), vpn && lan == null);
     }
 
-    static String classifyRoute(String hostAddress, boolean privateNetworkActive,
-                                boolean metered, boolean hostIsPrivate) {
-        NetworkPathClassifier.Path path = NetworkPathClassifier.classify(hostAddress);
-        return metered ? "metered" :
-                path == NetworkPathClassifier.Path.TAILSCALE_MANAGED ? "private" :
-                hostIsPrivate ? "local" : privateNetworkActive ? "private" : "remote";
-    }
-
-    private int getDownstreamEstimateKbps() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return 0;
-        ConnectivityManager manager =
-                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (manager == null) return 0;
-        Network activeNetwork = manager.getActiveNetwork();
-        if (activeNetwork == null) return 0;
-        NetworkCapabilities capabilities = manager.getNetworkCapabilities(activeNetwork);
-        return capabilities != null ? capabilities.getLinkDownstreamBandwidthKbps() : 0;
+    static String classifyRoute(String hostAddress, boolean vpnActive, boolean metered, boolean directLocal) {
+        if (metered) return "metered";
+        if (NetworkPathClassifier.classify(hostAddress) == NetworkPathClassifier.Path.TAILSCALE_MANAGED) return "private";
+        if (directLocal) return "local";
+        return vpnActive ? "private" : "remote";
     }
 
     public static final class Session {
@@ -55,12 +67,13 @@ public final class AutoBitrateManager {
         private final int selectedKbps;
         private final int downstreamEstimateKbps;
         private final ThroughputHistory throughputHistory = new ThroughputHistory();
-        private final AutoBitratePolicy.Feedback feedback = new AutoBitratePolicy.Feedback();
+        private final AutoBitratePolicy.Feedback feedback;
 
-        private Session(String route, int selectedKbps, int downstreamEstimateKbps) {
-            this.route = route;
+        private Session(StreamPath path, int selectedKbps) {
+            this.route = path.route;
             this.selectedKbps = selectedKbps;
-            this.downstreamEstimateKbps = downstreamEstimateKbps;
+            this.downstreamEstimateKbps = path.downstreamKbps;
+            this.feedback = new AutoBitratePolicy.Feedback(path.vpnTransport);
         }
 
         public int getSelectedKbps() { return selectedKbps; }

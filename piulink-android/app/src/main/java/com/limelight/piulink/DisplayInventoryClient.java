@@ -37,6 +37,10 @@ final class DisplayInventoryClient {
     private static final ConcurrentHashMap<String, CachedInventory> inventoryCache = new ConcurrentHashMap<>();
 
     private static final class CachedInventory {
+        final String hostId;
+
+        CachedInventory(String hostId) { this.hostId = hostId; }
+
         Inventory inventory;
         long storedAt;
         java.util.concurrent.FutureTask<Inventory> pending;
@@ -123,7 +127,7 @@ final class DisplayInventoryClient {
             for (Display display : inventory.displays)
                 if (display.deviceId.equalsIgnoreCase(saved) && (!virtualApp || display.virtual) &&
                         (display.virtual || (display.width > 0 && display.height > 0))) return display;
-            return null;
+            if (!virtualApp) return null;
         }
         if (virtualApp) {
             for (Display display : inventory.displays) if (display.virtual) return display;
@@ -157,9 +161,10 @@ final class DisplayInventoryClient {
 
     private static Inventory fetchInventory(Context context, String host, boolean refresh) throws Exception {
         if (host == null || host.trim().isEmpty()) throw new IOException("Host address is missing");
-        CachedInventory newSlot = new CachedInventory();
-        CachedInventory previous = inventoryCache.putIfAbsent(host, newSlot);
-        CachedInventory slot = previous == null ? newSlot : previous;
+        String hostId = sessionHostId(context);
+        CachedInventory slot = inventoryCache.compute(host, (key, existing) ->
+                existing != null && java.util.Objects.equals(existing.hostId, hostId)
+                        ? existing : new CachedInventory(hostId));
         java.util.concurrent.FutureTask<Inventory> read;
         synchronized (slot) {
             if (!refresh && slot.inventory != null && android.os.SystemClock.elapsedRealtime() - slot.storedAt <= INVENTORY_CACHE_MS)
@@ -432,11 +437,29 @@ final class DisplayInventoryClient {
         SessionError(String reason) { super(reason); this.reason = reason; }
     }
 
+    static Mode confirmedVirtualMode(JSONObject response, String key, Mode requested) throws SessionError {
+        JSONObject desktop = response.optJSONObject("virtualDesktop");
+        JSONObject actual = desktop == null ? null : desktop.optJSONObject("current");
+        JSONObject video = response.optJSONObject("encodedVideo");
+        if (actual == null || !key.equals(desktop.optString("key")) || actual.optInt("width") != requested.width ||
+                actual.optInt("height") != requested.height || actual.optInt("fps") <= 0 || video == null ||
+                video.optInt("width") != requested.width || video.optInt("height") != requested.height)
+            throw new SessionError("outputs_changed");
+        return new Mode(requested.width, requested.height, actual.optInt("fps"));
+    }
+
     static JSONObject sessionDisplays(Context context, String host, String sessionId, String action,
                                       String key, int expectedCount, boolean automaticRead) throws Exception {
+        return sessionDisplays(context, host, sessionId, action, key, expectedCount, automaticRead, null);
+    }
+
+    static JSONObject sessionDisplays(Context context, String host, String sessionId, String action,
+                                      String key, int expectedCount, boolean automaticRead, Mode mode) throws Exception {
         JSONObject request = new JSONObject().put("sessionId", sessionId).put("action", action);
         if (key != null) request.put("key", key);
         if (expectedCount >= 0) request.put("expectedCount", expectedCount);
+        if (mode != null) request.put("width", mode.width).put("height", mode.height);
+        if ("stream-mode".equals(action)) request.put("fps", mode.fps);
         JSONObject result = postSession(context, host, "/v1/displays/session", request,
                 automaticRead ? PEER_CONNECT_TIMEOUT_MS : 15000, null);
         invalidate(host);
@@ -520,11 +543,28 @@ final class DisplayInventoryClient {
         }, "PiuLink display abort").start();
     }
 
+    private static String sessionHostId(Context context) {
+        if (context instanceof com.limelight.AppView || context instanceof com.limelight.Game) {
+            return ((android.app.Activity) context).getIntent().getStringExtra(com.limelight.AppView.UUID_EXTRA);
+        }
+        return null;
+    }
+
     private static void configureTls(Context context, String host, HttpURLConnection connection) throws Exception {
         com.limelight.computers.ComputerDatabaseManager database = new com.limelight.computers.ComputerDatabaseManager(context);
         try {
             com.limelight.nvstream.http.ComputerDetails matched = null;
+            String expectedId = sessionHostId(context);
             for (com.limelight.nvstream.http.ComputerDetails computer : database.getAllComputers()) {
+                // A selected historical address or P2P listener need not appear in the database.
+                // Always authenticate the session's Host using its saved certificate.
+                if (expectedId != null) {
+                    if (expectedId.equalsIgnoreCase(computer.uuid)) {
+                        matched = computer;
+                        break;
+                    }
+                    continue;
+                }
                 for (com.limelight.nvstream.http.ComputerDetails.AddressTuple address : new com.limelight.nvstream.http.ComputerDetails.AddressTuple[] {
                         computer.localAddress, computer.remoteAddress, computer.manualAddress, computer.ipv6Address }) {
                     if (address != null && address.address.equalsIgnoreCase(host)) {

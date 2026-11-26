@@ -69,18 +69,49 @@ final class AutoBitratePolicy {
         private long nextChangeMs;
         private long lastIncreaseMs = -1;
         private int recoveryDelay;
+        private final boolean watchVpnDelay;
+        private double baselineRtt;
+        private int rttSamples, previousRtt, olderRtt, delayedWindows, clearWindows;
+        private boolean delayReductionApplied;
+
+        Feedback() { this(false); }
+        Feedback(boolean watchVpnDelay) { this.watchVpnDelay = watchVpnDelay; }
+
+        private boolean sustainedQueueDelay(int rttMs, boolean carryingVideo) {
+            if (!watchVpnDelay || rttMs <= 0) {
+                delayedWindows = clearWindows = 0;
+                return false;
+            }
+            // Compare with this session's own RTT. A stable, long-distance VPN is healthy.
+            boolean elevated = rttSamples >= 3 && rttMs > baselineRtt + Math.max(25, baselineRtt * 0.5);
+            if (rttSamples >= 2) {
+                // Use a three-sample median so an isolated very low RTT cannot set the baseline.
+                int middle = Math.max(Math.min(olderRtt, previousRtt), Math.min(rttMs, Math.max(olderRtt, previousRtt)));
+                if (baselineRtt == 0 || middle < baselineRtt) baselineRtt = middle;
+                else baselineRtt += Math.min(1.0, (middle - baselineRtt) * 0.04);
+            }
+            olderRtt = previousRtt;
+            previousRtt = rttMs;
+            if (rttSamples < 3) rttSamples++;
+            delayedWindows = elevated && carryingVideo ? delayedWindows + 1 : 0;
+            clearWindows = elevated ? 0 : clearWindows + 1;
+            if (clearWindows >= 3) delayReductionApplied = false;
+            return elevated;
+        }
 
         // Only act on an encoder-confirmed rate. The handshake budget also covers FEC and audio.
         int nextEncoderTarget(int applied, int received, int lost, int frames, int rttMs, long nowMs) {
             if (applied <= 0) return 0;
             if (encoderCeiling == 0) encoderCeiling = applied;
             if (frames < 8 || lost < 0 || lost > frames || received <= 0) {
-                lossyWindows = cleanWindows = 0;
+                lossyWindows = cleanWindows = delayedWindows = clearWindows = 0;
                 return 0;
             }
             float loss = (float) lost / frames;
             lossyWindows = loss >= 0.03f ? lossyWindows + 1 : 0;
-            cleanWindows = lost == 0 && received >= applied * 0.55f ? cleanWindows + 1 : 0;
+            boolean carryingVideo = received >= applied * 0.55f;
+            boolean elevated = sustainedQueueDelay(rttMs, carryingVideo);
+            cleanWindows = lost == 0 && carryingVideo && !elevated ? cleanWindows + 1 : 0;
             if (nowMs < nextChangeMs) return 0;
             int target;
             if (loss >= 0.10f || lossyWindows >= 2) {
@@ -88,6 +119,11 @@ final class AutoBitratePolicy {
                 // A link that lost frames immediately after a probe needs a longer stable interval.
                 if (lastIncreaseMs >= 0 && nowMs - lastIncreaseMs < 15_000)
                     recoveryDelay = Math.min(40, recoveryDelay + 10);
+                lastIncreaseMs = -1;
+                if (elevated) delayReductionApplied = true;
+            } else if (delayedWindows >= 3 && !delayReductionApplied) {
+                target = Math.max(Math.min(750, encoderCeiling), applied * 80 / 100);
+                delayReductionApplied = true;
                 lastIncreaseMs = -1;
             } else if (cleanWindows >= (rttMs >= 200 ? 18 : 10) + recoveryDelay) {
                 target = Math.min(encoderCeiling, applied + Math.max(200, applied / 6));

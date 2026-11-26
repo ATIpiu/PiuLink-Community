@@ -33,7 +33,7 @@ public class NetHelperTest {
 
     @Test
     public void remembersNonZeroDeniedDirectNetworkHandleUntilReset() {
-        NetHelper.resetDeniedDirectNetworkHandleForTest();
+        NetHelper.resetDirectNetworkBindingState();
         try {
             assertFalse(NetHelper.isDirectNetworkHandleDenied(0L));
             assertFalse(NetHelper.isDirectNetworkHandleDenied(103L));
@@ -44,7 +44,7 @@ public class NetHelperTest {
             assertFalse(NetHelper.isDirectNetworkHandleDenied(104L));
             assertFalse(NetHelper.isDirectNetworkHandleDenied(0L));
         } finally {
-            NetHelper.resetDeniedDirectNetworkHandleForTest();
+            NetHelper.resetDirectNetworkBindingState();
         }
         assertFalse(NetHelper.isDirectNetworkHandleDenied(103L));
     }

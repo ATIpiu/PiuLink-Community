@@ -281,12 +281,6 @@ public class RelativeTouchContext implements TouchContext {
                     lastTouchY = eventY;
                     if (dx != 0 || dy != 0) {
                         onMouseMove.move(dx, dy);
-                        if (prefConfig.absoluteMouseMode) {
-                            conn.sendMouseMoveAsMousePosition(dx, dy,
-                                    (short) targetView.getWidth(), (short) targetView.getHeight());
-                        } else {
-                            conn.sendMouseMove(dx, dy);
-                        }
                     }
                 }
             }

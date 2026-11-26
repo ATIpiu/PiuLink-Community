@@ -12,7 +12,7 @@ PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑
 | --- | --- |
 | 让其他设备连接这台 Windows x64 电脑 | [下载 Windows Host 0.2.116 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/host-preview-2026.11.25/PiuLink-Host-0.2.116-win-x64-preview.msi) |
 | 在 Windows x64 电脑上控制另一台主机 | [下载 Windows Client 0.2.31 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/client-preview-2026.11.25/PiuLink-Client-0.2.31-win-x64.msi) |
-| 在 Android 手机、平板或电视上控制主机 | [通用版（推荐）· 56.14 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.186/PiuLink-Android-0.3.186-nonRoot-universal-release.apk) · [ARM64 专用版 · 17.09 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.186/PiuLink-Android-0.3.186-nonRoot-arm64-v8a-release.apk) |
+| 在 Android 手机、平板或电视上控制主机 | [通用版（推荐）· 57.78 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.206/PiuLink-Android-0.3.206-nonRoot-universal-release.apk) · [ARM64 专用版 · 17.57 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.206/PiuLink-Android-0.3.206-nonRoot-arm64-v8a-release.apk) |
 
 两份 Windows MSI 均为未签名预览版。Host 内置串流引擎，这版省去了虚拟麦克风驱动，系统分享扩展可在已信任其签名的设备上按需注册。两个控制端都可连接已配置好的 PiuLink Host 或兼容 Sunshine 的电脑。[Host 版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/host-preview-2026.11.25) · [控制端版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/client-preview-2026.11.25) · [自建 Linux 邀请服务](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)
 

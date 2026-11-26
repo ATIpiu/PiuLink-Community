@@ -24,6 +24,15 @@
         <requestFocus />
     </com.limelight.ui.StreamView>
 
+    <ImageView
+        android:id="@+id/touchpadLocalCursor"
+        android:layout_width="18dp"
+        android:layout_height="24dp"
+        android:layout_gravity="top|left"
+        android:importantForAccessibility="no"
+        android:visibility="gone"
+        android:src="@drawable/ic_touchpad_pointer" />
+
     <TextView
         android:id="@+id/performanceOverlay"
         android:layout_width="wrap_content"

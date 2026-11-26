@@ -167,6 +167,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private int modifierFlags = 0;
     private boolean grabbedInput = true;
     private boolean cursorVisible = false;
+    private boolean touchCursorAck, touchCursorActive, touchPointerKnown;
+    private float touchPointerX = .5f, touchPointerY = .5f;
+    private android.widget.ImageView touchCursor;
     private final Handler cursorHandler = new Handler(Looper.getMainLooper());
     private int cursorUpdateGeneration;
     private boolean waitingForAllModifiersUp = false;
@@ -179,6 +182,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private final StreamViewport viewport = new StreamViewport();
     private long lastLocalViewportMotion;
     private float captureFractionX = 1f, captureFractionY = 1f;
+    private int lastCaptureWidth, lastCaptureHeight;
     private long panFrameTime;
     private float panResponseMs;
     private final Runnable panFrame = new Runnable() {
@@ -190,6 +194,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             float y = StreamViewport.approach(streamView.getTranslationY(), viewport.y, elapsedMs, panResponseMs);
             streamView.setTranslationX(x);
             streamView.setTranslationY(y);
+            drawTouchPointer();
             if (x == viewport.x && y == viewport.y) panFrameTime = 0;
             else {
                 panFrameTime = now;
@@ -358,6 +363,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public static final String EXTRA_STREAM_WIDTH = "PiuLinkStreamWidth";
     public static final String EXTRA_STREAM_HEIGHT = "PiuLinkStreamHeight";
     public static final String EXTRA_CONFIRMED_SWITCH_FROM = "PiuLinkConfirmedSwitchFrom";
+    public static final String EXTRA_SUPER_SCREEN = "PiuLinkSuperScreen";
     public static final String EXTRA_DISPLAY_PREPARATION = "PiuLinkDisplayPreparation";
     private Intent replacementStreamIntent;
     public static final String EXTRA_STREAM_FPS = "PiuLinkStreamFps";
@@ -365,12 +371,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public static volatile Game activeInstance = null;
 
     /** Reopen this device's existing stream window from its app library or shortcut. */
-    public static boolean resumeActiveStream(Activity parent, String computerId, int appId) {
+    public static boolean resumeActiveStream(Activity parent, String computerId, int appId, boolean superScreen) {
         Game game = activeInstance;
         if (game == null || !game.connected || game.leavingStream || game.isFinishing() || game.isDestroyed()) {
             return false;
         }
         Intent current = game.getIntent();
+        if (superScreen && !current.getBooleanExtra(EXTRA_SUPER_SCREEN, false)) return false;
         if (computerId == null || !computerId.equals(current.getStringExtra(EXTRA_PC_UUID))
                 || appId != current.getIntExtra(EXTRA_APP_ID, StreamConfiguration.INVALID_APP_ID)) {
             return false;
@@ -449,6 +456,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // Listen for non-touch events on the game surface
         streamView = findViewById(R.id.surfaceView);
+        touchCursor = findViewById(R.id.touchpadLocalCursor);
+        streamView.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,oright,ob) -> drawTouchPointer());
         streamView.setOnGenericMotionListener(this);
         streamView.setOnKeyListener(this);
         streamView.setInputCallbacks(this);
@@ -552,6 +561,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         byte[] derCertData = Game.this.getIntent().getByteArrayExtra(EXTRA_SERVER_CERT);
 
         app = new NvApp(appName != null ? appName : "app", appId, appSupportsHdr);
+        if (app.hasDesktopName() && prefConfig.touchscreenTrackpad && com.limelight.computers.DirectInviteTunnel.isEndpoint(host) &&
+                !android.preference.PreferenceManager.getDefaultSharedPreferences(this).contains("checkbox_local_cursor"))
+            prefConfig.localCursor = true;
 
         try {
             if (derCertData != null) {
@@ -575,7 +587,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     " Kbps, negotiated ceiling=" + autoBitrateSession.getCeilingKbps() + " Kbps" +
                     " route=" + autoBitrateSession.getRoute() +
                     " downstreamEstimate=" + autoBitrateSession.getDownstreamEstimateKbps() + " Kbps");
-            // Select once before the handshake. Streaming telemetry is diagnostic only.
+            // The handshake sets the ceiling; live feedback adjusts the running encoder within it.
             prefConfig.bitrate = autoBitrateSession.getSelectedKbps();
         }
 
@@ -749,6 +761,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         public boolean canShowKeyboard() { return canAutoShowKeyboard(); }
                         public void showKeyboard() { openSoftwareKeyboard(true); }
                         public void viewportPosition(float x, float y, boolean caret, long requestedAt) {
+                            if (!caret && touchCursorAck && !touchPointerKnown && Float.isFinite(x) && Float.isFinite(y)) {
+                                touchPointerX = .5f + (x - .5f) * captureFractionX;
+                                touchPointerY = .5f + (y - .5f) * captureFractionY;
+                                touchPointerKnown = true;
+                                drawTouchPointer();
+                                updatePointerTracking();
+                            }
                             if (pinching) return;
                             if (!caret && requestedAt <= lastLocalViewportMotion) return;
                             viewport.position(0.5f + (x - 0.5f) * captureFractionX,
@@ -783,7 +802,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             else {
                 touchContextMap[i] = new RelativeTouchContext(conn, i,
                         REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
-                        streamView, prefConfig, this::onRemoteTap, (dx, dy) -> viewportRelative(dx, dy, prefConfig.absoluteMouseMode));
+                        streamView, prefConfig, this::onRemoteTap, this::moveTouchPointer);
             }
         }
 
@@ -1509,7 +1528,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         super.onStop();
 
         SpinnerDialog.closeDialogs(this);
-        Dialog.closeDialogs();
+        Dialog.closeDialogs(this);
 
         if (virtualController != null) {
             virtualController.hide();
@@ -2458,6 +2477,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void onLiveCaptureChanged(int width, int height) {
         if (width > 0 && height > 0) {
+            lastCaptureWidth = width;
+            lastCaptureHeight = height;
             float fit = Math.min(prefConfig.width / (float)width, prefConfig.height / (float)height);
             captureFractionX = width * fit / prefConfig.width;
             captureFractionY = height * fit / prefConfig.height;
@@ -2467,12 +2488,67 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (inputHints != null) inputHints.resetViewportPoll();
     }
 
+    @Override
+    public void onVideoSizeRendered(int width, int height) {
+        runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed() || width <= 0 || height <= 0 ||
+                    (prefConfig.width == width && prefConfig.height == height)) return;
+            prefConfig.width = width;
+            prefConfig.height = height;
+            if (prefConfig.stretchVideo) streamView.getHolder().setFixedSize(width, height);
+            else {
+                streamView.getHolder().setSizeFromLayout();
+                streamView.setDesiredAspectRatio(width / (double)height);
+            }
+            onLiveCaptureChanged(lastCaptureWidth, lastCaptureHeight);
+        });
+    }
+
     private void animatePointerPan(boolean local) {
         if (streamView.getTranslationX() == viewport.x && streamView.getTranslationY() == viewport.y) return;
         panResponseMs = local ? 24f : 70f;
         if (panFrameTime == 0) {
             panFrameTime = System.nanoTime();
             streamView.postOnAnimation(panFrame);
+        }
+    }
+
+    private void updatePointerTracking() {
+        if (inputHints != null) inputHints.trackViewport(softwareKeyboardVisible,
+                viewport.isZoomed() || (touchCursorAck && !touchPointerKnown));
+    }
+
+    private void drawTouchPointer() {
+        if (touchCursor == null || !touchCursorActive || !touchPointerKnown) return;
+        touchCursor.setX(streamView.getX() + streamView.getWidth() * streamView.getScaleX() * touchPointerX);
+        touchCursor.setY(streamView.getY() + streamView.getHeight() * streamView.getScaleY() * touchPointerY);
+        touchCursor.setVisibility(View.VISIBLE);
+    }
+
+    private void hideTouchPointer() {
+        touchCursorActive = false;
+        touchPointerKnown = false;
+        if (touchCursor != null) touchCursor.setVisibility(View.GONE);
+    }
+
+    private void moveTouchPointer(int dx, int dy) {
+        if (!touchCursorAck) {
+            viewportRelative(dx, dy, prefConfig.absoluteMouseMode);
+            if (prefConfig.absoluteMouseMode)
+                conn.sendMouseMoveAsMousePosition((short)dx, (short)dy, (short)streamView.getWidth(), (short)streamView.getHeight());
+            else conn.sendMouseMove((short)dx, (short)dy);
+            return;
+        }
+        if (!touchCursorActive) { touchCursorActive = true; inputCaptureProvider.hideCursor(); }
+        if (!touchPointerKnown) { touchPointerX = touchPointerY = .5f; touchPointerKnown = true; updatePointerTracking(); }
+        touchPointerX = Math.max((1f-captureFractionX)/2, Math.min((1f+captureFractionX)/2, touchPointerX + dx/(float)REFERENCE_HORIZ_RES));
+        touchPointerY = Math.max((1f-captureFractionY)/2, Math.min((1f+captureFractionY)/2, touchPointerY + dy/(float)REFERENCE_VERT_RES));
+        drawTouchPointer();
+        conn.sendMousePosition((short)Math.round(touchPointerX * 32766), (short)Math.round(touchPointerY * 32766), (short)32767, (short)32767);
+        if (viewport.isZoomed() && !pinching && !softwareKeyboardVisible) {
+            lastLocalViewportMotion = android.os.SystemClock.uptimeMillis();
+            viewport.position(touchPointerX, touchPointerY, false);
+            animatePointerPan(true);
         }
     }
 
@@ -2504,7 +2580,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamView.setScaleY(viewport.scale);
         streamView.setTranslationX(viewport.x);
         streamView.setTranslationY(viewport.y);
-        if (inputHints != null) inputHints.trackViewport(softwareKeyboardVisible, viewport.isZoomed());
+        drawTouchPointer();
+        if (inputHints != null) updatePointerTracking();
     }
 
     private boolean handlePinch(View view, MotionEvent e) {
@@ -2945,9 +3022,19 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     stopConnection(afterStopped, endApplication);
                 };
         com.limelight.piulink.MonitorSelection.Selected ready = (index, w, h, fps, id) -> replacePreparedStream(0, w, h, fps, id);
-        com.limelight.piulink.MonitorSelection.openStreamDisplays(this, host, address,
+        String profile = com.limelight.piulink.MonitorSelection.displayProfile(host, getIntent().getBooleanExtra(EXTRA_SUPER_SCREEN, false));
+        com.limelight.piulink.MonitorSelection.openStreamDisplays(this, profile, address,
                 getIntent().getStringExtra(EXTRA_DISPLAY_PREPARATION), quick, dx, dy,
-                this::onLiveCaptureChanged, stop, ready);
+                this::onLiveCaptureChanged, decoderRenderer::supportsLiveSize, new com.limelight.piulink.MonitorSelection.StreamMode() {
+                    public boolean supports(int w, int h, int fps) { return decoderRenderer.supportsLiveMode(w, h, fps); }
+                    public void applied(int fps) {
+                        prefConfig.fps = fps;
+                        decoderRenderer.setLiveFrameRate(fps);
+                        Surface surface = streamView.getHolder().getSurface();
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && surface.isValid())
+                            surface.setFrameRate(fps, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
+                    }
+                }, stop, ready);
     }
 
     private void showTvReconnect(boolean automatic, int retryMessage) {
@@ -3020,7 +3107,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private void prepareReplacementStream(int attempt) {
         if (streamPageStopped || isFinishing() || isDestroyed()) return;
         com.limelight.piulink.MonitorSelection.connectDefault(this, getIntent().getStringExtra(EXTRA_PC_UUID),
-                getIntent().getStringExtra(EXTRA_HOST), (index, w, h, fps, id) -> replacePreparedStream(attempt, w, h, fps, id));
+                getIntent().getStringExtra(EXTRA_HOST), getIntent().getBooleanExtra(EXTRA_SUPER_SCREEN, false),
+                (index, w, h, fps, id) -> replacePreparedStream(attempt, w, h, fps, id));
     }
 
     private void replacePreparedStream(int attempt, int width, int height, int fps, String requestId) {
@@ -3533,6 +3621,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private void updateLocalCursor(boolean enabled) {
         int generation = ++cursorUpdateGeneration;
         cursorHandler.removeCallbacksAndMessages(null);
+        touchCursorAck = false;
+        hideTouchPointer();
+        updatePointerTracking();
         cursorVisible = false;
         inputCaptureProvider.hideCursor();
         if (!connected || conn == null || !conn.supportsPiuLinkControl()) return;
@@ -3546,7 +3637,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (ack == (enabled ? 1 : 2)) {
             cursorVisible = enabled;
             if (enabled) {
-                inputCaptureProvider.showCursor();
+                touchCursorAck = prefConfig.touchscreenTrackpad;
+                touchCursorActive = touchCursorAck;
+                if (touchCursorActive) updatePointerTracking();
+                else inputCaptureProvider.showCursor();
                 cursorHandler.postDelayed(() -> monitorHostCursor(session, generation), 500);
             }
             return;
@@ -3563,6 +3657,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (generation != cursorUpdateGeneration || !connected || session != conn) return;
         if (session.getHostCursorMode() != 1) {
             // The Host restores its captured cursor if another streaming client joins.
+            touchCursorAck = false;
+            hideTouchPointer();
+            updatePointerTracking();
             cursorVisible = false;
             inputCaptureProvider.hideCursor();
             return;
@@ -3573,6 +3670,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private void restoreHostCursorCapture() {
         ++cursorUpdateGeneration;
         cursorHandler.removeCallbacksAndMessages(null);
+        touchCursorAck = false;
+        hideTouchPointer();
+        updatePointerTracking();
         cursorVisible = false;
         if (conn != null) conn.setHostCursorHidden(false);
     }
@@ -3950,6 +4050,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                                     event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER)) ||
                     eventSource == 12290) // 12290 = Samsung DeX mode desktop mouse
             {
+                if (touchCursorActive) { hideTouchPointer(); inputCaptureProvider.showCursor(); }
                 int buttonState = event.getButtonState();
                 int changedButtons = buttonState ^ lastButtonState;
 
@@ -4590,6 +4691,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void stageFailed(final String stage, final int portFlags, final int errorCode) {
+        DiagnosticReport.connection(this, DiagnosticReport.streamStage(stage), "protocol", errorCode);
         // Perform a connection test if the failure could be due to a blocked port
         // This does network I/O, so don't do it on the main thread.
         final boolean privatePeerPath = NetHelper.isActiveNetworkVpn(this) ||
@@ -4640,6 +4742,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void connectionTerminated(final int errorCode) {
+        if (errorCode != 0) DiagnosticReport.connection(this, "ended", "protocol", errorCode);
         runOnUiThread(this::stopRemoteMicrophone);
         autoBitrateHandler.removeCallbacks(autoBitrateStableSample);
         autoBitrateHandler.removeCallbacks(contentAdaptiveControlRetry);

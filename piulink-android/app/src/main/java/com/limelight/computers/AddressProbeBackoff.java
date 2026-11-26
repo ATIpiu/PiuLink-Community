@@ -25,7 +25,10 @@ final class AddressProbeBackoff {
         this.clock = clock;
     }
 
-    synchronized boolean shouldProbe(String address) {
+    synchronized boolean shouldProbe(String address, boolean activeTunnel) {
+        // A saved loopback address outlives its listener. A newly authenticated
+        // tunnel at that address needs a real Host probe even during an old cooldown.
+        if (activeTunnel) return true;
         State state = states.get(address);
         return state == null || clock.elapsedRealtime() >= state.retryAfterMs;
     }

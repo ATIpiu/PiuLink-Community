@@ -87,6 +87,7 @@ public class NetHelper {
             return null;
         }
 
+        if (hostAddress.isLoopbackAddress() || hostAddress.isAnyLocalAddress()) return null;
         ConnectivityManager connMgr =
                 (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         if (connMgr == null) {
@@ -117,7 +118,9 @@ public class NetHelper {
 
             for (RouteInfo route : properties.getRoutes()) {
                 // A default route matches every address and says nothing about LAN reachability.
-                if (!route.isDefaultRoute() && route.matches(hostAddress)) {
+                if (Build.VERSION.SDK_INT >= 33 && route.getType() != RouteInfo.RTN_UNICAST) continue;
+                InetAddress gateway = route.getGateway();
+                if (!route.isDefaultRoute() && (gateway == null || gateway.isAnyLocalAddress()) && route.matches(hostAddress)) {
                     return network;
                 }
             }
@@ -130,7 +133,7 @@ public class NetHelper {
         byte[] addressBytes = address.getAddress();
         byte[] networkBytes = linkAddress.getAddress().getAddress();
         int prefixLength = linkAddress.getPrefixLength();
-        if (addressBytes.length != networkBytes.length || prefixLength < 0 ||
+        if (addressBytes.length != networkBytes.length || prefixLength <= 0 ||
                 prefixLength > addressBytes.length * Byte.SIZE) {
             return false;
         }
@@ -167,7 +170,7 @@ public class NetHelper {
         deniedDirectNetworkHandle = networkHandle;
     }
 
-    static void resetDeniedDirectNetworkHandleForTest() {
+    public static void resetDirectNetworkBindingState() {
         deniedDirectNetworkHandle = 0;
     }
 

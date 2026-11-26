@@ -69,6 +69,34 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private byte optimalSlicesPerFrame;
     private boolean refFrameInvalidationActive;
     private int initialWidth, initialHeight;
+    private int maxDecodeWidth, maxDecodeHeight;
+    private volatile MediaCodecInfo.VideoCapabilities liveVideoCaps, frameRateCaps;
+    private volatile android.util.Size decodedSize;
+    private volatile long firstSizePts = Long.MAX_VALUE;
+    private android.util.Size nextOutputSize;
+
+    public boolean supportsLiveSize(int width, int height) {
+        return supportsLiveMode(width, height, refreshRate);
+    }
+
+    public boolean supportsLiveMode(int width, int height, int fps) {
+        MediaCodecInfo.VideoCapabilities caps = liveVideoCaps;
+        if (caps == null && width == initialWidth && height == initialHeight) caps = frameRateCaps;
+        return caps != null && width <= maxDecodeWidth && height <= maxDecodeHeight &&
+                width % 2 == 0 && height % 2 == 0 && caps.areSizeAndRateSupported(width, height, fps);
+    }
+
+    private void readOutputSize() {
+        outputFormat = videoDecoder.getOutputFormat();
+        int w = outputFormat.getInteger(MediaFormat.KEY_WIDTH), h = outputFormat.getInteger(MediaFormat.KEY_HEIGHT);
+        if (outputFormat.containsKey("crop-left") && outputFormat.containsKey("crop-right") &&
+                outputFormat.containsKey("crop-top") && outputFormat.containsKey("crop-bottom")) {
+            w = outputFormat.getInteger("crop-right") - outputFormat.getInteger("crop-left") + 1;
+            h = outputFormat.getInteger("crop-bottom") - outputFormat.getInteger("crop-top") + 1;
+        }
+        nextOutputSize = new android.util.Size(w, h);
+        LimeLog.info("PiuLink decoder output " + nextOutputSize);
+    }
     private int videoFormat;
     private SurfaceHolder renderTarget;
     private volatile boolean stopping;
@@ -117,7 +145,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     private long lastTimestampUs;
     private int lastFrameNumber;
-    private int refreshRate;
+    private volatile int refreshRate;
+
+    public void setLiveFrameRate(int fps) { refreshRate = fps; }
     private PreferenceConfiguration prefs;
 
     private LinkedBlockingQueue<Integer> outputBufferQueue = new LinkedBlockingQueue<>();
@@ -486,8 +516,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         // Populate keys for adaptive playback
         if (adaptivePlayback) {
-            videoFormat.setInteger(MediaFormat.KEY_MAX_WIDTH, initialWidth);
-            videoFormat.setInteger(MediaFormat.KEY_MAX_HEIGHT, initialHeight);
+            videoFormat.setInteger(MediaFormat.KEY_MAX_WIDTH, maxDecodeWidth);
+            videoFormat.setInteger(MediaFormat.KEY_MAX_HEIGHT, maxDecodeHeight);
         }
 
         // Android 7.0 adds color options to the MediaFormat
@@ -675,6 +705,24 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         adaptivePlayback = MediaCodecHelper.decoderSupportsAdaptivePlayback(selectedDecoderInfo, mimeType);
         fusedIdrFrame = MediaCodecHelper.decoderSupportsFusedIdrFrame(selectedDecoderInfo, mimeType);
+        maxDecodeWidth = initialWidth;
+        maxDecodeHeight = initialHeight;
+        liveVideoCaps = null;
+        frameRateCaps = activity.getIntent().hasExtra(com.limelight.Game.EXTRA_DISPLAY_PREPARATION) ?
+                selectedDecoderInfo.getCapabilitiesForType(mimeType).getVideoCapabilities() : null;
+        if (adaptivePlayback && frameRateCaps != null) {
+            MediaCodecInfo.VideoCapabilities caps = frameRateCaps;
+            for (int[] size : new int[][] {{3840, 2160}, {2560, 1440}, {1920, 1080}}) {
+                int w = initialWidth >= initialHeight ? size[0] : size[1];
+                int h = initialWidth >= initialHeight ? size[1] : size[0];
+                if (w >= initialWidth && h >= initialHeight && caps.areSizeAndRateSupported(w, h, refreshRate)) {
+                    maxDecodeWidth = w;
+                    maxDecodeHeight = h;
+                    break;
+                }
+            }
+            liveVideoCaps = caps;
+        }
 
         for (int tryNumber = 0;; tryNumber++) {
             LimeLog.info("Decoder configuration try: "+tryNumber);
@@ -685,11 +733,18 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             boolean newFormat = MediaCodecHelper.setDecoderLowLatencyOptions(mediaFormat, selectedDecoderInfo, tryNumber);
 
             // Throw the underlying codec exception on the last attempt if the caller requested it
-            if (tryConfigureDecoder(selectedDecoderInfo, mediaFormat, !newFormat && throwOnCodecError)) {
+            boolean expanded = maxDecodeWidth != initialWidth || maxDecodeHeight != initialHeight;
+            if (tryConfigureDecoder(selectedDecoderInfo, mediaFormat, !expanded && !newFormat && throwOnCodecError)) {
                 // Success!
                 break;
             }
 
+            if (!newFormat && expanded) {
+                maxDecodeWidth = initialWidth;
+                maxDecodeHeight = initialHeight;
+                tryNumber = -1;
+                continue;
+            }
             if (!newFormat) {
                 // We couldn't even configure a decoder without any low latency options
                 return -5;
@@ -699,12 +754,20 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             videoDecoder.setOnFrameRenderedListener(new MediaCodec.OnFrameRenderedListener() {
                 private boolean reported;
+                private android.util.Size renderedSize;
                 @Override
                 public void onFrameRendered(MediaCodec mediaCodec, long presentationTimeUs, long renderTimeNanos) {
                     if (!reported && presentationTimeUs != Long.MAX_VALUE) {
                         reported = true;
                         LimeLog.info("PiuLink desktop first frame monotonicMs=" + renderTimeNanos / 1000000L);
-                        if (!USE_FRAME_RENDER_TIME) mediaCodec.setOnFrameRenderedListener(null, null);
+                        if (!USE_FRAME_RENDER_TIME && liveVideoCaps == null) mediaCodec.setOnFrameRenderedListener(null, null);
+                    }
+                    android.util.Size size = decodedSize;
+                    if (size != null && !size.equals(renderedSize) && presentationTimeUs != Long.MAX_VALUE &&
+                            presentationTimeUs >= firstSizePts) {
+                        renderedSize = size;
+                        LimeLog.info("PiuLink rendered " + size + " monotonicMs=" + renderTimeNanos / 1000000L);
+                        perfListener.onVideoSizeRendered(size.getWidth(), size.getHeight());
                     }
                     long delta = (renderTimeNanos / 1000000L) - (presentationTimeUs / 1000);
                     if (delta >= 0 && delta < 1000) {
@@ -1076,6 +1139,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                         int outIndex = videoDecoder.dequeueOutputBuffer(info, 50000);
                         if (outIndex >= 0) {
                             long presentationTimeUs = info.presentationTimeUs;
+                            if (nextOutputSize != null && !nextOutputSize.equals(decodedSize)) {
+                                firstSizePts = presentationTimeUs;
+                                decodedSize = nextOutputSize;
+                            }
                             int lastIndex = outIndex;
 
                             numFramesOut++;
@@ -1092,6 +1159,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                     presentationTimeUs = info.presentationTimeUs;
                                 }
 
+                                if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) readOutputSize();
                                 if (prefs.framePacing == PreferenceConfiguration.FRAME_PACING_MAX_SMOOTHNESS ||
                                         prefs.framePacing == PreferenceConfiguration.FRAME_PACING_CAP_FPS) {
                                     // In max smoothness or cap FPS mode, we want to never drop frames
@@ -1153,9 +1221,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                 case MediaCodec.INFO_TRY_AGAIN_LATER:
                                     break;
                                 case MediaCodec.INFO_OUTPUT_FORMAT_CHANGED:
-                                    LimeLog.info("Output format changed");
-                                    outputFormat = videoDecoder.getOutputFormat();
-                                    LimeLog.info("New output format: " + outputFormat);
+                                    readOutputSize();
                                     break;
                                 default:
                                     break;
@@ -1476,7 +1542,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 float lossPercent = lastTwo.totalFrames > 0
                         ? (float) lastTwo.framesLost / lastTwo.totalFrames * 100 : 0;
                 sb.append(context.getString(R.string.perf_compact_video,
-                        initialWidth, initialHeight, fps.receivedFps, fps.renderedFps, refreshRate)).append('\n');
+                        decodedSize == null ? initialWidth : decodedSize.getWidth(), decodedSize == null ? initialHeight : decodedSize.getHeight(),
+                        fps.receivedFps, fps.renderedFps, refreshRate)).append('\n');
                 sb.append(context.getString(R.string.perf_compact_network,
                         receivedVideoMbps, lossPercent, (int)(rttInfo >> 32), (int)rttInfo)).append('\n');
                 sb.append(context.getString(R.string.perf_overlay_decoder, decoder));
@@ -1517,7 +1584,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 // Since we only need one frame buffered, we'll set the level as low as we can
                 // for known resolution combinations. Reference frame invalidation may need
                 // these, so leave them be for those decoders.
-                if (!refFrameInvalidationActive) {
+                if (!refFrameInvalidationActive && liveVideoCaps == null) {
                     if (initialWidth <= 720 && initialHeight <= 480 && refreshRate <= 60) {
                         // Max 5 buffered frames at 720x480x60
                         LimeLog.info("Patching level_idc to 31");
