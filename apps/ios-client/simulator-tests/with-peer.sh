@@ -6,8 +6,8 @@ mkdir -p "$scratch/volume" "$scratch/state"
 cd "$scratch"
 curl -fsSL --retry 3 https://github.com/SunshineStream/Sunshine/releases/download/v2026.516.143833/Sunshine-macOS-arm64.dmg -o sunshine.dmg
 echo "ab31ad716117b913c6aab104268e820595c0baf89b319fd3b75d34c9ae8ddd1e  sunshine.dmg" | shasum -a 256 -c -
-hdiutil attach -nobrowse -readonly -mountpoint "$scratch/volume" sunshine.dmg
-binary=$(find "$scratch/volume" -type f -iname sunshine | head -1)
+hdiutil attach -nobrowse -readonly -mountpoint "$scratch/volume" sunshine.dmg <<< Y
+binary=$(find "$scratch/volume" -path '*/Contents/MacOS/*' -type f -iname sunshine | head -1)
 test -x "$binary"
 export PIULINK_TEST_PASSWORD=$(openssl rand -hex 20)
 cat > "$scratch/state/sunshine.conf" <<EOF
@@ -32,3 +32,4 @@ python3 "$GITHUB_WORKSPACE/apps/ios-client/simulator-tests/pin_helper.py" &
 helper_pid=$!
 trap 'kill "$host_pid" "$helper_pid" 2>/dev/null || true' EXIT
 "$@"
+
