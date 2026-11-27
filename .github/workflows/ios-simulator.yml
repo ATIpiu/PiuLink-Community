@@ -12,7 +12,7 @@ permissions:
 jobs:
   iphone:
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -32,6 +32,15 @@ jobs:
         run: |
           python3 apps/ios-client/prepare.py "$RUNNER_TEMP/iphone"
           python3 apps/ios-client/simulator-tests/instrument-output.py "$RUNNER_TEMP/iphone"
+      - name: Cache the isolated macOS test host
+        id: peer
+        uses: actions/cache@v4
+        with:
+          path: ~/piulink-qa-peer.dmg
+          key: ios-peer-macos15-14ffa6f-${{ hashFiles('apps/ios-client/simulator-tests/peer-endpoints.patch', 'apps/ios-client/simulator-tests/build-peer.sh') }}
+      - name: Build the isolated macOS test host
+        if: steps.peer.outputs.cache-hit != 'true'
+        run: bash apps/ios-client/simulator-tests/build-peer.sh
       - name: Route test host and iOS output separately
         run: bash apps/ios-client/simulator-tests/prepare-audio.sh
       - name: Boot simulator and verify startup

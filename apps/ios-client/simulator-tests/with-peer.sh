@@ -5,8 +5,7 @@ test_dir="$PWD"
 scratch="$RUNNER_TEMP/sunshine-test"
 mkdir -p "$scratch/volume" "$scratch/state"
 cd "$scratch"
-curl -fsSL --retry 3 https://github.com/SunshineStream/Sunshine/releases/download/v2026.516.143833/Sunshine-macOS-arm64.dmg -o sunshine.dmg
-echo "ab31ad716117b913c6aab104268e820595c0baf89b319fd3b75d34c9ae8ddd1e  sunshine.dmg" | shasum -a 256 -c -
+cp "$HOME/piulink-qa-peer.dmg" sunshine.dmg
 hdiutil attach -nobrowse -readonly -mountpoint "$scratch/volume" sunshine.dmg <<< Y
 binary=$(find "$scratch/volume" -path '*/Contents/MacOS/*' -type f -iname sunshine | head -1)
 test -x "$binary"
