@@ -6,6 +6,7 @@ final class ClientChecks: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
+        if name.contains("testPairingAndApplicationLibrary") { app.launchEnvironment["PIULINK_QA_AUDIO"] = "1" }
         app.launch()
         XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 20))
     }
@@ -112,15 +113,28 @@ final class ClientChecks: XCTestCase {
             response.fulfill()
         }.resume()
         wait(for: [response], timeout: 15)
-        let desktop = app.staticTexts["Desktop"].firstMatch
+        let desktop = app.buttons["Desktop"].firstMatch
         XCTAssertTrue(desktop.waitForExistence(timeout: 30), app.debugDescription)
         desktop.tap()
-        sleep(7)
-        let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = "Desktop stream attempt"
-        shot.lifetime = .keepAlways
-        add(shot)
+        sleep(6)
+        var sample = URLRequest(url: URL(string: "http://127.0.0.1:18589/sample")!)
+        sample.httpMethod = "POST"
+        let started = expectation(description: "Measure live desktop and audio")
+        URLSession.shared.dataTask(with: sample) { _, result, _ in
+            XCTAssertEqual((result as? HTTPURLResponse)?.statusCode, 202)
+            started.fulfill()
+        }.resume()
+        wait(for: [started], timeout: 10)
+        for frame in 1...10 {
+            let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            shot.name = "Desktop stream sample " + String(frame)
+            shot.lifetime = .keepAlways
+            add(shot)
+            if frame == 2 || frame == 4 {
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+            Thread.sleep(forTimeInterval: 2.5)
+        }
+        Thread.sleep(forTimeInterval: 1)
     }
 }
-
-

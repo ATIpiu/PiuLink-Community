@@ -2,7 +2,7 @@ name: Test iOS Simulator
 on:
   workflow_dispatch:
   push:
-    branches: [main, codex/ios-download, codex/ios-simulator-validation]
+    branches: [main, codex/ios-download, codex/ios-simulator-validation, codex/ios-peer-qa]
     paths:
       - 'apps/ios-client/**'
       - 'packages/direct-tunnel/**'
@@ -12,7 +12,7 @@ permissions:
 jobs:
   iphone:
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -26,10 +26,23 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/piulink-simulator-app.zip
-          key: ios-sim-macos15-v1-${{ hashFiles('apps/ios-client/*.py', 'apps/ios-client/*.patch', 'apps/ios-client/*.m', 'apps/ios-client/*.h', 'apps/ios-client/*.png', 'packages/direct-tunnel/**') }}
+          key: ios-sim-macos15-v1-${{ hashFiles('apps/ios-client/simulator-tests/instrument-output.py', 'apps/ios-client/*.py', 'apps/ios-client/*.patch', 'apps/ios-client/*.m', 'apps/ios-client/*.h', 'apps/ios-client/*.png', 'packages/direct-tunnel/**') }}
       - name: Prepare pinned PiuLink sources
         if: steps.sim-app.outputs.cache-hit != 'true'
-        run: python3 apps/ios-client/prepare.py "$RUNNER_TEMP/iphone"
+        run: |
+          python3 apps/ios-client/prepare.py "$RUNNER_TEMP/iphone"
+          python3 apps/ios-client/simulator-tests/instrument-output.py "$RUNNER_TEMP/iphone"
+      - name: Cache the isolated macOS test host
+        id: peer
+        uses: actions/cache@v4
+        with:
+          path: ~/piulink-qa-peer.dmg
+          key: ios-peer-macos15-14ffa6f-${{ hashFiles('apps/ios-client/simulator-tests/peer-endpoints.patch', 'apps/ios-client/simulator-tests/build-peer.sh') }}
+      - name: Build the isolated macOS test host
+        if: steps.peer.outputs.cache-hit != 'true'
+        run: bash apps/ios-client/simulator-tests/build-peer.sh
+      - name: Route test host and iOS output separately
+        run: bash apps/ios-client/simulator-tests/prepare-audio.sh
       - name: Boot simulator and verify startup
         working-directory: ${{ runner.temp }}
         run: |
@@ -50,6 +63,12 @@ jobs:
           sleep 8
           xcrun simctl spawn "$device" launchctl list | awk '/labs[.]atipiu[.]piulink[.]ios/ && $1 ~ /^[0-9]+$/ {alive=1} END{exit !alive}'
           xcrun simctl io "$device" screenshot "$RUNNER_TEMP/startup.png"
+      - name: Save simulator app before running tests
+        if: steps.sim-app.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/piulink-simulator-app.zip
+          key: ios-sim-macos15-v1-${{ hashFiles('apps/ios-client/simulator-tests/instrument-output.py', 'apps/ios-client/*.py', 'apps/ios-client/*.patch', 'apps/ios-client/*.m', 'apps/ios-client/*.h', 'apps/ios-client/*.png', 'packages/direct-tunnel/**') }}
       - name: Exercise native controls with XCTest
         working-directory: apps/ios-client/simulator-tests
         run: |
@@ -64,17 +83,21 @@ jobs:
         run: |
           set -euo pipefail
           device=$(xcrun simctl list devices booted -j | python3 -c 'import sys,json; print(next(d["udid"] for ds in json.load(sys.stdin)["devices"].values() for d in ds if d["state"]=="Booted"))')
-          bash with-peer.sh xcodebuild -quiet test -scheme Checks -only-testing:Checks/ClientChecks/testPairingAndApplicationLibrary -destination "id=$device" -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/Checks.xcresult"
+          bash with-peer.sh xcodebuild test -scheme Checks -only-testing:Checks/ClientChecks/testPairingAndApplicationLibrary -destination "id=$device" -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/Checks.xcresult"
+      - name: Preserve pairing result and failure summary
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP"
+          if [[ -d Checks.xcresult ]]; then
+            xcrun xcresulttool get test-results summary --path Checks.xcresult
+            ditto -c -k --keepParent Checks.xcresult pairing.zip
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: ios-ui
           path: |
             ${{ runner.temp }}/startup.png
-            ${{ runner.temp }}/Checks.xcresult/
+            ${{ runner.temp }}/pairing.zip
+            ${{ runner.temp }}/sunshine-test/phone.png
             ${{ runner.temp }}/Controls.xcresult/
-
-
-
-
-
