@@ -2,7 +2,7 @@
 # Run on the disposable GitHub macOS runner before booting the iOS simulator.
 set -euo pipefail
 export HOMEBREW_NO_AUTO_UPDATE=1
-brew install sox switchaudio-osx
+brew install sox switchaudio-osx portaudio
 brew install --cask blackhole-2ch blackhole-16ch
 sudo killall coreaudiod || true
 for i in {1..30}; do
