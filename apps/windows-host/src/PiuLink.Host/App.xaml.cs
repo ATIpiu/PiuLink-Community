@@ -98,6 +98,7 @@ public partial class App : System.Windows.Application
             Shutdown();
             return;
         }
+        PiuLink.Desktop.UpdateRestart.Register("--silent");
         PiuLink.Desktop.WindowChrome.Register();
         LocalizationService.Instance.SetLanguage(HostPreferences.Language);
         base.OnStartup(e);

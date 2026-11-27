@@ -22,6 +22,7 @@
   <ItemGroup>
     <Compile Include="../../../../packages/updates/ReleaseDownload.cs" Link="Updates/ReleaseDownload.cs" />
     <Compile Include="../../../../packages/updates/WindowsUpdateDialog.cs" Link="Updates/WindowsUpdateDialog.cs" />
+    <Compile Include="../../../../packages/windows-ui/UpdateRestart.cs" Link="Updates/UpdateRestart.cs" />
     <Compile Include="../../../../packages/windows-ui/DesktopClipboard.cs" Link="Services/DesktopClipboard.cs" />
     <Compile Include="..\..\..\..\packages\windows-ui\WindowChrome.cs" Link="Themes\WindowChrome.cs" />
     <Page Include="..\..\..\..\packages\windows-ui\PiuLinkTheme.xaml" Link="Themes\PiuLinkTheme.xaml" />
