@@ -10,12 +10,12 @@ PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑
 
 | 使用设备 | 安装包 |
 | --- | --- |
-| Windows x64（默认下载） | [下载 Windows 整合版 0.2.136 · EXE](https://github.com/ATIpiu/PiuLink-Community/releases/download/windows-0.2.136/PiuLink-Windows-0.2.136-win-x64.exe)，一次离线安装控制端和被控端。 |
-| 仅让其他设备连接这台电脑 | [下载 Windows Host 0.2.135 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/windows-0.2.135/PiuLink-Host-0.2.135-win-x64-preview.msi) |
-| 仅用这台电脑控制另一台主机 | [下载 Windows Client 0.2.36 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/windows-0.2.135/PiuLink-Client-0.2.36-win-x64.msi) |
+| Windows x64（默认下载） | [下载 Windows 整合版 0.2.138 · EXE](https://github.com/ATIpiu/PiuLink-Community/releases/download/desktop-updates-2026.11.27/PiuLink-Windows-0.2.138-win-x64.exe)，一次离线安装控制端和被控端，支持应用内增量更新。 |
+| 仅让其他设备连接这台电脑 | [下载 Windows Host 0.2.136 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/updates-preview-2026.11.27/PiuLink-Host-0.2.136-win-x64-preview.msi) |
+| 仅用这台电脑控制另一台主机 | [下载 Windows Client 0.2.37 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/updates-preview-2026.11.27/PiuLink-Client-0.2.37-win-x64.msi) |
 | 在 Android 手机、平板或电视上控制主机 | [通用版（推荐）· 57.86 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.222/PiuLink-Android-0.3.222-nonRoot-universal-release.apk) · [ARM64 专用版 · 17.60 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.222/PiuLink-Android-0.3.222-nonRoot-arm64-v8a-release.apk) |
 
-Windows 安装包均为未签名公开预览版。Host 内置串流引擎，系统分享扩展可在已信任其签名的设备上按需注册。[版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/windows-0.2.136) · [自建 Linux 邀请服务](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)
+Windows 安装包均为未签名公开预览版。Host 内置串流引擎，系统分享扩展可在已信任其签名的设备上按需注册。[版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/desktop-updates-2026.11.27) · [自建 Linux 邀请服务](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)
 
 1. Windows 默认安装整合版。想让其他设备连接这台电脑时，打开 PiuLink Host。想用这台电脑控制其他主机时，打开 PiuLink Client。Android 手机、平板和电视默认选择通用版。
 2. 第一次连接建议让两台设备使用同一局域网。在客户端发现或手动添加电脑，按提示在 Host 确认配对。
