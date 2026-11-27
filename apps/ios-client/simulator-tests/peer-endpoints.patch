@@ -2,24 +2,6 @@ diff --git a/src/stream.cpp b/src/stream.cpp
 index 8b303ef..8b2dead 100644
 --- a/src/stream.cpp
 +++ b/src/stream.cpp
-@@ -360,7 +360,7 @@ namespace stream {
-       std::string ping_payload;
- 
-       int lowseq;
--      udp::endpoint peer;
-+      std::array<udp::endpoint, 2> peers;
- 
-       std::optional<crypto::cipher::gcm_t> cipher;
-       std::uint64_t gcm_iv_counter;
-@@ -379,7 +379,7 @@ namespace stream {
-       // avRiKeyId == util::endian::big(First (sizeof(avRiKeyId)) bytes of launch_session->iv)
-       std::uint32_t avRiKeyId;
-       std::uint32_t timestamp;
--      udp::endpoint peer;
-+      std::array<udp::endpoint, 2> peers;
- 
-       util::buffer_t<char> shards;
-       util::buffer_t<uint8_t *> shards_p;
 @@ -1185,7 +1185,7 @@ namespace stream {
  
      auto &io = ctx.io_context;
