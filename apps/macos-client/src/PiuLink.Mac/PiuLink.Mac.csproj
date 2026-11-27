@@ -17,4 +17,5 @@
     <ProjectReference Include="../../../../packages/client-core/src/PiuLink.Client.Core/PiuLink.Client.Core.csproj" />
   </ItemGroup>
   <Import Project="../../../../packages/direct-tunnel/UnixTransport.targets" />
+  <Import Project="../../../../packages/diagnostics/Diagnostics.targets" />
 </Project>
