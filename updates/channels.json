@@ -1,11 +1,11 @@
 {
   "win-suite": {
-    "version": "0.2.137",
-    "tag": "updates-preview-2026.11.27",
-    "name": "PiuLink-Windows-0.2.137-win-x64.exe",
-    "bytes": 124343774,
-    "sha256": "85165eb31c7507fb43faca78db68c8340671f194bad0f08c651e136c5fd8bc8b",
-    "mapSha256": "5bfcf4339ca7128993c7d04308cfc1b556ff2ca0fa068fd4e2f09a921a4f1c8b"
+    "version": "0.2.138",
+    "tag": "desktop-updates-2026.11.27",
+    "name": "PiuLink-Windows-0.2.138-win-x64.exe",
+    "bytes": 125254307,
+    "sha256": "84b21ba733d3524b3b4bc6876a420eebacd5ec7ffc55441d702c64387be0ad2f",
+    "mapSha256": "16ae2d6ca8a6778f518662166252da28af52ad9f6b1eeb7471c05d7b17f0c3e0"
   },
   "win-client": {
     "version": "0.2.37",
@@ -40,28 +40,28 @@
     "mapSha256": "f6db72ef507ddba609198d6edf4910e81d7af9a92015a830a6e191852ef45f57"
   },
   "mac-arm64": {
-    "version": "0.1.10",
-    "tag": "updates-preview-2026.11.27",
-    "name": "PiuLink-Mac-0.1.10-osx-arm64-unsigned.zip",
-    "bytes": 46929264,
-    "sha256": "d73820ea7660a6de802b25b22fc56515bc94846f23aa1eaf55b9a94917f7fd93",
-    "mapSha256": "5ab3c48005cd5e7761671591fc9345a8530382d174acd1b662e4af739a4d8475"
+    "version": "0.1.11",
+    "tag": "desktop-updates-2026.11.27",
+    "name": "PiuLink-Mac-0.1.11-osx-arm64-unsigned.zip",
+    "bytes": 46929688,
+    "sha256": "c7b3a8a63ab2682f45335e4a350041c5683803c184cacecfd04243a0c572150b",
+    "mapSha256": "33eef0b6f14d1fdd2bd375bb31991ee5f54bafae46ad06736bf615c0210e28ce"
   },
   "mac-x64": {
-    "version": "0.1.10",
-    "tag": "updates-preview-2026.11.27",
-    "name": "PiuLink-Mac-0.1.10-osx-x64-unsigned.zip",
-    "bytes": 48999159,
-    "sha256": "704b690904c06b91bc216307aaecee110a75bf4b6f7fbf403061130cba35a9b7",
-    "mapSha256": "80e54fea318e15f6c267ee12ba6e595c90e1a1803925a586f4edb6477df6c746"
+    "version": "0.1.11",
+    "tag": "desktop-updates-2026.11.27",
+    "name": "PiuLink-Mac-0.1.11-osx-x64-unsigned.zip",
+    "bytes": 48999582,
+    "sha256": "4cd673707068b74301ef3c789974af38408e4673e0361e531a6584a42f1858a8",
+    "mapSha256": "a7c93011afd8b42962876a3dd99dfacd7129ccfdcfdf5d862db24e12dbc90ab5"
   },
   "mac-universal": {
-    "version": "0.1.10",
-    "tag": "updates-preview-2026.11.27",
-    "name": "PiuLink-Mac-0.1.10-universal-unsigned.zip",
-    "bytes": 93849365,
-    "sha256": "cf8391bac5cd48491ea8b4430478f4741d03b857ef58ecaed018476d6daaade1",
-    "mapSha256": "dfc53d824b95fecac0c7f84a7c03170d9a5ba1df81c7ddfffea0fac156d47cb0"
+    "version": "0.1.11",
+    "tag": "desktop-updates-2026.11.27",
+    "name": "PiuLink-Mac-0.1.11-universal-unsigned.zip",
+    "bytes": 93850255,
+    "sha256": "489d23a3448273b95f1b1324774ae9e5c544da56d2f20a47f7a262c3ce70b5ff",
+    "mapSha256": "5cf707abaafd8abce07e708af8ca5b52199f2a0460d60abfe65ed34c710386fc"
   },
   "ios-client": {
     "version": "0.1.3",
@@ -72,59 +72,59 @@
     "mapSha256": "e496a111c63a1325c490eac73706d1ce0be09df7704cf2f30d04da03d3cfddd7"
   },
   "linux-x64": {
-    "version": "0.1.10",
-    "tag": "updates-preview-2026.11.27",
-    "name": "piulink-client_0.1.10-1_amd64.deb",
-    "bytes": 35941616,
-    "sha256": "996e7e1dfc68a7dcde085dc547f0746c18a724ef2caae4a0e0bd4d7107f12c26",
-    "mapSha256": "563663171beb15bd061f8e145ef63e47359c28e929d7f3b09a60028d3c2914fd"
+    "version": "0.1.11",
+    "tag": "desktop-updates-2026.11.27",
+    "name": "piulink-client_0.1.11-1_amd64.deb",
+    "bytes": 36763960,
+    "sha256": "3e207e26c50cc26b7a8d56a8aaabdfa8f40a9d72136b2c8e624fdd82725089d8",
+    "mapSha256": "da24ffee545365541a853dd50ea0f6586841657d5a5b53650fc6b73ca2268f91"
   },
   "linux-x64-portable": {
-    "version": "0.1.10",
-    "tag": "updates-preview-2026.11.27",
-    "name": "PiuLink-Client-0.1.10-linux-x64.tar.gz",
-    "bytes": 44535722,
-    "sha256": "4f0ea489aeb62128570db50692939c456f855aa4231eea930577bd01cef16d5d",
-    "mapSha256": "babe22e1262410052e99fbccd2c6e22cf2c75abbfc397dbeaa7d6d2613051f3a"
+    "version": "0.1.11",
+    "tag": "desktop-updates-2026.11.27",
+    "name": "PiuLink-Client-0.1.11-linux-x64.tar.gz",
+    "bytes": 44536069,
+    "sha256": "714818c38ef337d5c0cbe3e5a8defefaee5893b4a790755d6c50e68d365b1396",
+    "mapSha256": "6b1bdf012361f2a93101402d86653efe9a424be3bec94b8c157c2dfda5116726"
   },
   "linux-arm64": {
-    "version": "0.1.10",
-    "tag": "updates-preview-2026.11.27",
-    "name": "piulink-client_0.1.10-1_arm64.deb",
-    "bytes": 32514208,
-    "sha256": "0a549035f6d593d84f5178241c6c3b9674ca22762bb2d1f9f3930c4369809532",
-    "mapSha256": "7c0351bbd669db39a0ee747173ab62812aba7182cb7b1ff32b8b6915e36406ab"
+    "version": "0.1.11",
+    "tag": "desktop-updates-2026.11.27",
+    "name": "piulink-client_0.1.11-1_arm64.deb",
+    "bytes": 33409172,
+    "sha256": "6acc336e6a9591274887494e56a68943414fcfe4ee0c77ca4a58e1e226ba7355",
+    "mapSha256": "6f91e159be77d95c7eee502397d7bd5985da41b785fa36549dc3c4816154da30"
   },
   "linux-arm64-portable": {
-    "version": "0.1.10",
-    "tag": "updates-preview-2026.11.27",
-    "name": "PiuLink-Client-0.1.10-linux-arm64.tar.gz",
-    "bytes": 42136436,
-    "sha256": "be1b47b0e35cae7c871ce8e0f9f267d06526002b2e4f7642085a1fcd40de312b",
-    "mapSha256": "a5e418210bc3c4429b02aac3f81c6f711c07ae5fbf4ebe46525f976156c6ade9"
+    "version": "0.1.11",
+    "tag": "desktop-updates-2026.11.27",
+    "name": "PiuLink-Client-0.1.11-linux-arm64.tar.gz",
+    "bytes": 42137128,
+    "sha256": "14174677bee49603acb3aa86a71bb443c680682dc492d550ede4bd8dfde85ae7",
+    "mapSha256": "feb286d271443b5b45487b09bf6db1253fc70696d691c8792ff28d94a361ce88"
   },
   "linux-host": {
-    "version": "0.1.7",
-    "tag": "updates-preview-2026.11.27",
-    "name": "piulink-host_0.1.7-1_amd64.deb",
-    "bytes": 3608328,
-    "sha256": "044d38c30940b987c9fada83cdac3015a09fec0b035e0b2542a4e6116e14322f",
-    "mapSha256": "a358ea17c505d3b1629c1cd25f8e40d64873a53580def9265da0c191ca316a95"
+    "version": "0.1.8",
+    "tag": "desktop-updates-2026.11.27",
+    "name": "piulink-host_0.1.8-1_amd64.deb",
+    "bytes": 3608460,
+    "sha256": "47033ecc9644a6042db12d13fe35cd8971b36ccbf60e45033dc1ba2e0694feba",
+    "mapSha256": "ac506580901a2c0023057530a037708391a1bfc2a9bd42a3d2240812be188a94"
   },
   "linux-host-portable": {
-    "version": "0.1.7",
-    "tag": "updates-preview-2026.11.27",
-    "name": "PiuLink-Host-0.1.7-ubuntu26.04-x64.tar.gz",
-    "bytes": 4244213,
-    "sha256": "e0749e2a370aaa8eadf21a84286d746b45c1e1f33d4a85e50612fc4d20adbef8",
-    "mapSha256": "b2b51359946d92471a6e231c88509cd04b709ef6767e0322dd1db82553422711"
+    "version": "0.1.8",
+    "tag": "desktop-updates-2026.11.27",
+    "name": "PiuLink-Host-0.1.8-ubuntu26.04-x64.tar.gz",
+    "bytes": 4244210,
+    "sha256": "5670e6726e70fe34b97a010398f0993273c60a75da9710b96957029af5f4f5e1",
+    "mapSha256": "67e1880c6b2c51a737dc3665ce1eebb6f65f46210886ea7d383b5ee645d5f6a4"
   },
   "linux-universal": {
-    "version": "0.1.10",
-    "tag": "updates-preview-2026.11.27",
-    "name": "PiuLink-Client-0.1.10-linux-universal.tar.gz",
-    "bytes": 86671646,
-    "sha256": "814e643b56f4f6ac1de4e4347d527c409578fe671f213c9e8f217f2663554b47",
-    "mapSha256": "c481b10feb7adbfc7ce25bd21480dbe83f5af3ee87c6563bd1d0755606388a34"
+    "version": "0.1.11",
+    "tag": "desktop-updates-2026.11.27",
+    "name": "PiuLink-Client-0.1.11-linux-universal.tar.gz",
+    "bytes": 86671103,
+    "sha256": "81cceed1c485f015cb524ec5eae974057c0a7f4a154cd4a13217b9a09e96bdb0",
+    "mapSha256": "7ab05f5b7f159942c6467861e0b8e5121fc0f4f34d2df28472221388a2b251b4"
   }
 }
