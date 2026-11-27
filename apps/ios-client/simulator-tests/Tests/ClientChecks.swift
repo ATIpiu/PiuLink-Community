@@ -134,5 +134,10 @@ final class ClientChecks: XCTestCase {
             }
             Thread.sleep(forTimeInterval: 2.5)
         }
+        app.tap(withNumberOfTaps: 1, numberOfTouches: 3)
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 8))
+        app.typeText("p")
+        Thread.sleep(forTimeInterval: 1)
     }
 }

@@ -44,6 +44,11 @@ set +e
 test_rc=$?
 set -e
 if [[ -f "$scratch/input-received" ]]; then echo "Desktop test window received pointer input"; else echo "Desktop input unconfirmed"; test_rc=1; fi
+for i in {1..40}; do
+  [[ -f "$scratch/output-finished" ]] && break
+  sleep .25
+done
+if [[ -f "$scratch/key-received" ]]; then echo "Desktop test window received PiuLink test key"; else echo "Desktop key unconfirmed"; test_rc=1; fi
 if ! python3 tones.py check "$scratch/output.raw" "$scratch/format.txt"; then test_rc=1; fi
 grep -Ei 'display|screen recording|capture|encoder|permission|microphone|audio device|audio sink|client connected|streaming session' "$scratch/host.log" | tail -80 || true
 exit "$test_rc"

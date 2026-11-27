@@ -46,12 +46,17 @@ int main(int argc, const char **argv) {
         AudioDeviceIOProcID io = NULL;
         rc=AudioDeviceCreateIOProcID(aggregate,capture,file,&io);
         if (!rc) rc=AudioDeviceStart(aggregate,io);
-        if (!rc) sleep(12);
+        fprintf(stderr,"Output recorder start status %d\n",(int)rc);
+        if (!rc) {
+            printf("%.0f %u\n",fmt.mSampleRate,(unsigned)((fmt.mFormatFlags & kAudioFormatFlagIsNonInterleaved)?1:fmt.mChannelsPerFrame));
+            fflush(stdout);
+            sleep(8);
+            fflush(file);
+        }
         if(io){ AudioDeviceStop(aggregate,io); AudioDeviceDestroyIOProcID(aggregate,io); }
         fclose(file);
         AudioHardwareDestroyAggregateDevice(aggregate);
         AudioHardwareDestroyProcessTap(tap);
         if(rc || fmt.mBitsPerChannel!=32 || !(fmt.mFormatFlags & kAudioFormatFlagIsFloat)) return 7;
-        printf("%.0f %u\n",fmt.mSampleRate,(unsigned)((fmt.mFormatFlags & kAudioFormatFlagIsNonInterleaved)?1:fmt.mChannelsPerFrame));
     }
 }
