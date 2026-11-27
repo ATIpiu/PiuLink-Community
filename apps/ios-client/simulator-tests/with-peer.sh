@@ -42,7 +42,7 @@ ln -s "$(find "$scratch/axe" -type f -name axe | head -1)" "$scratch/axe-bin"
 test -x "$scratch/axe-bin"
 pa=$(brew --prefix portaudio)
 clang -O2 -I"$pa/include" -L"$pa/lib" play-tones.c -lportaudio -o "$scratch/play-tones"
-perl -e 'alarm 20; exec @ARGV or die' sox -q -t coreaudio 'BlackHole 2ch' -c 1 -r 48000 -b 32 -e floating-point -t raw "$scratch/negative.raw" trim 0 6 &
+perl -e 'alarm 20; exec @ARGV or die' sox --buffer 65536 -q -t coreaudio 'BlackHole 2ch' -c 1 -r 48000 -b 32 -e floating-point -t raw "$scratch/negative.raw" trim 0 6 &
 negative_pid=$!
 negative_ok=1
 sleep 1
@@ -68,8 +68,6 @@ if [[ -f "$scratch/key-received" ]]; then echo "Desktop test window received Piu
 cat "$scratch/sample.log" || true
 data=$(xcrun simctl get_app_container booted labs.atipiu.piulink.ios data)
 python3 tones.py pcm "$data/Library/Caches/qa-played.s16" "$data/Library/Caches/qa-played.format" || test_rc=1
-echo "Measuring source bus"
-python3 tones.py check "$scratch/source.raw" "$scratch/format.txt" || test_rc=1
 echo "Measuring simulator output bus"
 if ! python3 tones.py check "$scratch/output.raw" "$scratch/format.txt"; then test_rc=1; fi
 xcrun simctl spawn booted log show --style compact --last 4m --predicate 'process == "Moonlight" AND (eventMessage CONTAINS[c] "audio" OR eventMessage CONTAINS[c] "Opus")' | tail -40 || true

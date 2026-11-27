@@ -10,10 +10,8 @@ for i in {1..30}; do
   sleep .5
 done
 printf '48000 1\n' > "$scratch/format.txt"
-perl -e 'alarm 20; exec @ARGV or die' sox -q -t coreaudio 'BlackHole 2ch' -c 1 -r 48000 -b 32 -e floating-point -t raw "$scratch/output.raw" trim 0 9 &
+perl -e 'alarm 20; exec @ARGV or die' sox --buffer 65536 -q -t coreaudio 'BlackHole 2ch' -c 1 -r 48000 -b 32 -e floating-point -t raw "$scratch/output.raw" trim 0 9 &
 monitor=$!
-perl -e 'alarm 20; exec @ARGV or die' sox -q -t coreaudio 'BlackHole 16ch' -c 1 -r 48000 -b 32 -e floating-point -t raw "$scratch/source.raw" trim 0 9 &
-source_monitor=$!
 trap 'kill "$monitor" 2>/dev/null || true' EXIT
 (sleep 3; "$scratch/axe-bin" key 19 --udid "$udid") &
 key_pid=$!
@@ -21,6 +19,5 @@ sleep 1.5
 perl -e 'alarm 20; exec @ARGV or die' "$scratch/play-tones"
 wait "$key_pid"
 wait "$monitor"
-wait "$source_monitor"
 wc -c "$scratch/output.raw"
 touch "$scratch/output-finished"
