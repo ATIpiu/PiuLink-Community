@@ -1,5 +1,5 @@
 import AppKit
-import AVFoundation
+
 
 final class TargetView: NSView {
     let marker: URL
@@ -16,6 +16,7 @@ final class TargetView: NSView {
         bounds.fill()
         ("PiuLink simulator media check  " + String(index) as NSString).draw(at: NSPoint(x: 60, y: bounds.midY), withAttributes: [.font: NSFont.systemFont(ofSize: 52), .foregroundColor: NSColor.black])
     }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func mouseDown(with event: NSEvent) {
         try? Data("click".utf8).write(to: marker)
     }
@@ -27,7 +28,7 @@ let screen = NSScreen.main!
 let window = NSWindow(contentRect: screen.frame, styleMask: [.borderless], backing: .buffered, defer: false)
 let target = TargetView(frame: screen.frame, marker: URL(fileURLWithPath: CommandLine.arguments[1]))
 window.contentView = target
-window.level = .floating
+window.level = .screenSaver
 window.orderFrontRegardless()
 Timer.scheduledTimer(withTimeInterval: 0.8, repeats: true) { _ in
     target.index += 1

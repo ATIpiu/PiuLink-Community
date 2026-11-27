@@ -33,6 +33,8 @@ python3 "$GITHUB_WORKSPACE/apps/ios-client/simulator-tests/pin_helper.py" &
 helper_pid=$!
 trap 'kill "$host_pid" "$helper_pid" 2>/dev/null || true' EXIT
 cd "$test_dir"
+clang -fobjc-arc -framework Foundation -framework CoreAudio -framework AudioToolbox OutputTap.m -o "$scratch/output-tap"
+python3 tones.py generate "$scratch/tones.wav"
 swiftc DesktopProbe.swift -o "$scratch/probe"
 "$scratch/probe" "$scratch/input-received" &
 probe_pid=$!
@@ -41,6 +43,7 @@ set +e
 "$@"
 test_rc=$?
 set -e
-if [[ -f "$scratch/input-received" ]]; then echo "Desktop test window received pointer input"; fi
+if [[ -f "$scratch/input-received" ]]; then echo "Desktop test window received pointer input"; else echo "Desktop input unconfirmed"; test_rc=1; fi
+if ! python3 tones.py check "$scratch/output.raw" "$scratch/format.txt"; then test_rc=1; fi
 grep -Ei 'display|screen recording|capture|encoder|permission|microphone|audio device|audio sink|client connected|streaming session' "$scratch/host.log" | tail -80 || true
 exit "$test_rc"

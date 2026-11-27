@@ -86,4 +86,5 @@ jobs:
           path: |
             ${{ runner.temp }}/startup.png
             ${{ runner.temp }}/pairing.zip
+            ${{ runner.temp }}/sunshine-test/phone.png
             ${{ runner.temp }}/Controls.xcresult/

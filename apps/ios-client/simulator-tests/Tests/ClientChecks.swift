@@ -116,15 +116,23 @@ final class ClientChecks: XCTestCase {
         XCTAssertTrue(desktop.waitForExistence(timeout: 30), app.debugDescription)
         desktop.tap()
         sleep(6)
-        for frame in 1...3 {
-            let shot = XCTAttachment(screenshot: app.screenshot())
+        var sample = URLRequest(url: URL(string: "http://127.0.0.1:18589/sample")!)
+        sample.httpMethod = "POST"
+        let started = expectation(description: "Measure live desktop and audio")
+        URLSession.shared.dataTask(with: sample) { _, result, _ in
+            XCTAssertEqual((result as? HTTPURLResponse)?.statusCode, 202)
+            started.fulfill()
+        }.resume()
+        wait(for: [started], timeout: 10)
+        for frame in 1...6 {
+            let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             shot.name = "Desktop stream sample " + String(frame)
             shot.lifetime = .keepAlways
             add(shot)
-            if frame == 2 {
+            if frame == 2 || frame == 4 {
                 app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             }
-            Thread.sleep(forTimeInterval: 1.2)
+            Thread.sleep(forTimeInterval: 2.5)
         }
     }
 }
