@@ -146,6 +146,7 @@ async function reconstruct(r: HapRelease, dir: string, old: string, tmp: string,
   const output = fs.openSync(tmp, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
   let base: fs.File | undefined;
   let network = 0;
+  let replacedByFull = false;
   try {
     const local = old ? fs.openSync(old, fs.OpenMode.READ_ONLY) : undefined;
     base = local;
@@ -180,7 +181,8 @@ async function reconstruct(r: HapRelease, dir: string, old: string, tmp: string,
         if (resp.responseCode === 200 && bytes.byteLength === r.bytes) {
           fs.lseek(output.fd, 0);
           write(output.fd, bytes);
-          network = r.bytes;
+          network += bytes.byteLength;
+          replacedByFull = true;
           break;
         }
         if (resp.responseCode !== 206 || header(resp.header, 'content-range') !== 'bytes ' + start + '-' + (end - 1) + '/' + r.bytes ||
@@ -190,7 +192,7 @@ async function reconstruct(r: HapRelease, dir: string, old: string, tmp: string,
         network += bytes.byteLength;
         start = end;
       }
-      if (network === r.bytes) break;
+      if (replacedByFull) break;
     }
   } finally {
     if (base) fs.closeSync(base);
@@ -199,12 +201,12 @@ async function reconstruct(r: HapRelease, dir: string, old: string, tmp: string,
   if ((await fileHash.hash(tmp, 'sha256')).toLowerCase() !== r.sha256) throw new Error('最终 HAP 校验失败，请重试');
   const path = dir + '/' + r.name;
   fs.renameSync(tmp, path);
-  return { path: path, downloaded: network, reused: r.bytes - network };
+  return { path: path, downloaded: network, reused: replacedByFull ? 0 : r.bytes - network };
 }
 
 export function mib(n: number): string { return (n / 1048576).toFixed(2); }
 
-export async function prepareRelease(r: HapRelease, cache: string, installed: string, bundleDir: string,
+async function prepare(r: HapRelease, cache: string, installed: string, bundleDir: string,
   selected: string, progress: (text: string) => void): Promise<HapResult> {
   const dir = cache + '/piulink-updates';
   if (!fs.accessSync(dir)) fs.mkdirSync(dir);
@@ -218,4 +220,17 @@ export async function prepareRelease(r: HapRelease, cache: string, installed: st
   const tmp = dir + '/.part-' + util.generateRandomUUID();
   try { return await reconstruct(r, dir, old, tmp, progress); }
   finally { if (fs.accessSync(tmp)) fs.unlinkSync(tmp); }
+}
+
+const pending = new Map<string, Promise<HapResult>>();
+
+export async function prepareRelease(r: HapRelease, cache: string, installed: string, bundleDir: string,
+  selected: string, progress: (text: string) => void): Promise<HapResult> {
+  const key = cache + '/' + r.sha256;
+  const active = pending.get(key);
+  if (active) return await active;
+  const task = prepare(r, cache, installed, bundleDir, selected, progress);
+  pending.set(key, task);
+  try { return await task; }
+  finally { pending.delete(key); }
 }

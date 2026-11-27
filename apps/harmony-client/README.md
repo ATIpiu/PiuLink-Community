@@ -1,4 +1,4 @@
-# PiuLink 鸿蒙原生客户端 0.1.2 开发版
+# PiuLink 鸿蒙原生客户端 0.1.4 开发版
 
 本工程使用固定版本的 Moonlight Harmony 原生 ArkTS 界面、配对、音视频和输入模块。支持手机和平板的局域网地址配对。首次使用时在 PiuLink Host 查看本机地址，在鸿蒙端手动添加，并在被控端确认 PIN。邀请链接、ICE 和超级屏尚未集成。
 
@@ -8,7 +8,7 @@
 git clone https://github.com/AlkaidLab/moonlight-harmony.git work/piulink-harmony
 git -C work/piulink-harmony checkout --detach f9aabcc9d44234d7b9abd5927af855952aaa4283
 git -C work/piulink-harmony submodule update --init --recursive
-git -C work/piulink-harmony apply ../../apps/harmony-client/piulink.patch
+(cd work/piulink-harmony && bash ../../apps/harmony-client/prepare.sh)
 ```
 
 原生库构建目标包含 arm64-v8a 和 x86_64。GitHub 构建产物用于开发验证，模拟器测试结果见下文，零售设备签名与实机验收待完成。第三方源码及许可证保留在固定提交中，补丁遵循上游 GPL-3.0。
@@ -21,3 +21,5 @@ git -C work/piulink-harmony apply ../../apps/harmony-client/piulink.patch
 
 在被控 Windows 电脑本机同时运行模拟器时，默认 Direct3D 路径多次导致模拟器进程退出。一次崩溃转储的故障模块为 d3d11.dll。只对 Emulator.exe 使用 Windows WARP 后可重复连接和接收画面。本次 x86 镜像报告 H.264 可解码，HEVC 和 AV1 不可用。ARM 真机硬解、HDR、实体手柄、USB 振动、麦克风回传和多声道效果均待对应设备验证。
 
+
+设置中的「关于 → 检查更新」通过 GitHub 获取官方 HAP。下载时复用可读取的已安装 HAP 或本机缓存，也可以选择旧 HAP。下载后显示实际安装包流量与复用量，并可在系统文件选择器中保存。实体设备安装时需沿用原签名。
