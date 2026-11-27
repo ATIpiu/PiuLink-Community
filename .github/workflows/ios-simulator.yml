@@ -26,10 +26,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/piulink-simulator-app.zip
-          key: ios-sim-macos15-v1-${{ hashFiles('apps/ios-client/*.py', 'apps/ios-client/*.patch', 'apps/ios-client/*.m', 'apps/ios-client/*.h', 'apps/ios-client/*.png', 'packages/direct-tunnel/**') }}
+          key: ios-sim-macos15-v1-${{ hashFiles('apps/ios-client/simulator-tests/instrument-output.py', 'apps/ios-client/*.py', 'apps/ios-client/*.patch', 'apps/ios-client/*.m', 'apps/ios-client/*.h', 'apps/ios-client/*.png', 'packages/direct-tunnel/**') }}
       - name: Prepare pinned PiuLink sources
         if: steps.sim-app.outputs.cache-hit != 'true'
-        run: python3 apps/ios-client/prepare.py "$RUNNER_TEMP/iphone"
+        run: |
+          python3 apps/ios-client/prepare.py "$RUNNER_TEMP/iphone"
+          python3 apps/ios-client/simulator-tests/instrument-output.py "$RUNNER_TEMP/iphone"
       - name: Boot simulator and verify startup
         working-directory: ${{ runner.temp }}
         run: |
@@ -55,7 +57,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ~/piulink-simulator-app.zip
-          key: ios-sim-macos15-v1-${{ hashFiles('apps/ios-client/*.py', 'apps/ios-client/*.patch', 'apps/ios-client/*.m', 'apps/ios-client/*.h', 'apps/ios-client/*.png', 'packages/direct-tunnel/**') }}
+          key: ios-sim-macos15-v1-${{ hashFiles('apps/ios-client/simulator-tests/instrument-output.py', 'apps/ios-client/*.py', 'apps/ios-client/*.patch', 'apps/ios-client/*.m', 'apps/ios-client/*.h', 'apps/ios-client/*.png', 'packages/direct-tunnel/**') }}
       - name: Exercise native controls with XCTest
         working-directory: apps/ios-client/simulator-tests
         run: |

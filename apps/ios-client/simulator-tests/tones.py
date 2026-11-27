@@ -14,7 +14,7 @@ if sys.argv[1] == "generate":
             w.writeframes(bytes(24000))
 else:
     rate, channels = map(int, Path(sys.argv[3]).read_text().split())
-    samples = array.array("f")
+    samples = array.array("h" if sys.argv[1] == "pcm" else "f")
     samples.frombytes(Path(sys.argv[2]).read_bytes())
     chan = samples[::channels]
     step = rate // 10

@@ -6,6 +6,7 @@ final class ClientChecks: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
+        if name.contains("testPairingAndApplicationLibrary") { app.launchEnvironment["PIULINK_QA_AUDIO"] = "1" }
         app.launch()
         XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 20))
     }

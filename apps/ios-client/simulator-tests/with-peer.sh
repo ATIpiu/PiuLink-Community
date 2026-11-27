@@ -49,6 +49,9 @@ for i in {1..40}; do
   sleep .25
 done
 if [[ -f "$scratch/key-received" ]]; then echo "Desktop test window received PiuLink test key"; else echo "Desktop key unconfirmed"; test_rc=1; fi
+cat "$scratch/sample.log" || true
+data=$(xcrun simctl get_app_container booted labs.atipiu.piulink.ios data)
+python3 tones.py pcm "$data/Library/Caches/qa-played.s16" "$data/Library/Caches/qa-played.format" || test_rc=1
 if ! python3 tones.py check "$scratch/output.raw" "$scratch/format.txt"; then test_rc=1; fi
 grep -Ei 'display|screen recording|capture|encoder|permission|microphone|audio device|audio sink|client connected|streaming session' "$scratch/host.log" | tail -80 || true
 exit "$test_rc"

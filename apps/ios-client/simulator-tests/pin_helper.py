@@ -11,7 +11,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/sample":
             from pathlib import Path
             scratch = Path(os.environ["RUNNER_TEMP"]) / "sunshine-test"
-            subprocess.Popen(["bash", str(Path(__file__).with_name("sample-output.sh")), str(scratch)])
+            with (scratch / "sample.log").open("wb") as log:
+                subprocess.Popen(["bash", str(Path(__file__).with_name("sample-output.sh")), str(scratch)],
+                                 stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             self.send_response(202)
             self.end_headers()
             return

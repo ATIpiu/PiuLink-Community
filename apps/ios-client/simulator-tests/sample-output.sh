@@ -5,12 +5,12 @@ pid=$(xcrun simctl spawn booted launchctl list | awk '/labs[.]atipiu[.]piulink[.
 "$scratch/output-tap" "$pid" "$scratch/output.raw" > "$scratch/format.txt" &
 monitor=$!
 xcrun simctl io booted screenshot "$scratch/phone.png"
-for i in {1..120}; do
+for i in {1..20}; do
   [[ -s "$scratch/format.txt" ]] && break
-  kill -0 "$monitor" || exit 1
+  kill -0 "$monitor" 2>/dev/null || break
   sleep .2
 done
-test -s "$scratch/format.txt"
+echo "Starting test tones"
 sleep .5
 afplay "$scratch/tones.wav"
 wait "$monitor"
