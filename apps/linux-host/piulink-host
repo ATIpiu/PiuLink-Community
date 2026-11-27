@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+base=${PIULINK_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/piulink-linux}
+export PIULINK_DATA="$base"
+export PIULINK_ENGINE_CONFIG="$base/config/sunshine"
+export PIULINK_SESSION_MODE
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+mode_file="$base/config/session-mode"
+PIULINK_SESSION_MODE=$(cat "$mode_file" 2>/dev/null || printf desktop)
+export PIULINK_ENCODER=${PIULINK_ENCODER:-$(if [[ "$PIULINK_SESSION_MODE" == headless ]]; then printf software; else printf auto; fi)}
+
+if [[ $(id -u) == 0 ]]; then
+    echo 'Run PiuLink as the desktop user.' >&2
+    exit 1
+fi
+
+if [[ -d "$base/runtime/desktop/usr/bin" ]]; then
+    export PATH="$base/runtime/desktop/usr/bin:$PATH"
+    triplet=$(uname -m)-linux-gnu
+    export LD_LIBRARY_PATH="$base/runtime/desktop/usr/lib/$triplet${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export XDG_DATA_DIRS="$base/runtime/desktop/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+fi
+dotnet_bin=${PIULINK_DOTNET:-dotnet}
+if [[ -z "${PIULINK_DOTNET:-}" && -x "$base/runtime/dotnet/dotnet" ]]; then dotnet_bin="$base/runtime/dotnet/dotnet"; fi
+sunshine=${PIULINK_SUNSHINE:-sunshine}
+if [[ -z "${PIULINK_SUNSHINE:-}" && -x "$base/runtime/squashfs-root/AppRun" ]]; then sunshine="$base/runtime/squashfs-root/AppRun"; fi
+app_dir=${PIULINK_HOST_APP_DIR:-$base/app}
+host=("$dotnet_bin" "$app_dir/PiuLink.Host.Linux.dll")
+if [[ -z "${PIULINK_DOTNET:-}" && -x "$app_dir/PiuLink.Host.Linux" ]]; then host=("$app_dir/PiuLink.Host.Linux"); fi
+
+if [[ "$PIULINK_SESSION_MODE" == headless ]]; then
+    export DISPLAY=${PIULINK_HEADLESS_DISPLAY:-:89}
+    export XAUTHORITY="$base/config/headless.Xauthority"
+fi
+
+case "${1:-}" in
+setup)
+    [[ $# == 2 && ( "$2" == desktop || "$2" == headless ) ]] || { echo 'Usage: piulink-host setup desktop|headless' >&2; exit 2; }
+    if systemctl --user is-active --quiet piulink-host.service; then
+        echo 'Stop the PiuLink user service before changing its session mode.' >&2
+        exit 1
+    fi
+    mkdir -p "$base/config" "$PIULINK_ENGINE_CONFIG"
+    printf '%s\n' "$2" > "$mode_file"
+    echo "PiuLink session mode: $2"
+    ;;
+run)
+    command -v "$sunshine" >/dev/null || { echo 'Sunshine executable is missing.' >&2; exit 1; }
+    command -v "${host[0]}" >/dev/null || { echo '.NET 8 runtime is missing.' >&2; exit 1; }
+    mkdir -p "$base/config" "$PIULINK_ENGINE_CONFIG" "$base/logs"
+    exec 9>"$base/config/service.lock"
+    flock -n 9 || { echo 'PiuLink is already running.' >&2; exit 1; }
+    export XDG_CONFIG_HOME="$base/config"
+    [[ "$PIULINK_ENCODER" =~ ^(auto|software|vaapi|nvenc|quicksync|amdvce)$ ]] || { echo 'Invalid encoder name.' >&2; exit 2; }
+
+    pids=()
+    core_pids=()
+    sink_module=
+    input_ready="$base/config/headless-input.ready"
+    cleanup() {
+        rm -f -- "$input_ready"
+        if (("${#pids[@]}")); then
+            kill "${pids[@]}" 2>/dev/null || true
+            wait "${pids[@]}" 2>/dev/null || true
+        fi
+        if [[ -n "$sink_module" ]]; then pactl unload-module "$sink_module" || true; fi
+    }
+    trap cleanup EXIT
+    trap 'exit 0' TERM INT
+    if [[ "$PIULINK_SESSION_MODE" == headless ]]; then
+        input_bridge="${PIULINK_X11_INPUT_LIB:-$base/runtime/libpiulink-x11-input.so}"
+        [[ -r "$input_bridge" ]] || { echo 'PiuLink X11 input is missing. Install the headless runtime.' >&2; exit 1; }
+        rm -f -- "$input_ready"
+        mode=${PIULINK_HEADLESS_MODE:-1920x1080}
+        [[ "$DISPLAY" =~ ^:[0-9]{1,4}$ && "$mode" =~ ^[1-9][0-9]{2,3}x[1-9][0-9]{2,3}$ ]] || { echo 'Invalid Xvfb display or mode.' >&2; exit 2; }
+        [[ ! -e "/tmp/.X11-unix/X${DISPLAY#:}" ]] || { echo "$DISPLAY is already in use." >&2; exit 1; }
+        touch "$XAUTHORITY"
+        xauth -f "$XAUTHORITY" add "$DISPLAY" . "$(openssl rand -hex 16)"
+        fonts=()
+        extracted_fonts="$base/runtime/desktop/usr/share/fonts/X11/misc"
+        if [[ -d "$extracted_fonts" ]]; then fonts=(-fp "$extracted_fonts"); fi
+        Xvfb "$DISPLAY" -screen 0 "${mode}x24" -auth "$XAUTHORITY" -nolisten tcp -noreset "${fonts[@]}" &
+        pids+=("$!")
+        core_pids+=("$!")
+        for _ in {1..50}; do
+            if xrandr --query >/dev/null 2>&1; then break; fi
+            sleep .1
+        done
+        xrandr --query >/dev/null
+        if command -v openbox >/dev/null; then
+            wm_options=()
+            extracted_rc="$base/runtime/desktop/etc/xdg/openbox/rc.xml"
+            if [[ -f "$extracted_rc" ]]; then wm_options=(--config-file "$extracted_rc"); fi
+            openbox "${wm_options[@]}" &
+            pids+=("$!")
+        fi
+        if command -v xsetroot >/dev/null; then xsetroot -solid '#17334b'; fi
+        if command -v pactl >/dev/null && pactl info >/dev/null 2>&1; then
+            sink_module=$(pactl load-module module-null-sink sink_name=piulink_desktop sink_properties=device.description=PiuLink_Desktop)
+            export PULSE_SINK=piulink_desktop
+        fi
+        if command -v xterm >/dev/null; then
+            xterm -T 'PiuLink Linux Desktop' -geometry 96x28+72+64 &
+            pids+=("$!")
+        fi
+    else
+        if ! xrandr --query >/dev/null 2>&1; then
+            echo 'No usable X11 desktop. Start from the graphical X11 session or choose headless mode.' >&2
+            exit 1
+        fi
+    fi
+
+    config="$PIULINK_ENGINE_CONFIG/sunshine.conf"
+    if [[ ! -f "$config" ]]; then
+        cat > "$config" <<EOF
+sunshine_name = PiuLink Linux $(hostname -s)
+origin_web_ui_allowed = pc
+upnp = disabled
+address_family = ipv4
+capture = x11
+install_steam_drivers = disabled
+lan_encryption_mode = 1
+EOF
+    fi
+    if [[ ! -f "$PIULINK_ENGINE_CONFIG/apps.json" ]]; then
+        printf '%s\n' '{"env":{},"apps":[{"name":"Desktop"},{"name":"Terminal","cmd":"xterm"}]}' > "$PIULINK_ENGINE_CONFIG/apps.json"
+    fi
+    auth="$base/engine-auth"
+    if [[ ! -s "$auth" ]]; then
+        password=$(openssl rand -hex 32)
+        # Sunshine stores its own password hash in the dedicated configuration directory.
+        "$sunshine" "$config" --creds piulink "$password" >/dev/null
+        printf 'piulink\n%s\n' "$password" > "$auth.new"
+        mv -f "$auth.new" "$auth"
+    fi
+    # Resolve once so Sunshine and Companion use the same output for this service lifetime.
+    PIULINK_OUTPUT_INDEX=$("${host[@]}" capture-index)
+    export PIULINK_OUTPUT_INDEX
+    options=(
+        "origin_web_ui_allowed=pc" "upnp=disabled" "address_family=ipv4" "lan_encryption_mode=1"
+        "capture=x11" "output_name=$PIULINK_OUTPUT_INDEX"
+        "file_apps=$PIULINK_ENGINE_CONFIG/apps.json"
+    )
+    if [[ "$PIULINK_ENCODER" != auto ]]; then options+=("encoder=$PIULINK_ENCODER"); fi
+    if [[ -n "$sink_module" ]]; then options+=("audio_sink=piulink_desktop" "virtual_sink=piulink_desktop"); fi
+    if [[ "$PIULINK_SESSION_MODE" == headless ]]; then
+        env LD_PRELOAD="$input_bridge" PIULINK_X11_INPUT_DISPLAY="$DISPLAY" PIULINK_X11_INPUT_READY="$input_ready" \
+            "$sunshine" "$config" "${options[@]}" &
+    else
+        "$sunshine" "$config" "${options[@]}" &
+    fi
+    pids+=("$!")
+    core_pids+=("$!")
+    for _ in {1..100}; do
+        if [[ -s "$PIULINK_ENGINE_CONFIG/credentials/cacert.pem" && -s "$PIULINK_ENGINE_CONFIG/credentials/cakey.pem" ]] &&
+            [[ "$PIULINK_SESSION_MODE" != headless || -s "$input_ready" ]]; then break; fi
+        kill -0 "$!" 2>/dev/null || { echo 'Sunshine stopped before completing startup.' >&2; exit 1; }
+        sleep .1
+    done
+    if [[ "$PIULINK_SESSION_MODE" == headless && ! -s "$input_ready" ]]; then
+        echo 'Sunshine did not initialize keyboard and mouse for the private X11 session.' >&2
+        exit 1
+    fi
+    "${host[@]}" serve &
+    pids+=("$!")
+    core_pids+=("$!")
+    if wait -n "${core_pids[@]}"; then
+        echo 'A required PiuLink process stopped.' >&2
+    fi
+    exit 1
+    ;;
+*)
+    exec "${host[@]}" "$@"
+    ;;
+esac

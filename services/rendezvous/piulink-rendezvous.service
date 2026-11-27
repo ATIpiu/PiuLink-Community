@@ -1,0 +1,18 @@
+[Unit]
+Description=PiuLink address rendezvous
+After=network.target
+
+[Service]
+DynamicUser=yes
+ExecStart=/usr/local/lib/piulink-rendezvous/server
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+MemoryMax=64M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

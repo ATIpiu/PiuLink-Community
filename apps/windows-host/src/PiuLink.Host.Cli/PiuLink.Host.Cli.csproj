@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>piulink-host</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../PiuLink.Host/Services/HostPreferences.cs" Link="HostPreferences.cs" />
+    <Compile Include="../PiuLink.Host/Services/SunshineManagedIdentity.cs" Link="SunshineManagedIdentity.cs" />
+    <Compile Include="../PiuLink.Host/Services/WindowsCredentialStore.cs" Link="WindowsCredentialStore.cs" />
+    <ProjectReference Include="..\PiuLink.Host.Core\PiuLink.Host.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,7 @@
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true" android:drawable="@drawable/bg_moon_focus" />
+    <item android:state_pressed="true" android:drawable="@color/piulink_surface_pressed" />
+    <item android:state_checked="true" android:drawable="@color/piulink_blue_soft" />
+    <item android:state_selected="true" android:drawable="@color/piulink_blue_soft" />
+    <item android:drawable="@android:color/transparent" />
+</selector>

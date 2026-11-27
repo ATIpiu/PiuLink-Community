@@ -1,0 +1,324 @@
+diff --git a/audio/simpleaudiosample/Source/Filters/micarraywavtable.h b/audio/simpleaudiosample/Source/Filters/micarraywavtable.h
+index 5365603..846cc0a 100644
+--- a/audio/simpleaudiosample/Source/Filters/micarraywavtable.h
++++ b/audio/simpleaudiosample/Source/Filters/micarraywavtable.h
+@@ -20,7 +20,7 @@ Abstract:-
+ //
+ #define MICARRAY_RAW_CHANNELS                   2       // Channels for raw mode
+ #define MICARRAY_DEVICE_MAX_CHANNELS            2       // Max channels overall
+-#define MICARRAY_32_BITS_PER_SAMPLE_PCM         32      // 32 Bits Per Sample
++#define MICARRAY_BITS_PER_SAMPLE_PCM         16      // 16 Bits Per Sample
+ #define MICARRAY_RAW_SAMPLE_RATE                48000   // Raw sample rate
+ 
+ //
+@@ -32,7 +32,7 @@ Abstract:-
+ static
+ KSDATAFORMAT_WAVEFORMATEXTENSIBLE MicArrayPinSupportedDeviceFormats[] =
+ {
+-    // 48 KHz 32-bit 2 channels
++    // 48 KHz 16-bit 2 channels
+     {
+         {
+             sizeof(KSDATAFORMAT_WAVEFORMATEXTENSIBLE),
+@@ -48,12 +48,12 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE MicArrayPinSupportedDeviceFormats[] =
+                 WAVE_FORMAT_EXTENSIBLE,
+                 2,
+                 48000,
+-                384000,
+-                8,
+-                32,
++                192000,
++                4,
++                16,
+                 sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
+             },
+-            32,
++            16,
+             KSAUDIO_SPEAKER_STEREO,
+             STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM)
+         }
+@@ -114,8 +114,8 @@ KSDATARANGE_AUDIO MicArrayPinDataRangesRawStream[] =
+             STATICGUIDOF(KSDATAFORMAT_SPECIFIER_WAVEFORMATEX)
+         },
+         MICARRAY_RAW_CHANNELS,
+-        MICARRAY_32_BITS_PER_SAMPLE_PCM,
+-        MICARRAY_32_BITS_PER_SAMPLE_PCM,
++        MICARRAY_BITS_PER_SAMPLE_PCM,
++        MICARRAY_BITS_PER_SAMPLE_PCM,
+         MICARRAY_RAW_SAMPLE_RATE,
+         MICARRAY_RAW_SAMPLE_RATE
+     },
+diff --git a/audio/simpleaudiosample/Source/Inc/common.h b/audio/simpleaudiosample/Source/Inc/common.h
+index 2d2db7d..7b8bfa1 100644
+--- a/audio/simpleaudiosample/Source/Inc/common.h
++++ b/audio/simpleaudiosample/Source/Inc/common.h
+@@ -253,6 +253,9 @@ DECLARE_INTERFACE_(IAdapterCommon, IUnknown)
+         _In_  PDEVICE_OBJECT      DeviceObject 
+     ) PURE;
+ 
++    STDMETHOD_(void, TransferMicrophone)(BOOLEAN capture, PBYTE data, ULONG bytes) PURE;
++    STDMETHOD_(void, ResetMicrophone)() PURE;
++
+     STDMETHOD_(PDEVICE_OBJECT,  GetDeviceObject)
+     (
+         THIS
+diff --git a/audio/simpleaudiosample/Source/Main/common.cpp b/audio/simpleaudiosample/Source/Main/common.cpp
+index 7c19130..4da2e0d 100644
+--- a/audio/simpleaudiosample/Source/Main/common.cpp
++++ b/audio/simpleaudiosample/Source/Main/common.cpp
+@@ -14,6 +14,7 @@ Abstract:
+ #pragma warning (disable : 4127)
+ 
+ #include <initguid.h>
++#include "PiuLinkPcmQueue.h"
+ #include "definitions.h"
+ #include "hw.h"
+ #include "savedata.h"
+@@ -38,6 +39,8 @@ class CAdapterCommon :
+     public CUnknown    
+ {
+     private:
++        PiuLinkPcmQueue m_audio;
++        KSPIN_LOCK m_audioLock;
+         PSERVICEGROUP           m_pServiceGroupWave;
+         PDEVICE_OBJECT          m_pDeviceObject;
+         PDEVICE_OBJECT          m_pPhysicalDeviceObject;
+@@ -53,6 +56,9 @@ class CAdapterCommon :
+ 
+     public:
+         //=====================================================================
++        STDMETHODIMP_(void) TransferMicrophone(BOOLEAN capture, PBYTE data, ULONG bytes);
++        STDMETHODIMP_(void) ResetMicrophone();
++
+         // Default CUnknown
+         DECLARE_STD_UNKNOWN();
+         DEFINE_STD_CONSTRUCTOR(CAdapterCommon);
+@@ -562,6 +568,8 @@ Return Value:
+     NTSTATUS        ntStatus    = STATUS_SUCCESS;
+ 
+     m_pServiceGroupWave     = NULL;
++    KeInitializeSpinLock(&m_audioLock);
++    m_audio.Clear();
+     m_pDeviceObject         = DeviceObject;
+     m_pPhysicalDeviceObject = NULL;
+     m_WdfDevice             = NULL;
+@@ -2775,3 +2783,23 @@ Exit:
+ 
+     return ntStatus;
+ }
++
++#pragma code_seg()
++STDMETHODIMP_(void) CAdapterCommon::ResetMicrophone()
++{
++    KIRQL irql;
++    KeAcquireSpinLock(&m_audioLock, &irql);
++    m_audio.Clear();
++    KeReleaseSpinLock(&m_audioLock, irql);
++}
++
++STDMETHODIMP_(void) CAdapterCommon::TransferMicrophone(BOOLEAN capture, PBYTE data, ULONG bytes)
++{
++    KIRQL irql;
++    KeAcquireSpinLock(&m_audioLock, &irql);
++    ULONG used = 0;
++    if (capture) used = m_audio.Read(data, bytes);
++    else m_audio.Write(data, bytes);
++    KeReleaseSpinLock(&m_audioLock, irql);
++    if (capture) RtlZeroMemory(data + used, bytes - used);
++}
+diff --git a/audio/simpleaudiosample/Source/Main/minwavertstream.cpp b/audio/simpleaudiosample/Source/Main/minwavertstream.cpp
+index c189c93..8b59569 100644
+--- a/audio/simpleaudiosample/Source/Main/minwavertstream.cpp
++++ b/audio/simpleaudiosample/Source/Main/minwavertstream.cpp
+@@ -301,77 +301,7 @@ Return Value:
+         return STATUS_INSUFFICIENT_RESOURCES;
+     }
+ 
+-    if (m_bCapture)
+-    {
+-        ReadRegistrySettings();
+-        DWORD toneFrequency = 0;
+-        DWORD toneAmplitude = 0;
+-        DWORD toneDCOffset = 0;
+-        DWORD toneInitialPhase = 0;
+-
+-        double toneAmplitudeDouble = 0;
+-        double toneDCOffsetDouble = 0;
+-        double toneInitialPhaseDouble = 0;
+-
+-        toneFrequency = m_ulHostCaptureToneFrequency;
+-        toneAmplitude = m_dwHostCaptureToneAmplitude;
+-        toneDCOffset = m_dwHostCaptureToneDCOffset;
+-        toneInitialPhase = m_dwHostCaptureToneInitialPhase;
+-
+-        if (labs(toneAmplitude) > 100)
+-        {
+-            toneAmplitude = toneAmplitude > 0 ? 100 : -100;
+-        }
+-
+-        if (labs(toneDCOffset) > 100)
+-        {
+-            toneDCOffset = toneDCOffset > 0 ? 100 : -100;
+-        }
+-
+-        DWORD abssum = labs(toneAmplitude) + labs(toneDCOffset);
+-
+-        if (abssum > 100)
+-        {
+-            toneAmplitudeDouble = ((double)toneAmplitude) / abssum;
+-            toneDCOffsetDouble = ((double)toneDCOffset) / abssum;
+-        }
+-        else
+-        {
+-            toneAmplitudeDouble = ((double)toneAmplitude) / 100.0;
+-            toneDCOffsetDouble = ((double)toneDCOffset) / 100.0;
+-        }
+-
+-        if (labs(toneInitialPhase) > 31416)
+-        {
+-            toneInitialPhase = toneInitialPhase > 0 ? 31416 : -31416;
+-        }
+-
+-        toneInitialPhaseDouble = (double)toneInitialPhase / 10000;
+-
+-        ntStatus = m_ToneGenerator.Init(toneFrequency, toneAmplitudeDouble, toneDCOffsetDouble, toneInitialPhaseDouble, m_pWfExt);
+-
+-        if (!NT_SUCCESS(ntStatus))
+-        {
+-            return ntStatus;
+-        }
+-    }
+-    else if (!g_DoNotCreateDataFiles)
+-    {
+-        //
+-        // Create an output file for the render data.
+-        //
+-        DPF(D_TERSE, ("SaveData %p", &m_SaveData));
+-        ntStatus = m_SaveData.SetDataFormat(DataFormat_);
+-        if (NT_SUCCESS(ntStatus))
+-        {
+-            ntStatus = m_SaveData.Initialize();
+-        }
+-    
+-        if (!NT_SUCCESS(ntStatus))
+-        {
+-            return ntStatus;
+-        }
+-    }
++    m_copyProtected = FALSE;
+ 
+     //
+     // Register this stream.
+@@ -483,18 +413,6 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
+ 
+     RequestedSize_ -= RequestedSize_ % (m_pWfExt->Format.nBlockAlign);
+     
+-    if (!m_bCapture && (!g_DoNotCreateDataFiles))
+-    {
+-        NTSTATUS ntStatus;
+-        
+-        // Simple Audio Sample uses following buffer to hold data before writing to a file.
+-        // Allocating larger buffer will reduce File I/O operations.
+-        ntStatus = m_SaveData.SetMaxWriteSize(RequestedSize_ * 4);
+-        if (!NT_SUCCESS(ntStatus))
+-        {
+-            return ntStatus;
+-        }
+-    }
+ 
+     PHYSICAL_ADDRESS highAddress;
+     highAddress.HighPart = 0;
+@@ -1198,11 +1116,7 @@ NTSTATUS CMiniportWaveRTStream::SetState
+ 
+             KeReleaseSpinLock(&m_PositionSpinLock, oldIrql);
+ 
+-            // Wait until all work items are completed.
+-            if (!m_bCapture && !g_DoNotCreateDataFiles)
+-            {
+-                m_SaveData.WaitAllWorkItems();
+-            }
++            m_pMiniport->GetAdapterCommObj()->ResetMicrophone();
+             break;
+ 
+         case KSSTATE_ACQUIRE:
+@@ -1247,6 +1161,7 @@ NTSTATUS CMiniportWaveRTStream::SetState
+             break;
+ 
+         case KSSTATE_RUN:
++            m_pMiniport->GetAdapterCommObj()->ResetMicrophone();
+             // Start DMA
+             LARGE_INTEGER ullPerfCounterTemp;
+             ullPerfCounterTemp = KeQueryPerformanceCounter(&m_ullPerformanceCounterFrequency);
+@@ -1332,7 +1247,7 @@ VOID CMiniportWaveRTStream::UpdatePosition
+ 
+     if (m_bCapture)
+     {
+-        // Write sine wave to buffer.
++        // Fill the capture buffer from the paired render endpoint.
+         WriteBytes(ByteDisplacement);
+     }
+     else
+@@ -1364,11 +1279,7 @@ VOID CMiniportWaveRTStream::UpdatePosition
+             m_bLastBufferRendered = TRUE;
+         }
+ 
+-        if (!g_DoNotCreateDataFiles)
+-        {
+-            // Read from buffer and write to a file.
+-            ReadBytes(ByteDisplacement);
+-        }
++        if (!InterlockedCompareExchange(&m_copyProtected, FALSE, FALSE)) ReadBytes(ByteDisplacement);
+     }
+     
+     // Increment the DMA position by the number of bytes displaced since the last
+@@ -1413,7 +1324,7 @@ ByteDisplacement - # of bytes to process.
+     {
+         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
+         
+-        m_ToneGenerator.GenerateSine(m_pDmaBuffer + bufferOffset, runWrite);
++        m_pMiniport->GetAdapterCommObj()->TransferMicrophone(TRUE, m_pDmaBuffer + bufferOffset, runWrite);
+            	
+         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
+         ByteDisplacement -= runWrite;
+@@ -1430,7 +1341,7 @@ VOID CMiniportWaveRTStream::ReadBytes
+ 
+ Routine Description:
+ 
+-This function reads the audio buffer and saves the data in a file.
++This function routes rendered PCM to the paired microphone.
+ 
+ Arguments:
+ 
+@@ -1445,7 +1356,7 @@ ByteDisplacement - # of bytes to process.
+     while (ByteDisplacement > 0)
+     {
+         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
+-        m_SaveData.WriteData(m_pDmaBuffer + bufferOffset, runWrite);
++        m_pMiniport->GetAdapterCommObj()->TransferMicrophone(FALSE, m_pDmaBuffer + bufferOffset, runWrite);
+         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
+         ByteDisplacement -= runWrite;
+     }
+@@ -1503,7 +1414,8 @@ Return Value:
+     // Simple Audio Sample writes each stream seperately to disk. If the rights for this
+     // stream indicates that the stream is CopyProtected, stop writing to disk.
+     //
+-    m_SaveData.Disable(drmRights->CopyProtect);
++    InterlockedExchange(&m_copyProtected, drmRights->CopyProtect);
++    if (drmRights->CopyProtect) m_pMiniport->GetAdapterCommObj()->ResetMicrophone();
+ 
+     //
+     // From MSDN:
+diff --git a/audio/simpleaudiosample/Source/Main/minwavertstream.h b/audio/simpleaudiosample/Source/Main/minwavertstream.h
+index 0124cab..0b0f2ea 100644
+--- a/audio/simpleaudiosample/Source/Main/minwavertstream.h
++++ b/audio/simpleaudiosample/Source/Main/minwavertstream.h
+@@ -111,8 +111,7 @@ protected:
+     PLONG                       m_plPeakMeter;
+     PWAVEFORMATEXTENSIBLE       m_pWfExt;
+     ULONG                       m_ulContentId;
+-    CSaveData                   m_SaveData;
+-    ToneGenerator               m_ToneGenerator;
++    volatile LONG m_copyProtected;
+     GUID                        m_SignalProcessingMode;
+     BOOLEAN                     m_bEoSReceived;
+     BOOLEAN                     m_bLastBufferRendered;

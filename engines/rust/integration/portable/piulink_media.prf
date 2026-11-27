@@ -1,0 +1,31 @@
+PIULINK_STAGE = $$clean_path($$(PIULINK_CORE_STAGE))
+equals(TARGET, moonlight-common-c) {
+    original = $$clean_path($$_PRO_FILE_PWD_/moonlight-common-c/src)
+    staged = $$PIULINK_STAGE/src
+    staged_units =
+    for(unit, SOURCES) {
+        parent = $$dirname(unit)
+        equals(parent, $$original) {
+            SOURCES -= "$$unit"
+            staged_units += $$basename(unit)
+            SOURCES += "$$staged/$$basename(unit)"
+        }
+    }
+    !contains(staged_units, RtpVideoQueue.c): error("Missing staged PiuLink video receiver")
+    INCLUDEPATH = "$$staged" $$INCLUDEPATH
+}
+project_leaf = $$basename(_PRO_FILE_)
+equals(TEMPLATE, app):equals(project_leaf, app.pro) {
+    win32 {
+        rustlib = $$PIULINK_STAGE/target/release/piulink_stream_core.lib
+        LIBS += "$$rustlib" ntdll.lib userenv.lib ws2_32.lib dbghelp.lib synchronization.lib
+    } else {
+        rustlib = $$PIULINK_STAGE/target/release/libpiulink_stream_core.a
+        LIBS += "$$rustlib" -ldl -lpthread -lm
+    }
+    PRE_TARGETDEPS += "$$rustlib"
+    for(symbol, $$list(pl_frame_stage pl_video_recover pl_audio_recover pl_rtsp_parse)) {
+        win32: QMAKE_LFLAGS += /EXPORT:$$symbol
+        else: QMAKE_LFLAGS += -Wl,--export-dynamic-symbol=$$symbol
+    }
+}

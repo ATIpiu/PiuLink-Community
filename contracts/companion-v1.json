@@ -1,0 +1,124 @@
+{
+  "inventory": {
+    "exclusiveDisplay": true,
+    "supportsSessionDisplays": false,
+    "supportsVirtualDesktopResize": false,
+    "supportsWindowGathering": true,
+    "supportsDisplayScaling": true,
+    "virtualResolutions": [
+      {
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "width": 2560,
+        "height": 1440
+      }
+    ],
+    "virtualRefreshRates": [
+      60,
+      120
+    ],
+    "displays": [
+      {
+        "captureIndex": 0,
+        "deviceId": "11111111-1111-1111-1111-111111111111",
+        "name": "\u663E\u793A\u5668",
+        "windowsName": "TESTDISPLAY1",
+        "bounds": {
+          "x": -1920,
+          "y": 120,
+          "width": 1920,
+          "height": 1080
+        },
+        "isPrimary": true,
+        "isVirtual": false,
+        "width": 1920,
+        "height": 1080,
+        "refreshRate": 60,
+        "scalePercent": null,
+        "scaleOptions": [],
+        "modes": [],
+        "isSelected": false
+      },
+      {
+        "captureIndex": 1,
+        "deviceId": "22222222-2222-2222-2222-222222222222",
+        "name": "\u663E\u793A\u5668",
+        "windowsName": "TESTDISPLAY2",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 2560,
+          "height": 1440
+        },
+        "isPrimary": false,
+        "isVirtual": false,
+        "width": 2560,
+        "height": 1440,
+        "refreshRate": 60,
+        "scalePercent": null,
+        "scaleOptions": [],
+        "modes": [],
+        "isSelected": false
+      },
+      {
+        "captureIndex": 2,
+        "deviceId": "33333333-3333-3333-3333-333333333333",
+        "name": "PiuLink Virtual",
+        "windowsName": "TESTDISPLAY3",
+        "bounds": null,
+        "isPrimary": false,
+        "isVirtual": true,
+        "width": null,
+        "height": null,
+        "refreshRate": null,
+        "scalePercent": null,
+        "scaleOptions": [],
+        "modes": [
+          {
+            "width": 1920,
+            "height": 1080,
+            "fps": 60
+          },
+          {
+            "width": 1920,
+            "height": 1080,
+            "fps": 120
+          },
+          {
+            "width": 2560,
+            "height": 1440,
+            "fps": 60
+          },
+          {
+            "width": 2560,
+            "height": 1440,
+            "fps": 120
+          }
+        ],
+        "isSelected": true
+      }
+    ]
+  },
+  "selectionRequests": [
+    {
+      "deviceId": "33333333-3333-3333-3333-333333333333",
+      "exclusive": true,
+      "width": 1920,
+      "height": 1080,
+      "fps": 60
+    },
+    {
+      "deviceId": "11111111-1111-1111-1111-111111111111",
+      "exclusive": false
+    },
+    {
+      "deviceId": null,
+      "exclusive": false
+    }
+  ],
+  "ready": {
+    "status": "ready"
+  }
+}

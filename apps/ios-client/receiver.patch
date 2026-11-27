@@ -1,0 +1,15 @@
+diff --git a/src/RtpVideoQueue.c b/src/RtpVideoQueue.c
+index a4e022e..8cfb47c 100644
+--- a/src/RtpVideoQueue.c
++++ b/src/RtpVideoQueue.c
+@@ -548,7 +548,9 @@ int RtpvAddPacket(PRTP_VIDEO_QUEUE queue, PRTP_PACKET packet, int length, PRTPV_
+     }
+ 
+     // FLAG_EXTENSION is required for all supported versions of GFE.
+-    LC_ASSERT_VT(packet->header & FLAG_EXTENSION);
++    if (!(packet->header & FLAG_EXTENSION)) {
++        return RTPF_RET_REJECTED;
++    }
+ 
+     int dataOffset = sizeof(*packet);
+     if (packet->header & FLAG_EXTENSION) {

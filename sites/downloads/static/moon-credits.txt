@@ -1,0 +1,6 @@
+Lunar texture and elevation data
+NASA's Scientific Visualization Studio, NASA/GSFC, Arizona State University.
+CGI Moon Kit, Ernie Wright; LROC and LOLA teams.
+https://svs.gsfc.nasa.gov/4720/
+
+The preview sphere is rendered by PiuLink from the color and elevation maps.

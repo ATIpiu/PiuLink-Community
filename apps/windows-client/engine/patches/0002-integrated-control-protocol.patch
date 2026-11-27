@@ -1,0 +1,84 @@
+diff --git a/src/ControlStream.c b/src/ControlStream.c
+index d86f4ca..a791344 100644
+--- a/src/ControlStream.c
++++ b/src/ControlStream.c
+@@ -1,4 +1,12 @@
+ #include "Limelight-internal.h"
++static int piulinkAck[4];
++static PLT_MUTEX piulinkAckMutex;
++
++static void storePiuLinkAck(int operation, int value) {
++    PltLockMutex(&piulinkAckMutex);
++    piulinkAck[operation] = value;
++    PltUnlockMutex(&piulinkAckMutex);
++}
+ 
+ // This is a private header, but it just contains some time macros
+ #include <enet/time.h>
+@@ -276,6 +284,8 @@ static bool supportsIdrFrameRequest;
+ 
+ // Initializes the control stream
+ int initializeControlStream(void) {
++    PltCreateMutex(&piulinkAckMutex);
++    for (int i = 0; i < 4; i++) piulinkAck[i] = -1;
+     stopping = false;
+     PltCreateEvent(&idrFrameRequiredEvent);
+     LbqInitializeLinkedBlockingQueue(&invalidReferenceFrameTuples, 20);
+@@ -358,6 +368,7 @@ void destroyControlStream(void) {
+     freeBasicLbqList(LbqDestroyLinkedBlockingQueue(&asyncCallbackQueue));
+ 
+     PltDeleteMutex(&enetMutex);
++    PltDeleteMutex(&piulinkAckMutex);
+ }
+ 
+ static void queueFrameInvalidationTuple(uint32_t startFrame, uint32_t endFrame) {
+@@ -812,6 +823,22 @@ static bool sendMessageAndForget(short ptype, short paylen, const void* payload,
+     return ret;
+ }
+ 
++int LiSendPiuLinkControl(int operation, int value) {
++    if (operation < 0 || operation > 3 || !encryptedControlStream || !IS_SUNSHINE()) return -1;
++    uint32_t payload[2] = { LE32(operation), LE32(value) };
++    storePiuLinkAck(operation, -1);
++    return sendMessageAndForget(0x55A0, sizeof(payload), payload, 0, ENET_PACKET_FLAG_RELIABLE, false) ? 0 : -1;
++}
++
++int LiGetPiuLinkAck(int operation) {
++    int value;
++    if (operation < 0 || operation > 3) return -1;
++    PltLockMutex(&piulinkAckMutex);
++    value = piulinkAck[operation];
++    PltUnlockMutex(&piulinkAckMutex);
++    return value;
++}
++
+ static bool sendMessageAndDiscardReply(short ptype, short paylen, const void* payload, uint8_t channelId, uint32_t flags, bool moreData) {
+     if (AppVersionQuad[0] >= 5) {
+         if (!sendMessageEnet(ptype, paylen, payload, channelId, flags, moreData)) {
+@@ -1184,6 +1211,12 @@ static void controlReceiveThreadFunc(void* context) {
+             // All below codepaths must free ctlHdr!!!
+ 
+             // Process HDR data immediately to update global HDR enabled state and HDR metadata.
++            if (ctlHdr->type == 0x55A1 && packetLength == sizeof(*ctlHdr) + 8) {
++                uint32_t words[2];
++                memcpy(words, ctlHdr + 1, sizeof(words));
++                uint32_t operation = LE32(words[0]);
++                if (operation < 4) storePiuLinkAck(operation, (int)LE32(words[1]));
++            }
+             // The actual client callback will be invoked in the async callback thread.
+             if (ctlHdr->type == packetTypes[IDX_HDR_INFO]) {
+                 BYTE_BUFFER bb;
+diff --git a/src/Limelight.h b/src/Limelight.h
+index b2bb550..1cd9d89 100644
+--- a/src/Limelight.h
++++ b/src/Limelight.h
+@@ -11,6 +11,9 @@
+ extern "C" {
+ #endif
+ 
++int LiSendPiuLinkControl(int operation, int value);
++int LiGetPiuLinkAck(int operation);
++
+ // Enable this definition during debugging to enable assertions
+ //#define LC_DEBUG
+ 

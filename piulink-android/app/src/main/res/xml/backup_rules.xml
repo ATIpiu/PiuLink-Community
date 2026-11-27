@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Preferences contain device-specific input, display, and feature state. -->
+    <exclude domain="sharedpref" path="."/>
+
+    <!--
+        Never export the long-lived GameStream client identity. Restoring only part
+        of this identity can also leave a host record that can no longer pair.
+    -->
+    <exclude domain="file" path="client.key"/>
+    <exclude domain="file" path="client.crt"/>
+    <exclude domain="file" path="uniqueid"/>
+
+    <!-- Host addresses and paired server certificates are stored in SQLite. -->
+    <exclude domain="database" path="."/>
+</full-backup-content>

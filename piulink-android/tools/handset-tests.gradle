@@ -1,0 +1,17 @@
+// Opt in with -I tools/handset-tests.gradle. Only the handset test classpaths need Robolectric.
+gradle.beforeProject { project ->
+    if (project.path != ':app') return
+    project.plugins.withId('com.android.application') {
+        project.android.testOptions.unitTests.includeAndroidResources = true
+        project.android.sourceSets.test.java.srcDir(project.file('src/handsetTest/java'))
+        project.dependencies.add('testImplementation', 'org.robolectric:robolectric:4.16.1')
+        project.android.testOptions.unitTests.all {
+            systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+        }
+    }
+    project.afterEvaluate {
+        project.configurations.matching { it.name.startsWith('nonRootReleaseUnitTest') }.configureEach {
+            resolutionStrategy.deactivateDependencyLocking()
+        }
+    }
+}

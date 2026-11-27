@@ -1,0 +1,6 @@
+@piulink_invite path /piulink/join /piulink/v1/publish /piulink/v1/resolve /piulink/v2/host /piulink/v2/identity /piulink/v2/open /piulink/v2/exchange /piulink/web /piulink/web.js /piulink/web/v1/host /piulink/web/v1/connect
+handle @piulink_invite {
+	reverse_proxy 127.0.0.1:5086 {
+		header_up X-PiuLink-Peer {http.request.remote.host}
+	}
+}

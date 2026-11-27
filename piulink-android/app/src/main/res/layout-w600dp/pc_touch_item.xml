@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/home_canvas"
+    android:foreground="?android:attr/selectableItemBackground"
+    android:clipToOutline="true"
+    android:gravity="center_vertical"
+    android:minHeight="112dp"
+    android:orientation="horizontal">
+    <ImageView
+        android:id="@+id/pcLunarCover"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/lunar_home_art_height"
+        android:layout_weight="1.3"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop"
+        android:src="@drawable/lunar_horizon" />
+    <include layout="@layout/view_lunar_host_details"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1" />
+</LinearLayout>

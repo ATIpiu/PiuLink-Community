@@ -1,0 +1,28 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/streamQuickDock"
+    android:layout_width="48dp"
+    android:layout_height="wrap_content"
+    android:layout_gravity="end|center_vertical"
+    android:layout_marginEnd="4dp"
+    android:orientation="vertical"
+    android:elevation="8dp"
+    android:background="@drawable/bg_lunar_stream_dock">
+    <ImageButton
+        android:id="@+id/quickStreamKeyboard"
+        style="@style/LunarDockAction"
+        android:src="@drawable/ic_stream_keyboard"
+        android:contentDescription="@string/shortcut_action_keyboard" />
+    <ImageButton
+        android:id="@+id/shortcutRailHandle"
+        style="@style/LunarDockAction"
+        android:src="@drawable/ic_shortcut_keys"
+        android:tooltipText="@string/shortcut_rail_open"
+        android:nextFocusLeft="@id/surfaceView"
+        android:contentDescription="@string/shortcut_rail_open" />
+    <ImageButton
+        android:id="@+id/quickStreamDisplay"
+        style="@style/LunarDockAction"
+        android:src="@drawable/ic_computer"
+        android:tooltipText="@string/screen_dock_help"
+        android:contentDescription="@string/screen_dock_help" />
+</LinearLayout>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="PiuLinkDialogTheme" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_dialog_surface</item>
+        <item name="android:colorAccent">@color/piulink_blue</item>
+        <item name="android:textColorPrimary">@color/piulink_text_primary</item>
+        <item name="android:textColorSecondary">@color/piulink_text_secondary</item>
+        <item name="android:textColorAlertDialogListItem">@color/piulink_text_primary</item>
+        <item name="android:selectableItemBackground">@drawable/bg_dialog_choice</item>
+        <item name="android:windowMinWidthMajor">68%</item>
+        <item name="android:windowMinWidthMinor">90%</item>
+        <item name="android:backgroundDimAmount">0.4</item>
+        <item name="android:buttonBarPositiveButtonStyle">@style/PiuLinkDialogPrimary</item>
+        <item name="android:buttonBarNegativeButtonStyle">@style/PiuLinkDialogSecondary</item>
+        <item name="android:buttonBarNeutralButtonStyle">@style/PiuLinkDialogSecondary</item>
+        <item name="android:windowAnimationStyle">@style/PiuLinkDialogAnimation</item>
+    </style>
+</resources>

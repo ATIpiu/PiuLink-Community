@@ -1,0 +1,23 @@
+<resources>
+    <string name="setup_progress">连接你的电脑 · %1$d / 3</string>
+    <string name="setup_guide_title">连接电脑指南</string>
+    <string name="setup_pc_title">先准备好电脑</string>
+    <string name="setup_pc_body">在 Windows 电脑上打开 PiuLink Host，并保持电脑唤醒。只要两台设备在同一个局域网，就能查找电脑。电脑也可以接网线。</string>
+    <string name="setup_pc_ready">设置外网连接</string>
+    <string name="setup_lan_discover">查找局域网内的电脑</string>
+    <string name="setup_ts_title">在外面也能连接</string>
+    <string name="setup_ts_body">手机和电脑都需要安装 Tailscale。两端登录同一个账号，或使用已向你授权共享这台电脑的网络。\n\n打开 Tailscale 连接开关，同意 Android 的 VPN 提示，再返回这里继续。如果正在使用其他 VPN，可能需要先切换到 Tailscale。</string>
+    <string name="setup_ts_installed">手机已安装 Tailscale。请在 Tailscale 内确认登录和连接状态；已安装不代表电脑已经可以连接。</string>
+    <string name="setup_ts_missing">这台手机尚未安装 Tailscale。</string>
+    <string name="setup_ts_install">从 Google Play 安装 Tailscale</string>
+    <string name="setup_ts_open">打开 Tailscale</string>
+    <string name="setup_ts_download">没有 Google Play？前往官方下载</string>
+    <string name="setup_ts_next">继续检查电脑连接</string>
+    <string name="setup_lan_skip">只在同一 Wi-Fi 使用，暂时跳过</string>
+    <string name="setup_pair_title">添加并配对电脑</string>
+    <string name="setup_pair_body">复制电脑的 Tailscale IP 地址或设备域名，填入「添加电脑」。PiuLink 会检查电脑是否响应。\n\n添加后点击电脑进行配对，将显示的 PIN 输入电脑端 PiuLink Host。配对成功后会自动保存。同一 Wi-Fi 下，也可以直接选择发现的电脑。</string>
+    <string name="setup_add_address">输入电脑地址</string>
+    <string name="setup_show_computers">查看已发现的电脑</string>
+    <string name="setup_previous">上一步</string>
+    <string name="setup_later">稍后继续</string>
+<string name="monitor_switch_physical">切换物理屏幕</string><string name="monitor_resolution_reconnect">选择当前屏幕及串流使用的分辨率和帧率。应用后会短暂断开并自动重新连接，电脑上的应用会保持运行。</string><string name="monitor_apply_reconnect">应用并重新连接</string></resources>

@@ -1,0 +1,219 @@
+diff --git a/src/nvenc/nvenc_base.cpp b/src/nvenc/nvenc_base.cpp
+index 5df54df4..49fa2398 100644
+--- a/src/nvenc/nvenc_base.cpp
++++ b/src/nvenc/nvenc_base.cpp
+@@ -98,17 +98,18 @@ namespace nvenc {
+   }
+ 
+   bool nvenc_base::reconfigure_bitrate(uint32_t kbps) {
++    if (!apply_bitrate(kbps)) return false;
+     content_rate_controller.set_ceiling(kbps);
+-    return apply_bitrate(kbps);
++    return true;
+   }
+ 
+   bool nvenc_base::set_content_adaptive_rate(bool enabled) {
+     const auto restore_kbps = content_rate_controller.ceiling_kbps();
+     content_rate_controller.set_enabled(enabled);
+-    content_adaptive_bitrate_update = saved_config.rcParams.averageBitRate / 1000;
+     if (!enabled && restore_kbps && saved_config.rcParams.averageBitRate / 1000 != restore_kbps) {
+-      return apply_bitrate(restore_kbps);
++      if (!apply_bitrate(restore_kbps)) return false;
+     }
++    content_adaptive_bitrate_update = saved_config.rcParams.averageBitRate / 1000;
+     BOOST_LOG(info) << "PiuLink content-adaptive encoding " << (enabled ? "enabled" : "disabled");
+     return true;
+   }
+diff --git a/src/nvhttp.cpp b/src/nvhttp.cpp
+index f9f7fed1..47b1d22a 100644
+--- a/src/nvhttp.cpp
++++ b/src/nvhttp.cpp
+@@ -623,15 +623,19 @@ namespace nvhttp {
+         sess.client.cert = util::from_hex_vec(get_arg(args, "clientcert"), true);
+ 
+         BOOST_LOG(debug) << sess.client.cert;
++        if (get_arg(args, "salt").size() != 32 || sess.client.cert.empty()) {
++          tree.put("root.<xmlattr>.status_code", 400);
++          return;
++        }
++        if (auto existing = map_id_sess.find(sess.client.uniqueID);
++            existing != map_id_sess.end() && existing->second.client.cert == sess.client.cert) {
++          map_id_sess.erase(existing);
++        }
+         if (!map_id_sess.empty()) {
+           tree.put("root.<xmlattr>.status_code", 409);
+           tree.put("root.<xmlattr>.status_message", "Another pairing request is pending");
+           return;
+         }
+-        if (get_arg(args, "salt").size() != 32 || sess.client.cert.empty()) {
+-          tree.put("root.<xmlattr>.status_code", 400);
+-          return;
+-        }
+         pairing_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(120);
+         auto ptr = map_id_sess.emplace(sess.client.uniqueID, std::move(sess)).first;
+ 
+@@ -714,6 +718,7 @@ namespace nvhttp {
+     if (sess.last_phase != PAIR_PHASE::NONE) return false;
+     getservercert(sess, tree, pin);
+     sess.client.name = name;
++    pairing_deadline = std::min(pairing_deadline, std::chrono::steady_clock::now() + std::chrono::seconds(15));
+ 
+     // response to the request for pin
+     std::ostringstream data;
+@@ -926,10 +931,17 @@ namespace nvhttp {
+   }
+ 
+   bool switch_live_capture(const std::string &id, const std::string &owner, const std::string &output) {
++    std::shared_ptr<video::live_capture_t> capture;
++    {
++      std::lock_guard lock {display_lease_mutex};
++      capture = active_capture.lock();
++      if (!capture || !display_lease_ready || id != display_lease_id || owner != display_lease_owner ||
++          rtsp_stream::session_count() != 1) return false;
++    }
++    if (!capture->select(output)) return false;
+     std::lock_guard lock {display_lease_mutex};
+-    auto capture = active_capture.lock();
+-    if (!capture || !display_lease_ready || id != display_lease_id || owner != display_lease_owner ||
+-        rtsp_stream::session_count() != 1 || !capture->select(output)) return false;
++    if (active_capture.lock() != capture || !display_lease_ready || id != display_lease_id ||
++        owner != display_lease_owner || rtsp_stream::session_count() != 1) return false;
+     display_lease_output = output;
+     persist_display_lease();
+     return true;
+diff --git a/src/stream.cpp b/src/stream.cpp
+index 5fc6d41d..1a434e01 100644
+--- a/src/stream.cpp
++++ b/src/stream.cpp
+@@ -6,6 +6,7 @@
+ // standard includes
+ #include <fstream>
+ #include <future>
++#include <mutex>
+ #include <queue>
+ 
+ // lib includes
+@@ -341,6 +342,7 @@ namespace stream {
+   };
+ 
+   namespace session { extern std::atomic_uint running_sessions; }
++  static std::mutex piulink_cursor_mutex;
+   struct session_t {
+     config_t config;
+     bool piulink_cursor_hidden = false;
+@@ -949,6 +951,7 @@ namespace stream {
+         }
+         session->mail->event<uint32_t>("piulink_bitrate")->raise(value);
+       } else if (operation == 2 && value <= 1) {
++        std::lock_guard lock {piulink_cursor_mutex};
+         if (session::running_sessions != 1) { send_piulink_ack(session, 2, 0); return; }
+         if (value == 1 && !session->piulink_cursor_hidden) session->piulink_previous_cursor = display_cursor;
+         if (value == 1) display_cursor = false;
+@@ -1151,15 +1154,22 @@ namespace stream {
+           if (!session->control.peer) {
+             has_session_awaiting_peer = true;
+           } else {
+-            if (session->piulink_cursor_hidden && session::running_sessions != 1) {
+-              session->piulink_cursor_hidden = false;
+-              display_cursor = session->piulink_previous_cursor;
+-              send_piulink_ack(session, 2, 0);
++            {
++              std::lock_guard lock {piulink_cursor_mutex};
++              if (session->piulink_cursor_hidden && session::running_sessions != 1) {
++                session->piulink_cursor_hidden = false;
++                display_cursor = session->piulink_previous_cursor;
++                send_piulink_ack(session, 2, 0);
++              }
+             }
+             auto bitrate_ack = session->mail->event<uint32_t>("piulink_bitrate_ack");
+-            if (bitrate_ack->peek()) send_piulink_ack(session, 1, *bitrate_ack->pop());
++            if (bitrate_ack->peek()) {
++              if (auto ack = bitrate_ack->pop()) send_piulink_ack(session, 1, *ack);
++            }
+             auto adaptive_ack = session->mail->event<uint32_t>("piulink_content_adaptive_ack");
+-            if (adaptive_ack->peek()) send_piulink_ack(session, 3, *adaptive_ack->pop());
++            if (adaptive_ack->peek()) {
++              if (auto ack = adaptive_ack->pop()) send_piulink_ack(session, 3, *ack);
++            }
+             auto &feedback_queue = session->control.feedback_queue;
+             while (feedback_queue->peek()) {
+               auto feedback_msg = feedback_queue->pop();
+@@ -1346,7 +1356,7 @@ namespace stream {
+     uint64_t diagnostic_udp_bytes = 0;
+     uint64_t diagnostic_send_failures = 0;
+ 
+-    while (!shutdown_event->peek()) {
++    while (!shutdown_event->peek() && packets->running()) {
+       auto packet = packets->pop(1s);
+       if (shutdown_event->peek()) {
+         break;
+@@ -1361,6 +1371,7 @@ namespace stream {
+         diagnostic_video_frames = diagnostic_udp_packets = diagnostic_udp_bytes = diagnostic_send_failures = 0;
+       }
+       if (!packet) {
++        if (!packets->running()) break;
+         continue;
+       }
+       ++diagnostic_video_frames;
+@@ -2012,7 +2023,13 @@ namespace stream {
+       // Reset input on session stop to avoid stuck repeated keys
+       BOOST_LOG(debug) << "Resetting Input..."sv;
+       input::reset(session.input);
+-      if (session.piulink_cursor_hidden) display_cursor = session.piulink_previous_cursor;
++      {
++        std::lock_guard lock {piulink_cursor_mutex};
++        if (session.piulink_cursor_hidden) {
++          display_cursor = session.piulink_previous_cursor;
++          session.piulink_cursor_hidden = false;
++        }
++      }
+ 
+       // If this is the last session, invoke the platform callbacks
+       if (--running_sessions == 0) {
+diff --git a/src/video.cpp b/src/video.cpp
+index dbb3ce11..e28c2297 100644
+--- a/src/video.cpp
++++ b/src/video.cpp
+@@ -1507,8 +1507,9 @@ namespace video {
+ 
+               // Process any pending display switch with the new list of displays
+               if (switch_display_event->peek()) {
+-                auto index = *switch_display_event->pop();
+-                if (!route) display_p = std::clamp(index, 0, (int) display_names.size() - 1);
++                if (auto index = switch_display_event->pop(); index && !route) {
++                  display_p = std::clamp(*index, 0, (int) display_names.size() - 1);
++                }
+               }
+ 
+               // reset_display() will sleep between retries
+@@ -2122,12 +2123,14 @@ namespace video {
+       }
+ 
+       if (live_bitrate->peek()) {
+-        auto requested = live_bitrate->pop();
+-        live_bitrate_ack->raise(session->reconfigure_bitrate(*requested) ? *requested : 0);
++        if (auto requested = live_bitrate->pop()) {
++          live_bitrate_ack->raise(session->reconfigure_bitrate(*requested) ? *requested : 0);
++        }
+       }
+       if (content_adaptive->peek()) {
+-        auto requested = content_adaptive->pop();
+-        content_adaptive_ack->raise(session->set_content_adaptive_rate(*requested != 0) ? (*requested + 1) : 0);
++        if (auto requested = content_adaptive->pop()) {
++          content_adaptive_ack->raise(session->set_content_adaptive_rate(*requested != 0) ? (*requested + 1) : 0);
++        }
+       }
+       bool requested_idr_frame = false;
+ 
+@@ -2355,8 +2358,9 @@ namespace video {
+ 
+       // Process any pending display switch with the new list of displays
+       if (switch_display_event->peek()) {
+-        auto index = *switch_display_event->pop();
+-        if (!route) display_p = std::clamp(index, 0, (int) display_names.size() - 1);
++        if (auto index = switch_display_event->pop(); index && !route) {
++          display_p = std::clamp(*index, 0, (int) display_names.size() - 1);
++        }
+       }
+ 
+       // reset_display() will sleep between retries

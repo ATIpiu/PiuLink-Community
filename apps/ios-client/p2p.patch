@@ -1,0 +1,221 @@
+diff --git a/Limelight/Network/DiscoveryManager.m b/Limelight/Network/DiscoveryManager.m
+index 49c4417..0b6a9ad 100644
+--- a/Limelight/Network/DiscoveryManager.m
++++ b/Limelight/Network/DiscoveryManager.m
+@@ -8,6 +8,11 @@
+ 
+ #import "DiscoveryManager.h"
+ #import "PiuLinkInvite.h"
++#if !TARGET_OS_TV
++#import <Mobile/Mobile.h>
++static MobileSession* directSession;
++static NSString* directHost;
++#endif
+ #import "CryptoManager.h"
+ #import "HttpManager.h"
+ #import "Utils.h"
+@@ -24,20 +29,55 @@
+ @implementation PiuLinkInvite
+ + (NSString*)storageKey:(NSString*)uuid { return [@"PiuLink.Invite." stringByAppendingString:uuid.lowercaseString]; }
+ + (NSString*)hostID:(NSString*)link {
+-    NSString* prefix = @"https://atipiu.org:8443/piulink/join#";
+-    if (![link hasPrefix:prefix] || link.length != prefix.length + 101) return nil;
++    NSURLComponents* url = [NSURLComponents componentsWithString:link];
++    if (![url.scheme isEqual:@"https"] || !url.host.length || url.user || url.password || url.query ||
++        ![url.percentEncodedPath isEqual:@"/piulink/join"] || url.percentEncodedFragment.length != 101) return nil;
++    NSString* prefix = [link substringToIndex:link.length - 101];
+     NSString* room = [link substringWithRange:NSMakeRange(prefix.length, 64)];
+     if ([room rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"].invertedSet].location != NSNotFound ||
+         [link characterAtIndex:prefix.length + 64] != '.') return nil;
+     return [[NSUUID alloc] initWithUUIDString:[link substringFromIndex:prefix.length + 65]].UUIDString;
+ }
+++ (NSString*)punch:(NSString*)link pin:(NSData*)pin errorText:(NSString**)message {
++#if !TARGET_OS_TV
++    NSString* uuid = [self hostID:link];
++    if (!uuid) return nil;
++    @synchronized (self) {
++        if ([directSession alive]) {
++            if ([link isEqual:directHost]) return @"127.0.0.1";
++            if (message) *message = @"Another Host is using the P2P connection.";
++            return nil;
++        }
++        [directSession stop];
++        NSError* error = nil;
++        directSession = MobileStartInvite(link, [CryptoManager readCertFromFile], [CryptoManager readKeyFromFile], pin, &error);
++        directHost = directSession ? [link copy] : nil;
++        if (!directSession && message) *message = error.localizedDescription;
++        return directSession ? @"127.0.0.1" : nil;
++    }
++#else
++    return nil;
++#endif
++}
+++ (void)closeForHost:(NSString*)uuid {
++#if !TARGET_OS_TV
++    @synchronized (self) {
++        if (uuid && directHost && [uuid caseInsensitiveCompare:[self hostID:directHost]] == NSOrderedSame) {
++            [directSession stop]; directSession = nil; directHost = nil;
++        }
++    }
++#endif
++}
+ - (void)URLSession:(NSURLSession*)session task:(NSURLSessionTask*)task willPerformHTTPRedirection:(NSHTTPURLResponse*)response
+           newRequest:(NSURLRequest*)request completionHandler:(void (^)(NSURLRequest*))completionHandler { completionHandler(nil); }
+ + (NSArray<NSString*>*)addresses:(NSString*)link errorText:(NSString**)message {
+     NSString* uuid = [self hostID:link];
+     if (!uuid) return @[];
+     NSString* room = [[link componentsSeparatedByString:@"#"].lastObject substringToIndex:64];
+-    NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"https://atipiu.org:8443/piulink/v1/resolve"]];
++    NSURLComponents* endpoint = [NSURLComponents componentsWithString:link];
++    endpoint.fragment = nil;
++    endpoint.path = @"/piulink/v1/resolve";
++    NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:endpoint.URL];
+     request.HTTPMethod = @"POST";
+     request.timeoutInterval = 5;
+     [request setValue:[@"Bearer " stringByAppendingString:room] forHTTPHeaderField:@"Authorization"];
+@@ -192,7 +232,6 @@
+     if (expected) {
+         NSString* error = nil;
+         NSArray* addresses = [PiuLinkInvite addresses:invitation errorText:&error];
+-        if (!addresses.count) { callback(nil, error); return; }
+         NSObject* lock = [NSObject new];
+         dispatch_semaphore_t ready = dispatch_semaphore_create(0);
+         __block NSString* winner;
+@@ -212,9 +251,18 @@
+                 }
+             });
+         }
+-        dispatch_semaphore_wait(ready, dispatch_time(DISPATCH_TIME_NOW, 8 * NSEC_PER_SEC));
++        if (addresses.count) dispatch_semaphore_wait(ready, dispatch_time(DISPATCH_TIME_NOW, 8 * NSEC_PER_SEC));
+         @synchronized (lock) { hostAddress = winner; serverInfoResponse = verified; }
+-        if (!hostAddress) { callback(nil, @"Host is registered, but no direct route is reachable."); return; }
++        if (!hostAddress) {
++            TemporaryHost* known = [self getHostInDiscovery:expected];
++            hostAddress = [PiuLinkInvite punch:invitation pin:known.serverCert errorText:&error];
++            if (hostAddress) serverInfoResponse = [self getServerInfoResponseForAddress:hostAddress];
++            NSString* found = [serverInfoResponse getStringTag:TAG_UNIQUE_ID];
++            if (!hostAddress || ![serverInfoResponse isStatusOk] || !found || [expected caseInsensitiveCompare:found] != NSOrderedSame) {
++                if (hostAddress) [PiuLinkInvite closeForHost:expected];
++                callback(nil, error ?: @"Could not verify the invited Host over P2P."); return;
++            }
++        }
+     }
+     if (hostAddress.length == 0 ||
+         [hostAddress rangeOfCharacterFromSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].location != NSNotFound ||
+@@ -398,6 +446,7 @@
+ }
+ 
+ - (void) removeHostFromDiscovery:(TemporaryHost *)host {
++    [PiuLinkInvite closeForHost:host.uuid];
+     if (host.uuid) [NSUserDefaults.standardUserDefaults removeObjectForKey:[PiuLinkInvite storageKey:host.uuid]];
+     @synchronized (_hostQueue) {
+         for (DiscoveryWorker* worker in [_opQueue operations]) {
+@@ -457,7 +506,7 @@
+ - (TemporaryHost*) getHostInDiscovery:(NSString*)uuidString {
+     @synchronized (_hostQueue) {
+         for (TemporaryHost* discoveredHost in _hostQueue) {
+-            if (discoveredHost.uuid.length > 0 && [discoveredHost.uuid isEqualToString:uuidString]) {
++            if (uuidString.length && discoveredHost.uuid.length && [discoveredHost.uuid caseInsensitiveCompare:uuidString] == NSOrderedSame) {
+                 return discoveredHost;
+             }
+         }
+diff --git a/Limelight/Network/DiscoveryWorker.m b/Limelight/Network/DiscoveryWorker.m
+index 8aadec2..bf6939a 100644
+--- a/Limelight/Network/DiscoveryWorker.m
++++ b/Limelight/Network/DiscoveryWorker.m
+@@ -88,9 +88,11 @@ static const float POLL_RATE = 2.0f; // Poll every 2 seconds
+ - (void) discoverHost {
+     BOOL receivedResponse = NO;
+     NSArray *addresses = [self getHostAddressList];
++    NSString* reconnectInvite = nil;
+     if (_host.state == StateOffline && _host.uuid && NSProcessInfo.processInfo.systemUptime >= _nextInviteLookup) {
+         NSString* invite = [NSUserDefaults.standardUserDefaults stringForKey:[PiuLinkInvite storageKey:_host.uuid]];
+         if (invite) {
++            if (_host.serverCert.length) reconnectInvite = invite;
+             _nextInviteLookup = NSProcessInfo.processInfo.systemUptime + 30;
+             NSArray* fresh = [PiuLinkInvite addresses:invite errorText:NULL];
+             addresses = [NSOrderedSet orderedSetWithArray:[fresh arrayByAddingObjectsFromArray:addresses]].array;
+@@ -129,6 +131,17 @@ static const float POLL_RATE = 2.0f; // Poll every 2 seconds
+         }
+     }
+ 
++    if (!receivedResponse && !self.cancelled && reconnectInvite) {
++        NSString* address = [PiuLinkInvite punch:reconnectInvite pin:_host.serverCert errorText:NULL];
++        if (address && !self.cancelled) {
++            ServerInfoResponse* info = [self requestInfoAtAddress:address cert:_host.serverCert];
++            if ((receivedResponse = [self checkResponse:info])) {
++                _host.activeAddress = address;
++                [info populateHost:_host];
++                [[[DataManager alloc] init] updateHost:_host];
++            }
++        }
++    }
+     _host.state = receivedResponse ? StateOnline : StateOffline;
+     if (receivedResponse) {
+         Log(LOG_D, @"Received response from: %@\n{\n\t address:%@ \n\t localAddress:%@ \n\t externalAddress:%@ \n\t ipv6Address:%@ \n\t uuid:%@ \n\t mac:%@ \n\t pairState:%d \n\t online:%d \n\t activeAddress:%@ \n}", _host.name, _host.address, _host.localAddress, _host.externalAddress, _host.ipv6Address, _host.uuid, _host.mac, _host.pairState, _host.state, _host.activeAddress);
+diff --git a/Limelight/Network/PiuLinkInvite.h b/Limelight/Network/PiuLinkInvite.h
+index c5d26ba..67cbccd 100644
+--- a/Limelight/Network/PiuLinkInvite.h
++++ b/Limelight/Network/PiuLinkInvite.h
+@@ -3,5 +3,7 @@
+ @interface PiuLinkInvite : NSObject <NSURLSessionTaskDelegate>
+ + (NSString*)hostID:(NSString*)link;
+ + (NSString*)storageKey:(NSString*)uuid;
+++ (NSString*)punch:(NSString*)link pin:(NSData*)pin errorText:(NSString**)message;
+++ (void)closeForHost:(NSString*)uuid;
+ + (NSArray<NSString*>*)addresses:(NSString*)link errorText:(NSString**)message;
+ @end
+diff --git a/Moonlight.xcodeproj/project.pbxproj b/Moonlight.xcodeproj/project.pbxproj
+index ab6bae6..d53f91b 100644
+--- a/Moonlight.xcodeproj/project.pbxproj
++++ b/Moonlight.xcodeproj/project.pbxproj
+@@ -7,6 +7,7 @@
+ 	objects = {
+ 
+ /* Begin PBXBuildFile section */
++		5049554C494E4B0000000001 /* Mobile.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5049554C494E4B0000000002 /* Mobile.xcframework */; };
+ 		693B3A9B218638CD00982F7B /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 693B3A9A218638CD00982F7B /* Settings.bundle */; };
+ 		98181BE92791277400E43572 /* libSDL2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 98181BE82791275D00E43572 /* libSDL2.a */; };
+ 		98181BEB2791278F00E43572 /* libSDL2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 98181BEA2791278300E43572 /* libSDL2.a */; };
+@@ -170,6 +171,7 @@
+ /* End PBXContainerItemProxy section */
+ 
+ /* Begin PBXFileReference section */
++		5049554C494E4B0000000002 /* Mobile.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Mobile.xcframework; sourceTree = SOURCE_ROOT; };
+ 		566E9D2B2770B23A00EF7BFE /* Moonlight v1.7.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "Moonlight v1.7.xcdatamodel"; sourceTree = "<group>"; };
+ 		693B3A9A218638CD00982F7B /* Settings.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = Settings.bundle; sourceTree = "<group>"; };
+ 		9803CCAB254F9EAF00EE185E /* ConnectionCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ConnectionCallbacks.h; sourceTree = "<group>"; };
+@@ -352,6 +354,7 @@
+ 				FB290CF419B2C406004C83CF /* CoreGraphics.framework in Frameworks */,
+ 				FB290CF819B2C406004C83CF /* CoreData.framework in Frameworks */,
+ 				98181BED2791281100E43572 /* CoreMotion.framework in Frameworks */,
++				5049554C494E4B0000000001 /* Mobile.xcframework in Frameworks */,
+ 				F74BEF9C2C1A705600224667 /* OpenSSL in Frameworks */,
+ 				98882A072AF60F7200C5A11C /* libavformat.a in Frameworks */,
+ 				FB290CF619B2C406004C83CF /* UIKit.framework in Frameworks */,
+@@ -432,6 +435,7 @@
+ 				FB1A67E921324DF300507771 /* libxml2.tbd */,
+ 				FB1A67E421324A1F00507771 /* CoreData.framework */,
+ 				9890CF6A203B7EE1006C4B06 /* libxml2.tbd */,
++				5049554C494E4B0000000002 /* Mobile.xcframework */,
+ 				FB4679001A57048000377732 /* CoreFoundation.framework */,
+ 				FB89468F19F6AFB800339C8A /* libs */,
+ 				FB290CF119B2C406004C83CF /* Foundation.framework */,
+@@ -1235,7 +1239,7 @@
+ 					"$(PROJECT_DIR)/libs/SDL2/lib/iOS-Sim",
+ 					"$(PROJECT_DIR)/libs/FFmpeg/lib/iOS-Sim",
+ 				);
+-				MARKETING_VERSION = 0.1.0;
++				MARKETING_VERSION = 0.1.1;
+ 				PRODUCT_BUNDLE_IDENTIFIER = labs.atipiu.piulink.ios;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				PROVISIONING_PROFILE = "";
+@@ -1285,7 +1289,7 @@
+ 					"$(PROJECT_DIR)/libs/SDL2/lib/iOS-Sim",
+ 					"$(PROJECT_DIR)/libs/FFmpeg/lib/iOS-Sim",
+ 				);
+-				MARKETING_VERSION = 0.1.0;
++				MARKETING_VERSION = 0.1.1;
+ 				PRODUCT_BUNDLE_IDENTIFIER = labs.atipiu.piulink.ios;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				PROVISIONING_PROFILE = "";

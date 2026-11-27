@@ -1,0 +1,3 @@
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false" android:color="#8C8D89" /><item android:color="@color/piulink_text_secondary" />
+</selector>

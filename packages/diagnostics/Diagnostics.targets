@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)DiagnosticUpload.cs" Link="Diagnostics/DiagnosticUpload.cs" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../services/diagnostics/events.txt" LogicalName="PiuLink.DiagnosticEvents" />
+  </ItemGroup>
+</Project>

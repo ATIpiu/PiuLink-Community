@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500" role="img" aria-labelledby="title description">
+  <title id="title">PiuLink Google Play feature graphic</title>
+  <desc id="description">PiuLink portal mark with the PiuLink name and PC streaming tagline.</desc>
+  <rect width="1024" height="500" fill="#050505" />
+  <path d="M 0 420 C 210 350 340 470 540 395 C 735 322 860 365 1024 305 V 500 H 0 Z" fill="#111111" />
+  <g transform="translate(64 86) scale(0.32)" fill="none" stroke="#FFFFFF" stroke-width="88" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 448 350 L 304 266 C 244 231 186 274 186 342 V 682 C 186 750 244 793 304 758 L 448 674 Z" />
+    <path d="M 576 350 L 720 266 C 780 231 838 274 838 342 V 682 C 838 750 780 793 720 758 L 576 674 Z" />
+  </g>
+  <path d="M 207.36 241.52 H 248.32 V 258.16 H 207.36 Z" fill="#FFFFFF" />
+  <rect x="390" y="112" width="2" height="276" rx="1" fill="#333333" />
+  <text x="454" y="236" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="88" font-weight="700" letter-spacing="-2">PiuLink</text>
+  <text x="458" y="292" fill="#CFCFCF" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="400">PC streaming, made yours.</text>
+</svg>

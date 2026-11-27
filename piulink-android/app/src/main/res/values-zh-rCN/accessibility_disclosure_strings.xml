@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_disclosure_title">启用键盘快捷键转发？</string>
+    <string name="accessibility_disclosure_intro">PiuLink 申请 Android 无障碍权限，仅用于转发通常会被 Android 系统处理的电脑快捷键。</string>
+    <string name="accessibility_disclosure_access_heading">PiuLink 可以访问什么</string>
+    <string name="accessibility_disclosure_access_body">当串流会话正在运行且已开启快捷键拦截时，PiuLink 可以接收硬件键盘按键，包括 Alt+Tab、Windows 键等系统快捷键。PiuLink 不会读取屏幕内容或无障碍事件。</string>
+    <string name="accessibility_disclosure_use_heading">按键会如何使用</string>
+    <string name="accessibility_disclosure_use_body">按键会直接发送到你选择的已配对电脑，以便该电脑响应。PiuLink 不会保存这些按键，也不会将其发送到 PiuLink 服务器。</string>
+    <string name="accessibility_disclosure_optional">该权限完全可选。不启用也可以串流，系统快捷键将继续由 Android 处理。</string>
+    <string name="accessibility_disclosure_continue">同意并继续</string>
+    <string name="accessibility_disclosure_not_now">暂不启用</string>
+</resources>

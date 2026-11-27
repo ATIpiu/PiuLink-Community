@@ -1,0 +1,23 @@
+<resources>
+    <string name="setup_progress">Connect your computer · %1$d / 3</string>
+    <string name="setup_guide_title">Computer connection guide</string>
+    <string name="setup_pc_title">Prepare your computer</string>
+    <string name="setup_pc_body">Open PiuLink Host on the Windows computer and keep it awake. You can find it when both devices are on the same local network, including Ethernet.</string>
+    <string name="setup_pc_ready">Set up access from another network</string>
+    <string name="setup_lan_discover">Find a computer on this network</string>
+    <string name="setup_ts_title">Connect from anywhere</string>
+    <string name="setup_ts_body">Install Tailscale on both your phone and computer. Sign in to the same account, or use a network where this computer is shared with you.\n\nTurn on Tailscale and approve its Android VPN request, then return here. If another VPN is active, you may need to switch to Tailscale.</string>
+    <string name="setup_ts_installed">Tailscale is installed. Its sign-in and connection status must be checked in Tailscale; installation alone does not mean the computer is reachable.</string>
+    <string name="setup_ts_missing">Tailscale is not installed on this phone.</string>
+    <string name="setup_ts_install">Install Tailscale from Google Play</string>
+    <string name="setup_ts_open">Open Tailscale</string>
+    <string name="setup_ts_download">No Google Play? Official download</string>
+    <string name="setup_ts_next">Continue to check my computer</string>
+    <string name="setup_lan_skip">Same Wi-Fi only — skip for now</string>
+    <string name="setup_pair_title">Add and pair your computer</string>
+    <string name="setup_pair_body">Copy the computer’s Tailscale IP address or device DNS name into Add computer. PiuLink will check whether the computer responds.\n\nThen select the computer to pair and enter the displayed PIN in PiuLink Host. Pairing is saved for future connections. On the same Wi-Fi, you can also choose a discovered computer.</string>
+    <string name="setup_add_address">Enter computer address</string>
+    <string name="setup_show_computers">View discovered computers</string>
+    <string name="setup_previous">Previous step</string>
+    <string name="setup_later">Continue later</string>
+<string name="monitor_switch_physical">Switch physical display</string><string name="monitor_resolution_reconnect">Choose the display and stream resolution and frame rate. Applying briefly disconnects and reconnects the stream. Apps on your PC keep running.</string><string name="monitor_apply_reconnect">Apply and reconnect</string></resources>

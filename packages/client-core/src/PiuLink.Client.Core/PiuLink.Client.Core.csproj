@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>PiuLink.Client.Core</AssemblyName>
+    <RootNamespace>PiuLink.Client.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PiuLink.Client.Core.Tests" />
+    <Compile Include="../../../rendezvous/HostInvite.cs" Link="Rendezvous/HostInvite.cs" />
+  </ItemGroup>
+</Project>

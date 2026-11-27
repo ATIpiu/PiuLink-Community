@@ -1,0 +1,43 @@
+--- a/server_http.hpp
++++ b/server_http.hpp
+@@ -319,8 +319,19 @@ namespace SimpleWeb {
+ 
+       void close() noexcept {
+         error_code ec;
+-        socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
++        if(timer) {
++          try {
++            timer->cancel();
++          }
++          catch(...) {
++          }
++        }
+         socket->lowest_layer().cancel(ec);
++        socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
++        // shutdown() does not release the native socket. In particular, Windows keeps a
++        // peer-closed TLS connection in CLOSE_WAIT until close() is called. Leaving these
++        // sockets around can eventually stall a single-threaded HTTPS server.
++        socket->lowest_layer().close(ec);
+       }
+ 
+       void set_timeout(long seconds) noexcept {
+@@ -799,13 +810,17 @@ namespace SimpleWeb {
+         response->send_on_delete([this, response](const error_code &ec) {
+           response->session->connection->cancel_timeout();
+           if(!ec) {
+-            if(response->close_connection_after_response)
++            if(response->close_connection_after_response) {
++              response->session->connection->close();
+               return;
++            }
+ 
+             auto range = response->session->request->header.equal_range("Connection");
+             for(auto it = range.first; it != range.second; it++) {
+-              if(case_insensitive_equal(it->second, "close"))
++              if(case_insensitive_equal(it->second, "close")) {
++                response->session->connection->close();
+                 return;
++              }
+               else if(case_insensitive_equal(it->second, "keep-alive")) {
+                 auto new_session = std::make_shared<Session>(this->config.max_request_streambuf_size, response->session->connection, std::move(response->session->request->streambuf));
+                 this->read(new_session);

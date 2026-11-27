@@ -1,0 +1,48 @@
+--- a/app/app.pro
++++ b/app/app.pro
+@@ -546,9 +546,9 @@
+     INSTALLS += target desktop icons appstream
+ }
+ win32 {
+-    RC_ICONS = moonlight.ico
+-    QMAKE_TARGET_COMPANY = Moonlight Game Streaming Project
+-    QMAKE_TARGET_DESCRIPTION = PiuLink Streaming Client
++    RC_ICONS = piulink.ico
++    QMAKE_TARGET_COMPANY = ATIPiu Labs
++    QMAKE_TARGET_DESCRIPTION = PiuLink
+     QMAKE_TARGET_PRODUCT = PiuLink
+ 
+     CONFIG -= embed_manifest_exe
+--- a/app/resources.qrc
++++ b/app/resources.qrc
+@@ -12,7 +12,7 @@
+         <file>res/settings.svg</file>
+         <file>res/arrow_left.svg</file>
+         <file>res/question_mark.svg</file>
+-        <file>res/moonlight.svg</file>
++        <file>res/piulink.svg</file>
+         <file>res/update.svg</file>
+         <file>res/baseline-help_outline-24px.svg</file>
+         <file>res/baseline-error_outline-24px.svg</file>
+--- a/app/main.cpp
++++ b/app/main.cpp
+@@ -666,7 +666,7 @@
+ #ifndef Q_OS_DARWIN
+     // Set the window icon except on macOS where we want to keep the
+     // modified macOS 11 style rounded corner icon.
+-    app.setWindowIcon(QIcon(":/res/moonlight.svg"));
++    app.setWindowIcon(QIcon(":/res/piulink.svg"));
+ #endif
+ 
+     // This is necessary to show our icon correctly on Wayland
+--- a/app/streaming/session.cpp
++++ b/app/streaming/session.cpp
+@@ -1884,7 +1884,7 @@
+ 
+     m_InputHandler->setWindow(m_Window);
+ 
+-    QSvgRenderer svgIconRenderer(QString(":/res/moonlight.svg"));
++    QSvgRenderer svgIconRenderer(QString(":/res/piulink.svg"));
+     QImage svgImage(ICON_SIZE, ICON_SIZE, QImage::Format_RGBA8888);
+     svgImage.fill(0);
+ 

@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="piulink_background">#101112</color>
+  <color name="piulink_surface">#18191A</color>
+  <color name="piulink_surface_secondary">#222325</color>
+  <color name="piulink_surface_pressed">#38393B</color>
+  <color name="piulink_text_primary">#F4F1EC</color>
+  <color name="piulink_text_secondary">#B8B7B3</color>
+  <color name="piulink_blue">#EBE8E2</color>
+  <color name="piulink_blue_pressed">#CECBC5</color>
+  <color name="piulink_blue_soft">#303133</color>
+  <color name="piulink_purple">#D1CCC5</color>
+  <color name="piulink_success">#AED69F</color>
+  <color name="piulink_warning">#F1CC94</color>
+  <color name="piulink_danger">#ECA49E</color>
+  <color name="piulink_divider">#353638</color>
+  <color name="piulink_focus">#E5E2DC</color>
+  <color name="piulink_on_accent">#18191A</color>
+  <color name="home_desktop_text">@color/piulink_on_accent</color>
+  <color name="piulink_overlay">#B3000000</color>
+  <color name="home_canvas">@color/piulink_background</color>
+  <color name="home_ink">@color/piulink_text_primary</color>
+  <color name="home_muted">@color/piulink_text_secondary</color>
+  <color name="home_line">@color/piulink_divider</color>
+  <color name="home_device_start">#242527</color>
+  <color name="home_device_end">#1C1D1E</color>
+  <color name="home_device_action">@color/piulink_blue</color>
+  <color name="home_device_online">@color/piulink_success</color>
+</resources>

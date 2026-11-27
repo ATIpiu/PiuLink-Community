@@ -1,0 +1,146 @@
+{
+  "win-suite": {
+    "version": "0.2.140",
+    "tag": "windows-0.2.140",
+    "name": "PiuLink-Windows-0.2.140-win-x64.exe",
+    "bytes": 125464733,
+    "sha256": "1d4df022493b5691d064fa4860e7e216299c8ef17b4823591616393b519d9d23",
+    "mapSha256": "18d43249bb022bb7b080abec9cd10bb3e8a397c2ef8db7951c281e4477964aab"
+  },
+  "win-client": {
+    "version": "0.2.37",
+    "tag": "updates-preview-2026.11.27",
+    "name": "PiuLink-Client-0.2.37-win-x64.msi",
+    "bytes": 89444908,
+    "sha256": "4ab0b0e1673641469396ff4533a118438d780c3c3d9d41b1e3458b1ab8d15e99",
+    "mapSha256": "a99afee640a3682e733c404b48c224dffbfc1e45abd968f356c67a56d87141e2"
+  },
+  "win-host": {
+    "version": "0.2.136",
+    "tag": "updates-preview-2026.11.27",
+    "name": "PiuLink-Host-0.2.136-win-x64-preview.msi",
+    "bytes": 99835851,
+    "sha256": "295722b4da0e477fc0405f752ba880d1a5251e5a0a6d97f80242fa051e917b48",
+    "mapSha256": "b95bf41a5e5ebd8bf619d2d5b3dc52573e319a50c6aa866bc021619cd62c3e0d"
+  },
+  "android-client": {
+    "version": "0.3.225",
+    "tag": "android-0.3.225",
+    "name": "PiuLink-Android-0.3.225-nonRoot-universal-release.apk",
+    "bytes": 58122234,
+    "sha256": "e7a7f02d12d900bb7dd54e4000ec941bf96f3e9371d179a0ef84a5db9a499dcf",
+    "mapSha256": "61dccef8d5535b71c2b8c9f550d22543fa587e1dfb73fe6bce7c2d3af6f417de"
+  },
+  "android-arm64": {
+    "version": "0.3.225",
+    "tag": "android-0.3.225",
+    "name": "PiuLink-Android-0.3.225-nonRoot-arm64-v8a-release.apk",
+    "bytes": 17667563,
+    "sha256": "c67c1e3d7d6c9306a5a1fe95fd51446c9bd1921a5d5dfb89c4644a88082de638",
+    "mapSha256": "f6db72ef507ddba609198d6edf4910e81d7af9a92015a830a6e191852ef45f57"
+  },
+  "mac-arm64": {
+    "version": "0.1.12",
+    "tag": "unix-harmony-updates-2026.11.27",
+    "name": "PiuLink-Mac-0.1.12-osx-arm64-unsigned.zip",
+    "bytes": 46930148,
+    "sha256": "d0bbb5bd99debc84a2459b02c35098e3bd4e93e7ce0492822328d1833193f54d",
+    "mapSha256": "952e81305833012814ffd91042a57248be0c60e934c447e72c33e39c7e0043ec"
+  },
+  "mac-x64": {
+    "version": "0.1.12",
+    "tag": "unix-harmony-updates-2026.11.27",
+    "name": "PiuLink-Mac-0.1.12-osx-x64-unsigned.zip",
+    "bytes": 49000041,
+    "sha256": "edfbca98d12db8ae34cc9586176b53a26011c27cac7e67acf8f5eee0d470254b",
+    "mapSha256": "8e83f412cdd70092b140c44fa3acc36f67b54d0ec4b980f88fd935d4cc8b95da"
+  },
+  "mac-universal": {
+    "version": "0.1.12",
+    "tag": "unix-harmony-updates-2026.11.27",
+    "name": "PiuLink-Mac-0.1.12-universal-unsigned.zip",
+    "bytes": 93851162,
+    "sha256": "696099a6d8cc383618e167c7abd3372f54853986fad9585231177801ee5cbe11",
+    "mapSha256": "faddf10ff9584384094fa8e77dc4440cc83648797c89558da80891f34f5044a3"
+  },
+  "ios-client": {
+    "version": "0.1.4",
+    "tag": "mobile-preview-2026.11.27",
+    "name": "PiuLink-iOS-0.1.4-arm64-unsigned.ipa",
+    "bytes": 7044329,
+    "sha256": "d70bb42ed69cb4818b6f85014181c3ec86da0e57ebc7cd22d2ccdba8641c9fb8",
+    "mapSha256": "861d7e097875da5f4ccb446d63c7dd8ef32fb902cc8caa3dd1afc5eb49f8afc8"
+  },
+  "linux-x64": {
+    "version": "0.1.12",
+    "tag": "unix-harmony-updates-2026.11.27",
+    "name": "piulink-client_0.1.12-1_amd64.deb",
+    "bytes": 36764216,
+    "sha256": "041a3e1079931d3ce70d813a1ac005e29a10ab85c9ff95a39abaf3bd5dc4da5d",
+    "mapSha256": "30fbe5ce422ff7b52b5693b15f8a6acc65cdd2e6441cc118b51ec0ca7b031265"
+  },
+  "linux-x64-portable": {
+    "version": "0.1.12",
+    "tag": "unix-harmony-updates-2026.11.27",
+    "name": "PiuLink-Client-0.1.12-linux-x64.tar.gz",
+    "bytes": 44535978,
+    "sha256": "be401272a9918031746738efe9af815f2534036bfe453d94bf0d4be67f49a894",
+    "mapSha256": "1b7b22aff31b13fd6c1c2f288e95fb8ef776903e0525b50c2809b6b57e467b19"
+  },
+  "linux-arm64": {
+    "version": "0.1.12",
+    "tag": "unix-harmony-updates-2026.11.27",
+    "name": "piulink-client_0.1.12-1_arm64.deb",
+    "bytes": 33409432,
+    "sha256": "c437a9393fd72b403e413f33391dca95bb7ba74f496d82adfbfef2e615246e1d",
+    "mapSha256": "a969371752642c8241dac308fa2f1da06ce53255f717b0692b770dd93c2a0973"
+  },
+  "linux-arm64-portable": {
+    "version": "0.1.12",
+    "tag": "unix-harmony-updates-2026.11.27",
+    "name": "PiuLink-Client-0.1.12-linux-arm64.tar.gz",
+    "bytes": 42137107,
+    "sha256": "24718dbb1b15bb9cfdc989c25753a5fef00b61caf69d9d0b0a7d83b9aa770ede",
+    "mapSha256": "780d58c79a3be7a2e9df51325434f740106ebb0011cdbbe8d959f688b9dc9a0d"
+  },
+  "linux-host": {
+    "version": "0.1.9",
+    "tag": "unix-harmony-updates-2026.11.27",
+    "name": "piulink-host_0.1.9-1_amd64.deb",
+    "bytes": 3608784,
+    "sha256": "74bae8045f2495c86abac9b6a568430d1c96aab0c8e8dec0fc98185245961844",
+    "mapSha256": "9be14acc5b5d0061efb1ad4eeaaf59f2c7907323fd2970d6a3c826811b6e0828"
+  },
+  "linux-host-portable": {
+    "version": "0.1.9",
+    "tag": "unix-harmony-updates-2026.11.27",
+    "name": "PiuLink-Host-0.1.9-ubuntu26.04-x64.tar.gz",
+    "bytes": 4244653,
+    "sha256": "6be8dab9ff50984bb372d9bdade9bd2fe969ce04c04305c135c566b1ff1296c0",
+    "mapSha256": "46b7616422c2b2a6bbc91f70b8deb276438e8c8d6a93ff477554e31dceba6a96"
+  },
+  "linux-universal": {
+    "version": "0.1.12",
+    "tag": "unix-harmony-updates-2026.11.27",
+    "name": "PiuLink-Client-0.1.12-linux-universal.tar.gz",
+    "bytes": 86671149,
+    "sha256": "05b2e1688e8fd42a22dca0be918303a8b09e7ecc2ed205de1e9ff8502a53fea1",
+    "mapSha256": "dff2a8bc376502d228b2bc0c5b2db908fa1f853d4fe9ff2d556d5828f17b95d2"
+  },
+  "harmony-client": {
+    "version": "0.1.5",
+    "tag": "harmony-0.1.5",
+    "name": "PiuLink-HarmonyOS-0.1.5-unsigned.hap",
+    "bytes": 36636788,
+    "sha256": "d4150d47726caac45f83d7edf55975497f14ffcc9a5f4306d1347b86851cb74c",
+    "mapSha256": "ddf7f11ded006222aee806d49da2c8b5daf83c515b82332a51cc43baf5021666"
+  },
+  "linux-suite": {
+    "version": "0.1.0",
+    "tag": "linux-suite-0.1.0",
+    "name": "piulink-suite_0.1.0-1_amd64.deb",
+    "bytes": 36868336,
+    "sha256": "4101cc0dbd8973aeea72a22a54648d34887069bf5e66ef4fe42aea894ceaf7e5",
+    "mapSha256": "fbc4aa895f72b7cd380bbb0b82ea34d3a43cd30f82b3a99828e65385db69518d"
+  }
+}

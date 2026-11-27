@@ -1,0 +1,266 @@
+--- a/Limelight/Network/ServerInfoResponse.h
++++ b/Limelight/Network/ServerInfoResponse.h
+@@ -25,6 +25,7 @@
+ @interface ServerInfoResponse : HttpResponse <Response>
+ 
+ - (void) populateWithData:(NSData *)data;
++@property (nonatomic) BOOL authenticated;
+ - (void) populateHost:(TemporaryHost*)host;
+ 
+ @end
+--- a/Limelight/Network/ServerInfoResponse.m
++++ b/Limelight/Network/ServerInfoResponse.m
+@@ -15,6 +15,11 @@
+ - (void) populateWithData:(NSData *)xml {
+     self.data = xml;
+     [super parseData];
++}
++
++- (NSString*) getStringTag:(NSString*)tag {
++    if (!self.authenticated && [tag isEqualToString:TAG_PAIR_STATUS]) return @"0";
++    return [super getStringTag:tag];
+ }
+ 
+ - (void) populateHost:(TemporaryHost*)host {
+--- a/Limelight/Network/PairManager.m
++++ b/Limelight/Network/PairManager.m
+@@ -40,7 +40,7 @@
+     if ([serverInfoResp isStatusOk]) {
+         if (![[serverInfoResp getStringTag:@"PairStatus"] isEqual:@"1"]) {
+             NSString* appversion = [serverInfoResp getStringTag:@"appversion"];
+-            if (appversion == nil) {
++            if (appversion.length == 0) {
+                 [_callback pairFailed:@"Missing XML element"];
+                 return;
+             }            
+@@ -92,7 +92,6 @@
+     NSData* salt = [Utils randomBytes:16];
+     NSData* saltedPIN = [self concatData:salt with:[PIN dataUsingEncoding:NSUTF8StringEncoding]];
+ 
+-    Log(LOG_I, @"PIN: %@, salt %@", PIN, salt);
+     
+     HttpResponse* pairResp = [[HttpResponse alloc] init];
+     [_httpManager executeRequestSynchronously:[HttpRequest requestForResponse:pairResp withUrlRequest:[_httpManager newPairRequest:salt clientCert:_clientCert]]];
+@@ -115,6 +114,10 @@
+     
+     // Pin the cert for TLS usage on this host
+     NSData* derCertBytes = [CryptoManager pemToDer:[Utils hexToBytes:plainCert]];
++    if (derCertBytes.length == 0) {
++        [self finishPairing:bgId forResponse:pairResp withFallbackError:@"Invalid pairing response"];
++        return;
++    }
+     [_httpManager setServerCert:derCertBytes];
+     
+     CryptoManager* cryptoMan = [[CryptoManager alloc] init];
+@@ -142,8 +145,16 @@
+     }
+     
+     NSData* encServerChallengeResp = [Utils hexToBytes:[challengeResp getStringTag:@"challengeresponse"]];
++    if (!encServerChallengeResp.length || encServerChallengeResp.length % 16 != 0) {
++        [self finishPairing:bgId forResponse:challengeResp withFallbackError:@"Invalid pairing challenge"];
++        return;
++    }
+     NSData* decServerChallengeResp = [cryptoMan aesDecrypt:encServerChallengeResp withKey:aesKey];
+     
++    if (decServerChallengeResp.length < (NSUInteger)hashLength + 16) {
++        [self finishPairing:bgId forResponse:challengeResp withFallbackError:@"Invalid pairing response"];
++        return;
++    }
+     NSData* serverResponse = [decServerChallengeResp subdataWithRange:NSMakeRange(0, hashLength)];
+     NSData* serverChallenge = [decServerChallengeResp subdataWithRange:NSMakeRange(hashLength, 16)];
+     
+@@ -171,6 +182,10 @@
+     }
+     
+     NSData* serverSecretResp = [Utils hexToBytes:[secretResp getStringTag:@"pairingsecret"]];
++    if (serverSecretResp.length <= 16) {
++        [self finishPairing:bgId forResponse:secretResp withFallbackError:@"Invalid pairing response"];
++        return;
++    }
+     NSData* serverSecret = [serverSecretResp subdataWithRange:NSMakeRange(0, 16)];
+     NSData* serverSignature = [serverSecretResp subdataWithRange:NSMakeRange(16, serverSecretResp.length - 16)];
+     
+--- a/Limelight/Network/HttpManager.m
++++ b/Limelight/Network/HttpManager.m
+@@ -21,6 +21,41 @@
+ #define NORMAL_TIMEOUT_SEC 5
+ #define LONG_TIMEOUT_SEC 60
+ #define EXTRA_LONG_TIMEOUT_SEC 180
++
++// One serial delegate per request keeps concurrent discovery and pairing independent.
++@interface PLHostReply : NSObject <NSURLSessionDataDelegate>
++@property (nonatomic, strong) HttpManager *manager;
++@property (nonatomic, strong) NSMutableData *data;
++@property (nonatomic, strong) NSError *error;
++@property (nonatomic) NSUInteger limit;
++@property (nonatomic, strong) dispatch_semaphore_t done;
++@end
++
++@implementation PLHostReply
++- (void)URLSession:(NSURLSession *)session didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
++ completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential *))completion {
++    [self.manager URLSession:session didReceiveChallenge:challenge completionHandler:completion];
++}
++- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task
++ willPerformHTTPRedirection:(NSHTTPURLResponse *)response newRequest:(NSURLRequest *)request
++ completionHandler:(void (^)(NSURLRequest *))completion {
++    self.error = [NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorHTTPTooManyRedirects userInfo:nil];
++    completion(nil);
++}
++- (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)task didReceiveData:(NSData *)chunk {
++    if (self.error) return;
++    if (chunk.length > self.limit - self.data.length) {
++        self.error = [NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorDataLengthExceedsMaximum userInfo:nil];
++        [task cancel];
++        return;
++    }
++    [self.data appendData:chunk];
++}
++- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
++    if (!self.error) self.error = error;
++    dispatch_semaphore_signal(self.done);
++}
++@end
+ 
+ @implementation HttpManager {
+     NSString* _urlSafeHostName;
+@@ -116,38 +151,27 @@
+         return;
+     }
+ 
+-    __block NSData* requestResp = nil;
+-    __block NSError* respError = nil;
+-    __block dispatch_semaphore_t requestLock = dispatch_semaphore_create(0);
+-    
+-    Log(LOG_D, @"Making Request: %@", request);
+-    NSURLSession* urlSession = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration ephemeralSessionConfiguration] delegate:self delegateQueue:nil];
+-    [[urlSession dataTaskWithRequest:request.request completionHandler:^(NSData * __nullable data, NSURLResponse * __nullable response, NSError * __nullable error) {
+-        
+-        if (error != NULL) {
+-            Log(LOG_D, @"Connection error: %@", error);
+-            respError = error;
+-        }
+-        else {
+-            Log(LOG_D, @"Received response: %@", response);
+-
+-            if (data != NULL) {
+-                Log(LOG_D, @"\n\nReceived data: %@\n\n", [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+-                if ([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] != nil) {
+-                    requestResp = [HttpManager fixXmlVersion:data];
+-                } else {
+-                    requestResp = data;
+-                }
+-            }
+-        }
+-        
+-        dispatch_semaphore_signal(requestLock);
+-    }] resume];
+-    
+-    dispatch_semaphore_wait(requestLock, DISPATCH_TIME_FOREVER);
+-    [urlSession invalidateAndCancel];
+-    
++    PLHostReply *reply = [[PLHostReply alloc] init];
++    reply.manager = self;
++    reply.done = dispatch_semaphore_create(0);
++    reply.data = [NSMutableData data];
++    NSString *operation = request.request.URL.lastPathComponent;
++    reply.limit = [operation isEqualToString:@"appasset"] ? 16 * 1024 * 1024 :
++                  [operation isEqualToString:@"applist"] ? 4 * 1024 * 1024 : 128 * 1024;
++    NSURLSessionConfiguration *config = [NSURLSessionConfiguration ephemeralSessionConfiguration];
++    config.timeoutIntervalForResource = request.request.timeoutInterval;
++    NSURLSession *urlSession = [NSURLSession sessionWithConfiguration:config delegate:reply delegateQueue:nil];
++    [[urlSession dataTaskWithRequest:request.request] resume];
++    dispatch_semaphore_wait(reply.done, DISPATCH_TIME_FOREVER);
++    [urlSession finishTasksAndInvalidate];
++    NSError *respError = reply.error;
++    NSData *requestResp = [operation isEqualToString:@"appasset"] ? reply.data : [HttpManager fixXmlVersion:reply.data];
++
+     if (!respError && request.response) {
++        if ([(NSObject *)request.response isKindOfClass:[ServerInfoResponse class]]) {
++            ((ServerInfoResponse *)request.response).authenticated =
++                _serverCert.length > 0 && [request.request.URL.scheme isEqualToString:@"https"];
++        }
+         [request.response populateWithData:requestResp];
+         
+         // If the fallback error code was detected, issue the fallback request
+@@ -159,7 +183,7 @@
+             [self executeRequestSynchronously:request];
+         }
+     }
+-    else if (respError && [respError code] == NSURLErrorServerCertificateUntrusted) {
++    else if (request.fallbackRequest && ([respError code] == NSURLErrorServerCertificateUntrusted || [respError code] == NSURLErrorUserCancelledAuthentication)) {
+         // We must have a pinned cert for HTTPS. If we fail, it must be due to
+         // a non-matching cert, not because we had no cert at all.
+         assert(_serverCert != nil);
+@@ -281,7 +305,6 @@
+                            config.gamepadMask, config.gamepadMask,
+                            !config.multiController ? 1 : 0,
+                            LiGetLaunchUrlQueryParameters()];
+-    Log(LOG_I, @"Requesting: %@", urlString);
+     // This blocks while the app is launching
+     return [self createRequestFromString:urlString timeout:LONG_TIMEOUT_SEC];
+ }
+@@ -350,38 +373,16 @@
+ }
+ 
+ - (void)URLSession:(NSURLSession *)session didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(nonnull void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential * __nullable))completionHandler {
+-    // Allow untrusted server certificates
+-    if([challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust])
+-    {
+-        if (SecTrustGetCertificateCount(challenge.protectionSpace.serverTrust) != 1) {
+-            Log(LOG_E, @"Server certificate count mismatch");
+-            completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, NULL);
++    if ([challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
++        SecTrustRef trust = challenge.protectionSpace.serverTrust;
++        SecCertificateRef leaf = trust && SecTrustGetCertificateCount(trust) > 0 ?
++            SecTrustGetCertificateAtIndex(trust, 0) : NULL;
++        NSData *actual = leaf ? CFBridgingRelease(SecCertificateCopyData(leaf)) : nil;
++        if (!_serverCert.length || ![actual isEqualToData:_serverCert]) {
++            completionHandler(NSURLSessionAuthChallengeCancelAuthenticationChallenge, nil);
+             return;
+         }
+-        
+-        SecCertificateRef actualCert = SecTrustGetCertificateAtIndex(challenge.protectionSpace.serverTrust, 0);
+-        if (actualCert == nil) {
+-            Log(LOG_E, @"Server certificate parsing error");
+-            completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, NULL);
+-            return;
+-        }
+-        
+-        CFDataRef actualCertData = SecCertificateCopyData(actualCert);
+-        if (actualCertData == nil) {
+-            Log(LOG_E, @"Server certificate data parsing error");
+-            completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, NULL);
+-            return;
+-        }
+-        
+-        if (!CFEqual(actualCertData, (__bridge CFDataRef)_serverCert)) {
+-            Log(LOG_E, @"Server certificate mismatch");
+-            CFRelease(actualCertData);
+-            completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, NULL);
+-            return;
+-        }
+-        
+-        CFRelease(actualCertData);
+-        
++
+         // Allow TLS handshake to proceed
+         completionHandler(NSURLSessionAuthChallengeUseCredential,
+                           [NSURLCredential credentialForTrust: challenge.protectionSpace.serverTrust]);
+--- a/Limelight/Crypto/CryptoManager.m
++++ b/Limelight/Crypto/CryptoManager.m
+@@ -94,8 +94,13 @@
+     x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+     BIO_free(bio);
+     
++    if (!x509) return nil;
+     bio = BIO_new(BIO_s_mem());
+-    i2d_X509_bio(bio, x509);
++    if (!bio || i2d_X509_bio(bio, x509) != 1) {
++        BIO_free(bio);
++        X509_free(x509);
++        return nil;
++    }
+     X509_free(x509);
+ 
+     BUF_MEM* mem;

@@ -1,0 +1,23 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Id="ATIPiuLabs.PiuLink.Client" Name="PiuLink Client" Manufacturer="ATIPiu Labs"
+           Version="$(var.ClientVersion)" Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of PiuLink Client is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="CompanyFolder" Name="ATIPiu Labs">
+        <Directory Id="INSTALLFOLDER" Name="PiuLink Client">
+          <Files Include="$(var.PublishDir)\**" />
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ClientMenuFolder" Name="PiuLink Client">
+        <Component Id="ClientMenuShortcut" Guid="C648D26D-C985-4AD6-AEA9-91CDE9720C78">
+          <Shortcut Id="ClientShortcut" Name="PiuLink Client" Target="[INSTALLFOLDER]PiuLink.Client.exe" WorkingDirectory="INSTALLFOLDER" />
+          <RemoveFolder Id="RemoveClientMenu" On="uninstall" />
+          <RegistryValue Root="HKCU" Key="Software\ATIPiu Labs\PiuLink Client" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+  </Package>
+</Wix>

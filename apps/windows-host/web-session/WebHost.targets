@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <WebHostBinary>$(MSBuildThisFileDirectory)../../../work/web-host-build/piulink-web-host.exe</WebHostBinary>
+    <WebHostSource>$(MSBuildThisFileDirectory)</WebHostSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <WebHostInput Include="$(WebHostSource)*.go;$(WebHostSource)go.mod;$(WebHostSource)go.sum"/>
+    <Content Include="$(WebHostBinary)" Link="piulink-web-host.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"/>
+    <Content Include="$(WebHostSource)THIRD-PARTY.txt" Link="third_party/web-host/LICENSES.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"/>
+  </ItemGroup>
+  <Target Name="BuildBrowserHost" BeforeTargets="PrepareForBuild" Inputs="@(WebHostInput);$(MSBuildThisFileFullPath)" Outputs="$(WebHostBinary)">
+    <MakeDir Directories="$(MSBuildThisFileDirectory)../../../work/web-host-build"/>
+    <Exec WorkingDirectory="$(WebHostSource)" EnvironmentVariables="GOOS=windows;GOARCH=amd64;CGO_ENABLED=0"
+          Command="go build -trimpath -buildvcs=false -ldflags=&quot;-s -w&quot; -o &quot;$(WebHostBinary)&quot; ."/>
+  </Target>
+</Project>

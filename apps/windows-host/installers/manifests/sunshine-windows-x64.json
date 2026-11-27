@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "LizardByte.Sunshine",
+  "version": "2026.516.143833",
+  "architecture": "x64",
+  "fileName": "Sunshine-Windows-AMD64-installer.msi",
+  "downloadUri": "https://github.com/LizardByte/Sunshine/releases/download/v2026.516.143833/Sunshine-Windows-AMD64-installer.msi",
+  "sha256": "E7208B11A4AB9DD89871133A054BBB8DC55DFBBA408227B0ECCAB22C60B273A2",
+  "expectedSignerSubject": "CN=David Lane, O=David Lane, L=KISSIMMEE, S=Florida, C=US",
+  "expectedSignerThumbprint": "A7269D36C49502D162A7E6FB88C30819DDB03F01",
+  "licenseExpression": "GPL-3.0-only",
+  "licenseFileName": "Sunshine-GPL-3.0.txt",
+  "licenseSha256": "3972DC9744F6499F0F9B2DBF76696F2AE7AD8AF9B23DDE66D6AF86C9DFB36986",
+  "licenseUri": "https://github.com/LizardByte/Sunshine/blob/v2026.516.143833/LICENSE",
+  "sourceTag": "v2026.516.143833",
+  "sourceCommit": "14ffa6fdaa53f7b51512be2b3d24f3939695403c",
+  "sourceUri": "https://github.com/LizardByte/Sunshine/tree/v2026.516.143833"
+}

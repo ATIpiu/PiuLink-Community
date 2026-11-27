@@ -1,0 +1,22 @@
+<Project Sdk="WixToolset.Sdk/6.0.0">
+  <PropertyGroup>
+    <OutputType>Bundle</OutputType>
+    <Platform>x64</Platform>
+    <DefaultCompressionLevel Condition="'$(HostCacheId)' != ''">none</DefaultCompressionLevel>
+    <OutputName>PiuLink-Windows-$(SuiteVersion)-win-x64</OutputName>
+    <DefineConstants>SuiteVersion=$(SuiteVersion);HostMsi=$(HostMsi);ClientMsi=$(ClientMsi)</DefineConstants>
+    <DefineConstants Condition="'$(HostCacheId)' != ''">$(DefineConstants);HostCacheId=$(HostCacheId);ClientCacheId=$(ClientCacheId)</DefineConstants>
+    <CMakeExe Condition="'$(CMakeExe)' == ''">cmake</CMakeExe>
+    <ResumeBuildDir Condition="'$(ResumeBuildDir)' == ''">$(MSBuildProjectDirectory)/obj/resume-x64</ResumeBuildDir>
+    <DefineConstants>$(DefineConstants);ResumeDll=$(ResumeBuildDir)/Release/PiuLinkSuiteResume.dll</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageDownload Include="WixToolset.WixStandardBootstrapperApplicationFunctionApi" Version="[6.0.0]" />
+    <PackageDownload Include="WixToolset.BootstrapperApplicationApi" Version="[6.0.0]" />
+    <PackageReference Include="WixToolset.Bal.wixext" Version="6.0.0" />
+  </ItemGroup>
+  <Target Name="BuildSuiteResume" BeforeTargets="BeforeBuild">
+    <Exec Command="&quot;$(CMakeExe)&quot; -S &quot;$(MSBuildProjectDirectory)/resume&quot; -B &quot;$(ResumeBuildDir)&quot; -G &quot;Visual Studio 17 2022&quot; -A x64 &quot;-DWIX_PACKAGES=$([System.IO.Path]::GetFullPath('$(NuGetPackageRoot)').TrimEnd('\'))&quot;" />
+    <Exec Command="&quot;$(CMakeExe)&quot; --build &quot;$(ResumeBuildDir)&quot; --config Release --target PiuLinkSuiteResume" />
+  </Target>
+</Project>

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "fallback": "en-US",
+  "systemOption": "system",
+  "languages": [
+    { "code": "en-US", "android": "en", "windows": "en-US", "name": "English" },
+    { "code": "zh-CN", "android": "zh-CN", "windows": "zh-CN", "name": "中文（简体）" },
+    { "code": "zh-TW", "android": "zh-TW", "windows": "zh-TW", "name": "繁體中文" },
+    { "code": "ru-RU", "android": "ru", "windows": "ru-RU", "name": "Русский" },
+    { "code": "es-419", "android": "es", "windows": "es-419", "name": "Español" },
+    { "code": "pt-BR", "android": "pt-BR", "windows": "pt-BR", "name": "Português (Brasil)" },
+    { "code": "de-DE", "android": "de", "windows": "de-DE", "name": "Deutsch" },
+    { "code": "ja-JP", "android": "ja", "windows": "ja-JP", "name": "日本語" },
+    { "code": "fr-FR", "android": "fr", "windows": "fr-FR", "name": "Français" },
+    { "code": "pl-PL", "android": "pl", "windows": "pl-PL", "name": "Polski" },
+    { "code": "ko-KR", "android": "ko", "windows": "ko-KR", "name": "한국어" },
+    { "code": "tr-TR", "android": "tr", "windows": "tr-TR", "name": "Türkçe" }
+  ]
+}

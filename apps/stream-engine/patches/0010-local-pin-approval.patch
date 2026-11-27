@@ -1,0 +1,146 @@
+diff --git a/src/nvhttp.cpp b/src/nvhttp.cpp
+index ea7cfa3..ab8bcfb 100644
+--- a/src/nvhttp.cpp
++++ b/src/nvhttp.cpp
+@@ -53,28 +53,6 @@ namespace nvhttp {
+ 
+   crypto::cert_chain_t cert_chain;
+ 
+-  static bool is_tailnet_address(const boost::asio::ip::address &address) {
+-    auto normalized = net::normalize_address(address);
+-    if (normalized.is_v4()) {
+-      static const auto tailnet_v4 = boost::asio::ip::make_network_v4("100.64.0.0/10"sv);
+-      return tailnet_v4.hosts().find(normalized.to_v4()) != tailnet_v4.hosts().end();
+-    }
+-
+-    // Tailscale's stable IPv6 allocation prefix. Link-local and other ULA addresses remain LAN.
+-    static const auto tailnet_v6 = boost::asio::ip::make_network_v6("fd7a:115c:a1e0::/48"sv);
+-    return tailnet_v6.hosts().find(normalized.to_v6()) != tailnet_v6.hosts().end();
+-  }
+-
+-  static bool trusted_auto_pair_enabled(const boost::asio::ip::address &address) {
+-    if (is_tailnet_address(address)) {
+-      return config::nvhttp.piulink_auto_pair_tailnet;
+-    }
+-
+-    const auto scope = net::from_address(net::addr_to_normalized_string(address));
+-    return config::nvhttp.piulink_auto_pair_lan &&
+-           (scope == net::net_e::PC || scope == net::net_e::LAN);
+-  }
+-
+   class SunshineHTTPSServer: public SimpleWeb::ServerBase<SunshineHTTPS> {
+   public:
+     SunshineHTTPSServer(const std::string &certification_file, const std::string &private_key_file):
+@@ -183,12 +161,12 @@ namespace nvhttp {
+ 
+   // uniqueID, session
+   std::unordered_map<std::string, pair_session_t> map_id_sess;
+-  struct trusted_pair_ticket_t {
+-    std::string value;
+-    std::chrono::steady_clock::time_point expires_at;
+-  };
+-  std::unordered_map<std::string, trusted_pair_ticket_t> trusted_pair_tickets;
+-  std::mutex trusted_pair_tickets_mutex;
++  // A local PIN approval belongs to exactly one outstanding enrollment.
++  std::mutex pairing_mutex;
++  std::chrono::steady_clock::time_point pairing_deadline;
++  static void expire_pairing() {
++    if (std::chrono::steady_clock::now() >= pairing_deadline) map_id_sess.clear();
++  }
+   client_t client_root;
+   std::atomic<uint32_t> session_id_counter;
+ 
+@@ -631,6 +609,8 @@ namespace nvhttp {
+       return;
+     }
+ 
++    std::lock_guard lock(pairing_mutex);
++    expire_pairing();
+     auto uniqID {get_arg(args, "uniqueid")};
+ 
+     args_t::const_iterator it;
+@@ -642,28 +622,19 @@ namespace nvhttp {
+         sess.client.cert = util::from_hex_vec(get_arg(args, "clientcert"), true);
+ 
+         BOOST_LOG(debug) << sess.client.cert;
+-        // A disconnected or timed-out client may leave its suspended response behind.
+-        // A new getservercert request from the same installation supersedes it.
+-        map_id_sess.erase(sess.client.uniqueID);
+-        auto ptr = map_id_sess.emplace(sess.client.uniqueID, std::move(sess)).first;
+-
+-        ptr->second.async_insert_pin.salt = std::move(get_arg(args, "salt"));
+-        bool has_trusted_ticket = false;
+-        if (auto ticket_it = args.find("piulinkautopairticket"); ticket_it != std::end(args)) {
+-          std::lock_guard lock(trusted_pair_tickets_mutex);
+-          auto grant_it = trusted_pair_tickets.find(ptr->second.client.uniqueID);
+-          if (grant_it != std::end(trusted_pair_tickets) &&
+-              grant_it->second.expires_at >= std::chrono::steady_clock::now() &&
+-              grant_it->second.value == ticket_it->second) {
+-            has_trusted_ticket = true;
+-            trusted_pair_tickets.erase(grant_it);  // Tickets are single-use.
+-          }
++        if (!map_id_sess.empty()) {
++          tree.put("root.<xmlattr>.status_code", 409);
++          tree.put("root.<xmlattr>.status_message", "Another pairing request is pending");
++          return;
+         }
+-        if (has_trusted_ticket || trusted_auto_pair_enabled(request->remote_endpoint().address())) {
+-          ptr->second.client.name = "PiuLink trusted client";
+-          getservercert(ptr->second, tree, "0000");
++        if (get_arg(args, "salt").size() != 32 || sess.client.cert.empty()) {
++          tree.put("root.<xmlattr>.status_code", 400);
+           return;
+         }
++        pairing_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(120);
++        auto ptr = map_id_sess.emplace(sess.client.uniqueID, std::move(sess)).first;
++
++        ptr->second.async_insert_pin.salt = std::move(get_arg(args, "salt"));
+         if (config::sunshine.flags[config::flag::PIN_STDIN]) {
+           std::string pin;
+ 
+@@ -712,6 +683,8 @@ namespace nvhttp {
+   }
+ 
+   bool pin(std::string pin, std::string name) {
++    std::lock_guard lock(pairing_mutex);
++    expire_pairing();
+     pt::ptree tree;
+     if (map_id_sess.empty()) {
+       return false;
+@@ -737,6 +710,7 @@ namespace nvhttp {
+     }
+ 
+     auto &sess = std::begin(map_id_sess)->second;
++    if (sess.last_phase != PAIR_PHASE::NONE) return false;
+     getservercert(sess, tree, pin);
+     sess.client.name = name;
+ 
+@@ -782,27 +756,7 @@ namespace nvhttp {
+ 
+     tree.put("root.appversion", VERSION);
+     tree.put("root.piulink_control", "1");
+-    const bool trusted_auto_pair = trusted_auto_pair_enabled(request->remote_endpoint().address());
+-    tree.put("root.PiuLinkAutoPair", trusted_auto_pair ? "1" : "0");
+-    if (trusted_auto_pair) {
+-      if (auto client_id = args.find("uniqueid"); client_id != std::end(args)) {
+-        std::array<unsigned char, 16> raw_ticket {};
+-        RAND_bytes(raw_ticket.data(), raw_ticket.size());
+-        auto ticket = util::hex_vec(raw_ticket);
+-        {
+-          std::lock_guard lock(trusted_pair_tickets_mutex);
+-          const auto now = std::chrono::steady_clock::now();
+-          std::erase_if(trusted_pair_tickets, [now](const auto &entry) {
+-            return entry.second.expires_at < now;
+-          });
+-          trusted_pair_tickets[client_id->second] = {
+-            ticket,
+-            now + std::chrono::seconds(30)
+-          };
+-        }
+-        tree.put("root.PiuLinkAutoPairTicket", ticket);
+-      }
+-    }
++    tree.put("root.PiuLinkAutoPair", "0");
+     tree.put("root.GfeVersion", GFE_VERSION);
+     tree.put("root.uniqueid", http::unique_id);
+     tree.put("root.HttpsPort", net::map_port(PORT_HTTPS));

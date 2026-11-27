@@ -1,0 +1,8 @@
+<resources>
+    <string name="diag_upload">Upload connection and crash logs</string>
+    <string name="diag_upload_title">Send diagnostics to PiuLink?</string>
+    <string name="diag_upload_body">Send a summary of connection failures, recent events, crash types and call sites. Each upload is at most 16 KiB. You will receive a report ID.</string>
+    <string name="diag_upload_confirm">Upload</string>
+    <string name="diag_receipt">Report ID</string>
+    <string name="diag_upload_failed">Upload was unsuccessful. Your local logs are available to retry later.</string>
+</resources>

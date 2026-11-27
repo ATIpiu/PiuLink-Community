@@ -1,0 +1,71 @@
+diff --git a/app/app.pro b/app/app.pro
+index 512e113..ccce9fe 100644
+--- a/app/app.pro
++++ b/app/app.pro
+@@ -195,6 +195,7 @@ SOURCES += \
+     streaming/input/mouse.cpp \
+     streaming/input/reltouch.cpp \
+     streaming/session.cpp \
++    streaming/piulinkbridge.cpp \
+     streaming/audio/audio.cpp \
+     streaming/audio/renderers/sdlaud.cpp \
+     gui/computermodel.cpp \
+@@ -228,6 +229,7 @@ HEADERS += \
+     streaming/audio/renderers/sdl.h \
+     gui/computermodel.h \
+     gui/appmodel.h \
++    streaming/piulinkbridge.h \
+     streaming/video/decoder.h \
+     streaming/streamutils.h \
+     backend/autoupdatechecker.h \
+diff --git a/app/streaming/session.cpp b/app/streaming/session.cpp
+index 1f6a5af..c122f27 100644
+--- a/app/streaming/session.cpp
++++ b/app/streaming/session.cpp
+@@ -1,4 +1,5 @@
+ #include "session.h"
++#include "piulinkbridge.h"
+ #include "settings/streamingpreferences.h"
+ #include "streaming/streamutils.h"
+ #include "backend/richpresencemanager.h"
+@@ -1734,6 +1735,7 @@ void Session::execInternal()
+ 
+     // We're now active
+     s_ActiveSession = this;
++    PiuLinkBridgeStart(m_StreamConfig.bitrate);
+ 
+     // Initialize the gamepad code with our preferences
+     // NB: m_InputHandler must be initialize before starting the connection.
+@@ -2296,6 +2298,7 @@ void Session::execInternal()
+     }
+ 
+ DispatchDeferredCleanup:
++    PiuLinkBridgeStop();
+     // Uncapture the mouse and hide the window immediately,
+     // so we can return to the Qt GUI ASAP.
+     m_InputHandler->setCaptureActive(false);
+diff --git a/app/streaming/video/ffmpeg.cpp b/app/streaming/video/ffmpeg.cpp
+index 298b56c..a647a78 100644
+--- a/app/streaming/video/ffmpeg.cpp
++++ b/app/streaming/video/ffmpeg.cpp
+@@ -1,4 +1,5 @@
+ #include <Limelight.h>
+ #include "ffmpeg.h"
++#include "../piulinkbridge.h"
+ #include "streaming/session.h"
+ 
+@@ -1733,6 +1734,7 @@ int FFmpegVideoDecoder::submitDecodeUnit(PDECODE_UNIT du)
+     int err;
+ 
+     SDL_assert(!m_TestOnly);
++    PiuLinkBridgeAddReceivedBytes(du->fullLength);
+ 
+     // If this is the first frame, reject anything that's not an IDR frame
+     if (m_FramesIn == 0 && du->frameType != FRAME_TYPE_IDR) {
+@@ -1769,5 +1771,6 @@ int FFmpegVideoDecoder::submitDecodeUnit(PDECODE_UNIT du)
+         // Move this window into the last window slot and clear it for next window
+         SDL_memcpy(&m_LastWndVideoStats, &m_ActiveWndVideoStats, sizeof(m_ActiveWndVideoStats));
++        PiuLinkBridgePublishVideoStats(m_LastWndVideoStats, m_VideoFormat);
+         SDL_zero(m_ActiveWndVideoStats);
+         m_ActiveWndVideoStats.measurementStartTimestamp = SDL_GetTicks();
+     }

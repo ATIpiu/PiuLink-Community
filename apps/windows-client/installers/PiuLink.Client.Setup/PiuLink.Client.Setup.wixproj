@@ -1,0 +1,18 @@
+<Project Sdk="WixToolset.Sdk/6.0.0">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <ClientProject>$(MSBuildThisFileDirectory)..\..\src\PiuLink.Client\PiuLink.Client.csproj</ClientProject>
+    <!-- WiX evaluates TargetPath before Build targets can run XmlPeek. -->
+    <ClientVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(ClientProject)')), '(?&lt;=&lt;Version&gt;)[^&lt;]+(?=&lt;/Version&gt;)').Value)</ClientVersion>
+    <OutputName>PiuLink-Client-$(ClientVersion)-win-x64</OutputName>
+    <BindTrackingFilePrefix>$(OutputName)</BindTrackingFilePrefix>
+    <PublishDirectory>$(MSBuildThisFileDirectory)..\..\..\..\artifacts\windows-client-msi\payload</PublishDirectory>
+    <DefineConstants>PublishDir=$(PublishDirectory);ClientVersion=$(ClientVersion)</DefineConstants>
+  </PropertyGroup>
+  <Target Name="PublishClient" BeforeTargets="BeforeBuild">
+    <Error Condition="'$(ClientVersion)' == ''" Text="The Windows client project is missing its Version." />
+    <Exec Command="pwsh.exe -NoProfile -File &quot;$(MSBuildThisFileDirectory)..\Build-Client.ps1&quot; -OutputDirectory &quot;$(PublishDirectory)&quot; -SkipArchive" />
+  </Target>
+</Project>

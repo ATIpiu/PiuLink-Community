@@ -1,0 +1,135 @@
+diff --git a/app/cli/listapps.cpp b/app/cli/listapps.cpp
+--- a/app/cli/listapps.cpp
++++ b/app/cli/listapps.cpp
+@@ -5,10 +5,9 @@
+ #include "backend/computerseeker.h"
+ 
+ #include <QCoreApplication>
+-#include <QTimer>
++#include "backend/nvhttp.h"
+ 
+ #define COMPUTER_SEEK_TIMEOUT 10000
+-#define APP_SEEK_TIMEOUT 10000
+ 
+ namespace CliListApps
+ {
+@@ -17,7 +16,6 @@
+     StateInit,
+     StateSeekComputer,
+     StateListApp,
+-    StateSeekApp,
+     StateFailure,
+ };
+ 
+@@ -26,7 +24,6 @@
+ public:
+     enum Type {
+         ComputerFound,
+-        ComputerUpdated,
+         ComputerSeekTimedout,
+         Executed,
+     };
+@@ -50,7 +47,6 @@
+     void handleEvent(Event event)
+     {
+         Q_Q(Launcher);
+-        NvApp app;
+ 
+         switch (event.type) {
+         // Occurs when CLI main calls execute
+@@ -65,9 +61,6 @@
+                 q->connect(m_ComputerSeeker, &ComputerSeeker::errorTimeout,
+                            q, &Launcher::onComputerSeekTimeout);
+                 m_ComputerSeeker->start(COMPUTER_SEEK_TIMEOUT);
+-
+-                q->connect(m_ComputerManager, &ComputerManager::computerStateChanged,
+-                           q, &Launcher::onComputerUpdated);
+ 
+                 m_BoxArtManager = new BoxArtManager(q);
+ 
+@@ -88,11 +81,24 @@
+         case Event::ComputerFound:
+             if (m_State == StateSeekComputer) {
+                 if (event.computer->pairState == NvComputer::PS_PAIRED) {
+-                    m_State = StateSeekApp;
++                    m_State = StateListApp;
+                     m_Computer = event.computer;
+-                    m_TimeoutTimer->start(APP_SEEK_TIMEOUT);
+                     if (m_Arguments.isVerbose()) {
+                         fprintf(stdout, "Loading app list...\n");
++                    }
++                    // Discovery updates can arrive before the monitor has fetched the games.
++                    // Read the paired target's list and only report success after its response.
++                    try {
++                        NvHTTP http(m_Computer);
++                        const auto apps = http.getAppList();
++                        m_Arguments.isPrintCSV() ? printAppsCSV(apps) : printApps(apps);
++                        QCoreApplication::exit(0);
++                    } catch (const GfeHttpResponseException& error) {
++                        fprintf(stderr, "%s\n", qPrintable(error.toQString()));
++                        QCoreApplication::exit(-1);
++                    } catch (const QtNetworkReplyException& error) {
++                        fprintf(stderr, "%s\n", qPrintable(error.toQString()));
++                        QCoreApplication::exit(-1);
+                     }
+                 } else {
+                     m_State = StateFailure;
+@@ -102,14 +108,6 @@
+ 
+                     QCoreApplication::exit(-1);
+                 }
+-            }
+-            break;
+-        // Occurs when a computer is updated
+-        case Event::ComputerUpdated:
+-            if (m_State == StateSeekApp) {
+-                m_Arguments.isPrintCSV() ? printAppsCSV(m_Computer->appList) : printApps(m_Computer->appList);
+-
+-                QCoreApplication::exit(0);
+             }
+             break;
+         }
+@@ -146,7 +144,6 @@
+     BoxArtManager *m_BoxArtManager;
+     NvComputer *m_Computer;
+     State m_State;
+-    QTimer *m_TimeoutTimer;
+     ListCommandLineParser m_Arguments;
+ };
+ 
+@@ -157,11 +154,7 @@
+     Q_D(Launcher);
+     d->m_ComputerName = computer;
+     d->m_State = StateInit;
+-    d->m_TimeoutTimer = new QTimer(this);
+-    d->m_TimeoutTimer->setSingleShot(true);
+     d->m_Arguments = arguments;
+-    connect(d->m_TimeoutTimer, &QTimer::timeout,
+-            this, &Launcher::onComputerSeekTimeout);
+ }
+ 
+ Launcher::~Launcher()
+@@ -197,12 +190,4 @@
+     d->handleEvent(event);
+ }
+ 
+-void Launcher::onComputerUpdated(NvComputer *computer)
+-{
+-    Q_D(Launcher);
+-    Event event(Event::ComputerUpdated);
+-    event.computer = computer;
+-    d->handleEvent(event);
+ }
+-
+-}
+diff --git a/app/cli/listapps.h b/app/cli/listapps.h
+--- a/app/cli/listapps.h
++++ b/app/cli/listapps.h
+@@ -27,7 +27,6 @@
+ 
+ private slots:
+     void onComputerFound(NvComputer *computer);
+-    void onComputerUpdated(NvComputer *computer);
+     void onComputerSeekTimeout();
+ 
+ private:

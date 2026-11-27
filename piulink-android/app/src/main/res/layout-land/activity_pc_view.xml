@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Landscape and TV: structural controls move to a compact side rail. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:baselineAligned="false"
+    android:orientation="horizontal"
+    tools:context=".PcView">
+
+    <LinearLayout
+        android:layout_width="@dimen/home_side_rail_width"
+        android:layout_height="match_parent"
+        android:background="@color/piulink_surface"
+        android:elevation="4dp"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp">
+
+        <ImageView
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_logo_mark"
+            android:contentDescription="@string/piulink_home_title"
+            android:padding="7dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_piulink_mark" />
+
+        <Space
+            android:layout_width="1dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <ImageButton
+            android:id="@+id/settingsButton"
+            android:layout_width="@dimen/piulink_touch_target"
+            android:layout_height="@dimen/piulink_touch_target"
+            android:background="@drawable/bg_icon_button"
+            android:contentDescription="@string/open_settings"
+            android:nextFocusDown="@id/terminalButton"
+            android:padding="14dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_settings"
+            android:tint="@color/piulink_text_primary" />
+
+        <ImageButton
+            android:id="@+id/terminalButton"
+            android:layout_width="@dimen/piulink_touch_target"
+            android:layout_height="@dimen/piulink_touch_target"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_icon_button"
+            android:contentDescription="@string/ssh_title"
+            android:nextFocusDown="@id/tailscaleButton"
+            android:padding="14dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_terminal"
+            android:tint="@color/piulink_text_primary" />
+
+        <ImageButton
+            android:id="@+id/tailscaleButton"
+            android:layout_width="@dimen/piulink_touch_target"
+            android:layout_height="@dimen/piulink_touch_target"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_icon_button"
+            android:contentDescription="@string/open_tailscale"
+            android:nextFocusDown="@id/manuallyAddPc"
+            android:padding="14dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_private_network"
+            android:tint="@color/piulink_blue" />
+
+        <ImageButton
+            android:id="@+id/manuallyAddPc"
+            android:layout_width="@dimen/piulink_touch_target"
+            android:layout_height="@dimen/piulink_touch_target"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_primary_icon_button"
+            android:contentDescription="@string/add_host"
+            android:nextFocusRight="@id/fragmentView"
+            android:padding="13dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_add"
+            android:tint="@android:color/white" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/pcFragmentContainer"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <LinearLayout
+            android:id="@+id/no_pc_found_layout"
+            android:layout_width="@dimen/empty_state_width"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_empty_state"
+            android:elevation="2dp"
+            android:gravity="center"
+            android:orientation="vertical"
+            tools:ignore="UselessParent">
+
+            <ProgressBar
+                android:id="@+id/pcs_loading"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:indeterminate="true"
+                android:indeterminateTint="@color/piulink_blue" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:text="@string/looking_for_host_title"
+                android:textColor="@color/piulink_text_primary"
+                android:textSize="20sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                android:gravity="center"
+                android:lineSpacingExtra="2dp"
+                android:text="@string/searching_pc"
+                android:textColor="@color/piulink_text_secondary"
+                android:textSize="14sp" />
+
+            <include layout="@layout/view_setup_steps" />
+        </LinearLayout>
+    </FrameLayout>
+</LinearLayout>

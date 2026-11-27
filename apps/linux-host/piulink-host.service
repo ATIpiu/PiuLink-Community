@@ -1,0 +1,14 @@
+[Unit]
+Description=PiuLink Host for Linux
+After=pipewire-pulse.service
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/piulink-host run
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+UMask=0077
+
+[Install]
+WantedBy=default.target

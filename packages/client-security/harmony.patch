@@ -1,0 +1,579 @@
+--- a/entry/src/main/ets/utils/RcpSessionPool.ets
++++ b/entry/src/main/ets/utils/RcpSessionPool.ets
+@@ -31,6 +31,7 @@
+ export interface SessionAcquireOptions {
+   /** 是否跳过服务器证书验证（私有 PC/Sunshine 自签证书需开启） */
+   skipServerValidation: boolean;
++  pinnedCert?: string;
+   /** 客户端 PEM 证书路径（已配对的 PC 必填） */
+   clientCertPath?: string;
+   /** 客户端 PEM 私钥路径 */
+@@ -92,6 +93,16 @@
+     const securityConfig: rcp.SecurityConfiguration = {
+       remoteValidation: options.skipServerValidation ? 'skip' : 'system'
+     };
++    if (options.clientCertPath && !options.pinnedCert) throw new Error('Missing paired host certificate');
++    const pinnedCert = options.pinnedCert;
++    if (pinnedCert) {
++      securityConfig.remoteValidation = (context: rcp.ValidationContext): boolean => {
++        if (!context.pemCerts.length) return false;
++        const leaf = context.pemCerts[0].replace('-----BEGIN CERTIFICATE-----', '')
++          .replace('-----END CERTIFICATE-----', '').replace(/\s/g, '');
++        return leaf === pinnedCert;
++      };
++    }
+     if (options.clientCertPath && options.clientKeyPath) {
+       securityConfig.certificate = {
+         type: 'PEM',
+@@ -146,7 +157,7 @@
+       if (idle !== undefined) {
+         RcpSessionPool.entries.delete(idle.cacheKey);
+         RcpSessionPool.closeEntry(idle);
+-        Logger.info('RcpSessionPool', `RcpSessionPool: 腾位淘汰空闲 ${idle.cacheKey}`);
++        Logger.info('RcpSessionPool', `RcpSessionPool: 腾位淘汰空闲 ${idle.cacheKey.split('|')[0]}`);
+       } else {
+         overflow = true;
+       }
+@@ -165,7 +176,7 @@
+       RcpSessionPool.entries.set(cacheKey, entry);
+     }
+     RcpSessionPool.live.set(session, entry);
+-    Logger.info('RcpSessionPool', `RcpSessionPool: ${overflow ? '溢出' : '新建'} session ${cacheKey} (live=${RcpSessionPool.live.size})`);
++    Logger.info('RcpSessionPool', `RcpSessionPool: ${overflow ? '溢出' : '新建'} session ${cacheKey.split('|')[0]} (live=${RcpSessionPool.live.size})`);
+     return session;
+   }
+ 
+@@ -246,9 +257,9 @@
+     entry.retired = true;
+     if (entry.inFlight <= 0) {
+       RcpSessionPool.closeEntry(entry);
+-      Logger.warn('RcpSessionPool', `RcpSessionPool: ${reason} → 关闭 ${entry.cacheKey}`);
++      Logger.warn('RcpSessionPool', `RcpSessionPool: ${reason} → 关闭 ${entry.cacheKey.split('|')[0]}`);
+     } else {
+-      Logger.warn('RcpSessionPool', `RcpSessionPool: ${reason} → ${entry.cacheKey} 标记待关闭（${entry.inFlight} 个在途请求结束后关闭）`);
++      Logger.warn('RcpSessionPool', `RcpSessionPool: ${reason} → ${entry.cacheKey.split('|')[0]} 标记待关闭（${entry.inFlight} 个在途请求结束后关闭）`);
+     }
+   }
+ 
+--- a/entry/src/main/ets/utils/HttpClient.ets
++++ b/entry/src/main/ets/utils/HttpClient.ets
+@@ -25,6 +25,7 @@
+   headers?: Record<string, string>;
+   /** 是否跳过服务器证书验证 */
+   skipServerValidation?: boolean;
++  pinnedCert?: string;
+   /** 客户端证书文件路径（PEM 格式） */
+   clientCertPath?: string;
+   /** 客户端私钥文件路径（PEM 格式） */
+@@ -128,6 +129,7 @@
+   static createRequestConfig(connectMs: number, transferMs: number): rcp.Configuration {
+     return {
+       transfer: {
++        autoRedirect: false,
+         timeout: {
+           connectMs: connectMs,
+           transferMs: transferMs
+@@ -176,9 +178,10 @@
+   private static async executeGet(url: string, config?: HttpClientConfig): Promise<HttpResponse> {
+     const connectTimeout = config?.connectTimeout ?? HttpClient.DEFAULT_CONNECT_TIMEOUT;
+     const transferTimeout = config?.transferTimeout ?? HttpClient.DEFAULT_TRANSFER_TIMEOUT;
+-    const skipValidation = config?.skipServerValidation !== false;
+-    const key = RcpSessionPool.keyFor(url, config?.clientCertPath);
+-    const session = RcpSessionPool.acquire(key, { skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
++    const skipValidation = config?.skipServerValidation === true;
++    const key = RcpSessionPool.keyFor(url, config?.clientCertPath) + '|' +
++      (config?.pinnedCert ?? (skipValidation ? 'skip' : 'system'));
++    const session = RcpSessionPool.acquire(key, { pinnedCert: config?.pinnedCert, skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
+ 
+     Logger.debug('HttpClient', `HttpClient: GET ${url.split('?')[0]} (connect=${connectTimeout}ms, transfer=${transferTimeout}ms)`);
+ 
+@@ -193,17 +196,35 @@
+         undefined,
+         HttpClient.createRequestConfig(connectTimeout, transferTimeout)
+       );
++      // Collect host XML incrementally, including responses without Content-Length.
++      const path = url.split('?')[0];
++      const hostXml = /\/(serverinfo|pair|unpair|applist|launch|resume|cancel)$/.test(path);
++      const limit = path.endsWith('/applist') ? 4 * 1024 * 1024 : 128 * 1024;
++      let bytes = new Uint8Array(0);
++      let used = 0;
++      let overflow = false;
++      if (hostXml) {
++        request.destination = (chunk: ArrayBuffer): void => {
++          if (overflow || chunk.byteLength > limit - used) {
++            overflow = true;
++            throw new Error('Host XML response exceeds size limit');
++          }
++          const need = used + chunk.byteLength;
++          if (need > bytes.length) {
++            const grown = new Uint8Array(Math.min(limit, Math.max(need, bytes.length * 2, 1024)));
++            grown.set(bytes);
++            bytes = grown;
++          }
++          bytes.set(new Uint8Array(chunk), used);
++          used = need;
++        };
++      }
+       const response = await session.fetch(request);
+-      Logger.debug('HttpClient', `HttpClient: 响应状态码 = ${response.statusCode}`);
+-
+-      if (response.statusCode !== 200) {
+-        throw new Error(`HTTP ${response.statusCode}`);
+-      }
+-      if (!response.body) {
+-        throw new Error('响应体为空');
+-      }
+-
+-      const body = StringUtil.arrayBufferToString(response.body);
++      if (overflow) throw new Error('Host XML response exceeds size limit');
++      if (response.statusCode !== 200) throw new Error('HTTP ' + response.statusCode);
++      const data = hostXml ? bytes.buffer.slice(0, used) : response.body;
++      if (!data || !data.byteLength) throw new Error('Empty host response');
++      const body = StringUtil.arrayBufferToString(data);
+       return { statusCode: response.statusCode, body: body };
+     } catch (err) {
+       const error = err as Error;
+@@ -294,10 +315,11 @@
+   ): Promise<HttpResponse> {
+     const connectTimeout = config?.connectTimeout ?? HttpClient.DEFAULT_CONNECT_TIMEOUT;
+     const transferTimeout = config?.transferTimeout ?? HttpClient.DEFAULT_TRANSFER_TIMEOUT;
+-    const skipValidation = config?.skipServerValidation !== false;
+-    const key = RcpSessionPool.keyFor(url, config?.clientCertPath);
++    const skipValidation = config?.skipServerValidation === true;
++    const key = RcpSessionPool.keyFor(url, config?.clientCertPath) + '|' +
++      (config?.pinnedCert ?? (skipValidation ? 'skip' : 'system'));
+     const session = RcpSessionPool.acquire(key, {
+-      skipServerValidation: skipValidation,
++      pinnedCert: config?.pinnedCert, skipServerValidation: skipValidation,
+       clientCertPath: config?.clientCertPath,
+       clientKeyPath: config?.clientKeyPath
+     });
+@@ -344,7 +366,7 @@
+     config?: HttpClientConfig
+   ): Promise<string> {
+     return HttpClient.get(url, {
+-      skipServerValidation: true,
++      pinnedCert: config?.pinnedCert, skipServerValidation: false,
+       clientCertPath: certPath,
+       clientKeyPath: keyPath,
+       connectTimeout: config?.connectTimeout ?? HttpClient.DEFAULT_CONNECT_TIMEOUT,
+@@ -358,9 +380,10 @@
+   static async getBinary(url: string, config?: HttpClientConfig): Promise<ArrayBuffer> {
+     const connectTimeout = config?.connectTimeout ?? HttpClient.DEFAULT_CONNECT_TIMEOUT;
+     const transferTimeout = config?.transferTimeout ?? HttpClient.DEFAULT_TRANSFER_TIMEOUT;
+-    const skipValidation = config?.skipServerValidation !== false;
+-    const key = RcpSessionPool.keyFor(url, config?.clientCertPath);
+-    const session = RcpSessionPool.acquire(key, { skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
++    const skipValidation = config?.skipServerValidation === true;
++    const key = RcpSessionPool.keyFor(url, config?.clientCertPath) + '|' +
++      (config?.pinnedCert ?? (skipValidation ? 'skip' : 'system'));
++    const session = RcpSessionPool.acquire(key, { pinnedCert: config?.pinnedCert, skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
+ 
+     Logger.info('HttpClient', `HttpClient: 二进制 GET ${url.split('?')[0]}`);
+ 
+@@ -410,7 +433,7 @@
+     config?: HttpClientConfig
+   ): Promise<ArrayBuffer> {
+     return HttpClient.getBinary(url, {
+-      skipServerValidation: true,
++      pinnedCert: config?.pinnedCert, skipServerValidation: false,
+       clientCertPath: certPath,
+       clientKeyPath: keyPath,
+       headers: config?.headers,
+@@ -425,9 +448,10 @@
+   static async post(url: string, body: string, config?: HttpClientConfig): Promise<HttpResponse> {
+     const connectTimeout = config?.connectTimeout ?? HttpClient.DEFAULT_CONNECT_TIMEOUT;
+     const transferTimeout = config?.transferTimeout ?? HttpClient.DEFAULT_TRANSFER_TIMEOUT;
+-    const skipValidation = config?.skipServerValidation !== false;
+-    const key = RcpSessionPool.keyFor(url, config?.clientCertPath);
+-    const session = RcpSessionPool.acquire(key, { skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
++    const skipValidation = config?.skipServerValidation === true;
++    const key = RcpSessionPool.keyFor(url, config?.clientCertPath) + '|' +
++      (config?.pinnedCert ?? (skipValidation ? 'skip' : 'system'));
++    const session = RcpSessionPool.acquire(key, { pinnedCert: config?.pinnedCert, skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
+ 
+     Logger.debug('HttpClient', `HttpClient: POST ${url.split('?')[0]} (connect=${connectTimeout}ms, transfer=${transferTimeout}ms)`);
+ 
+@@ -466,9 +490,10 @@
+   static async postBinary(url: string, body: ArrayBuffer | Uint8Array, config?: HttpClientConfig): Promise<HttpResponse> {
+     const connectTimeout = config?.connectTimeout ?? HttpClient.DEFAULT_CONNECT_TIMEOUT;
+     const transferTimeout = config?.transferTimeout ?? HttpClient.DEFAULT_TRANSFER_TIMEOUT;
+-    const skipValidation = config?.skipServerValidation !== false;
+-    const key = RcpSessionPool.keyFor(url, config?.clientCertPath);
+-    const session = RcpSessionPool.acquire(key, { skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
++    const skipValidation = config?.skipServerValidation === true;
++    const key = RcpSessionPool.keyFor(url, config?.clientCertPath) + '|' +
++      (config?.pinnedCert ?? (skipValidation ? 'skip' : 'system'));
++    const session = RcpSessionPool.acquire(key, { pinnedCert: config?.pinnedCert, skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
+ 
+     Logger.debug('HttpClient', `HttpClient: POST(binary) ${url.split('?')[0]} (connect=${connectTimeout}ms, transfer=${transferTimeout}ms)`);
+ 
+@@ -513,7 +538,7 @@
+     config?: HttpClientConfig
+   ): Promise<HttpResponse> {
+     return HttpClient.post(url, body, {
+-      skipServerValidation: true,
++      pinnedCert: config?.pinnedCert, skipServerValidation: false,
+       clientCertPath: certPath,
+       clientKeyPath: keyPath,
+       headers: config?.headers,
+@@ -533,7 +558,7 @@
+     config?: HttpClientConfig
+   ): Promise<HttpResponse> {
+     return HttpClient.postBinary(url, body, {
+-      skipServerValidation: true,
++      pinnedCert: config?.pinnedCert, skipServerValidation: false,
+       clientCertPath: certPath,
+       clientKeyPath: keyPath,
+       headers: config?.headers,
+--- a/entry/src/main/ets/service/network/PairingManager.ets
++++ b/entry/src/main/ets/service/network/PairingManager.ets
+@@ -359,12 +359,15 @@
+    * @param timeout 超时时间（毫秒）
+    * @param useClientCert 是否使用客户端证书（HTTPS 请求需要）
+    */
+-  private async doRequest(url: string, timeout: number = 7000, useClientCert: boolean = false): Promise<string> {
++  private async doRequest(url: string, timeout: number = 7000, useClientCert: boolean = false, pinnedCert?: string): Promise<string> {
+     Logger.info('PairingManager', `PairingManager: 请求 ${url.split('?')[0]}`);
+     Logger.info('PairingManager', `PairingManager: 超时设置 = ${timeout > 0 ? timeout : '无限制'}, 使用客户端证书 = ${useClientCert}`);
+ 
++    if (useClientCert && (!pinnedCert || !this.certFilePath || !this.keyFilePath))
++      throw new Error('Missing pairing identity');
+     if (useClientCert && this.certFilePath && this.keyFilePath) {
+       return HttpClient.getWithClientCert(url, this.certFilePath, this.keyFilePath, {
++        pinnedCert: pinnedCert,
+         connectTimeout: 30000,
+         transferTimeout: timeout > 0 ? timeout : 300000
+       });
+@@ -402,7 +405,6 @@
+       pemString += String.fromCharCode(pemBytes[i]);
+     }
+     
+-    Logger.info('PairingManager', `PairingManager: 服务器证书 PEM 前80字符 = ${pemString.substring(0, 80)}`);
+     
+     // 从 PEM 提取 DER
+     const derBytes = CryptoUtil.pemToDer(pemString);
+@@ -513,14 +515,13 @@
+     try {
+       // ============ 步骤 1: 发送 salt 和客户端证书，获取服务器证书 ============
+       Logger.info('PairingManager', 'PairingManager: 步骤1 - 发送 salt 和客户端证书');
+-      Logger.info('PairingManager', `PairingManager: PIN = ${pin}`);
+ 
+       const salt = CryptoUtil.generateRandomBytes(16);
++      if (salt.length !== 16) throw new Error('Secure random generator unavailable');
+       const saltedPin = CryptoUtil.saltPin(salt, pin);
+       const saltedPinHash = await this.hashData(saltedPin, useSha256);
+       const aesKey = CryptoUtil.generateAesKeyFromHash(saltedPinHash);
+ 
+-      Logger.info('PairingManager', `PairingManager: salt = ${CryptoUtil.bytesToHex(salt)}`);
+       Logger.info('PairingManager', `PairingManager: clientCert长度 = ${this.getClientCertHex().length}`);
+ 
+       const step1Url = this.buildPairUrl(
+@@ -533,7 +534,6 @@
+       // 使用 rcp 发送请求，设置 5 分钟超时（等待用户在主机上输入 PIN）
+       const step1Response = await this.doRequest(step1Url, 300000);
+ 
+-      Logger.info('PairingManager', `PairingManager: 步骤1响应 = ${step1Response.substring(0, 200)}...`);
+ 
+       if (XmlUtil.getValue(step1Response, 'paired') !== '1') {
+         Logger.error('PairingManager', 'PairingManager: 步骤1失败 - paired != 1');
+@@ -541,9 +541,9 @@
+       }
+ 
+       const pairName = XmlUtil.getValue(step1Response, 'pairname');
+-      this.serverCertDer = this.extractServerCert(step1Response);
+-
+-      if (!this.serverCertDer) {
++      const candidate = this.extractServerCert(step1Response);
++
++      if (!candidate || candidate.length === 0) {
+         // 可能有其他设备正在配对
+         await this.unpair();
+         return { state: PairState.ALREADY_IN_PROGRESS, pairName };
+@@ -553,6 +553,7 @@
+       Logger.info('PairingManager', 'PairingManager: 步骤2 - 发送客户端挑战');
+ 
+       const randomChallenge = CryptoUtil.generateRandomBytes(16);
++      if (randomChallenge.length !== 16) throw new Error('Secure random generator unavailable');
+       const encryptedChallenge = await CryptoUtil.aesEncrypt(randomChallenge, aesKey);
+ 
+       const step2Url = this.buildPairUrl(
+@@ -574,6 +575,10 @@
+       const decServerChallengeResponse = await CryptoUtil.aesDecrypt(encServerChallengeResponse, aesKey);
+ 
+       const hashLength = this.getHashLength(useSha256);
++      if (decServerChallengeResponse.length < hashLength + 16) {
++        await this.unpair();
++        return { state: PairState.FAILED, pairName };
++      }
+       const serverResponse = decServerChallengeResponse.slice(0, hashLength);
+       const serverChallenge = decServerChallengeResponse.slice(hashLength, hashLength + 16);
+ 
+@@ -581,6 +586,7 @@
+       Logger.info('PairingManager', 'PairingManager: 步骤3 - 发送服务器挑战响应');
+ 
+       const clientSecret = CryptoUtil.generateRandomBytes(16);
++      if (clientSecret.length !== 16) throw new Error('Secure random generator unavailable');
+ 
+       // 计算挑战响应哈希: hash(serverChallenge + clientCertSignature + clientSecret)
+       // 使用客户端证书的签名（参考 Android 实现：cert.getSignature()）
+@@ -608,11 +614,15 @@
+       const serverSecretResp = CryptoUtil.hexToBytes(
+         XmlUtil.getValue(step3Response, 'pairingsecret')
+       );
++      if (serverSecretResp.length <= 16) {
++        await this.unpair();
++        return { state: PairState.FAILED, pairName };
++      }
+       const serverSecret = serverSecretResp.slice(0, 16);
+       const serverSignature = serverSecretResp.slice(16);
+ 
+       // 验证服务器签名（防止 MITM 攻击）
+-      const serverSignatureValid = await CryptoUtil.verifyWithCert(serverSecret, serverSignature, this.serverCertDer!);
++      const serverSignatureValid = await CryptoUtil.verifyWithCert(serverSecret, serverSignature, candidate);
+       if (!serverSignatureValid) {
+         Logger.error('PairingManager', 'PairingManager: 服务器签名验证失败，可能存在中间人攻击');
+         await this.unpair();
+@@ -622,7 +632,7 @@
+ 
+       // 验证 PIN 是否正确
+       // 使用服务器证书签名（参考 Android 实现：serverCert.getSignature()）
+-      const serverCertSignature = CryptoUtil.extractCertSignature(this.serverCertDer!);
++      const serverCertSignature = CryptoUtil.extractCertSignature(candidate);
+       const expectedServerResponse = await this.hashData(
+         CryptoUtil.concatBytes(
+           CryptoUtil.concatBytes(randomChallenge, serverCertSignature),
+@@ -685,7 +695,7 @@
+         `uniqueid=${this.uniqueId}&devicename=roth&updateState=1&phrase=pairchallenge`;
+ 
+       // 步骤5 需要使用客户端证书进行 HTTPS 请求
+-      const step5Response = await this.doRequest(step5Url, 7000, true);
++      const step5Response = await this.doRequest(step5Url, 7000, true, new util.Base64Helper().encodeToStringSync(candidate));
+ 
+       if (XmlUtil.getValue(step5Response, 'paired') !== '1') {
+         await this.unpair();
+@@ -693,9 +703,10 @@
+       }
+ 
+       Logger.info('PairingManager', 'PairingManager: 配对成功!');
++      this.serverCertDer = candidate;
+       return {
+         state: PairState.PAIRED,
+-        serverCert: this.serverCertDer,
++        serverCert: candidate,
+         pairName
+       };
+ 
+--- a/entry/src/main/ets/service/streaming/NvHttp.ets
++++ b/entry/src/main/ets/service/streaming/NvHttp.ets
+@@ -237,10 +237,10 @@
+   private httpSession: BinaryHttpSession | null;
+   private urlPrefix: string;
+ 
+-  constructor(urlPrefix: string, certFilePath: string, keyFilePath: string) {
++  constructor(urlPrefix: string, certFilePath: string, keyFilePath: string, pinnedCert: string) {
+     this.urlPrefix = urlPrefix;
+     this.httpSession = new BinaryHttpSession({
+-      skipServerValidation: true,
++      pinnedCert: pinnedCert, skipServerValidation: false,
+       clientCertPath: certFilePath,
+       clientKeyPath: keyFilePath
+     });
+@@ -607,8 +607,10 @@
+     const useClientCert = options?.useClientCert ?? false;
+     Logger.debug('NvHttp', `NvHttp: 请求 ${url.split('?')[0]}`);
+ 
++    if (useClientCert && (!this.serverCert || !this.certFilePath || !this.keyFilePath))
++      throw new Error('Missing paired host identity');
+     if (useClientCert && this.certFilePath && this.keyFilePath) {
+-      return HttpClient.getWithClientCert(url, this.certFilePath, this.keyFilePath, {
++      return HttpClient.getWithClientCert(url, this.certFilePath, this.keyFilePath, { pinnedCert: this.serverCert ?? '',
+         connectTimeout: connectTimeout,
+         transferTimeout: transferTimeout
+       });
+@@ -631,7 +633,7 @@
+     };
+     return HttpClient.requestRaw(url, method, body, {
+       headers: headers,
+-      skipServerValidation: true,
++      pinnedCert: this.serverCert ?? '', skipServerValidation: false,
+       clientCertPath: this.certFilePath,
+       clientKeyPath: this.keyFilePath,
+       connectTimeout: NvHttp.CONNECTION_TIMEOUT,
+@@ -823,7 +825,7 @@
+           url,
+           this.certFilePath,
+           this.keyFilePath,
+-          {
++          { pinnedCert: this.serverCert ?? '',
+             connectTimeout: NvHttp.CLIPBOARD_BLOB_CONNECT_TIMEOUT,
+             transferTimeout: timeout
+           }
+@@ -875,7 +877,7 @@
+     const baseUrl = await this.getHttpsBaseUrl(NvHttp.LONG_CONNECTION_TIMEOUT);
+     const path = capabilities.endpoint.substring(1);
+     const urlPrefix = this.buildUrl(baseUrl, path);
+-    return new NetworkProbeSession(urlPrefix, this.certFilePath, this.keyFilePath);
++    return new NetworkProbeSession(urlPrefix, this.certFilePath, this.keyFilePath, this.serverCert ?? '');
+   }
+ 
+   private async doBinaryHttpsPostWithFrpRetry(
+@@ -896,7 +898,7 @@
+           data,
+           this.certFilePath,
+           this.keyFilePath,
+-          {
++          { pinnedCert: this.serverCert ?? '',
+             headers: headers,
+             connectTimeout: NvHttp.CLIPBOARD_BLOB_CONNECT_TIMEOUT,
+             transferTimeout: timeout
+@@ -987,6 +989,7 @@
+    * 优先使用 HTTPS（如果已配对），失败后尝试 HTTP
+    */
+   async getServerInfo(likelyOnline: boolean = true): Promise<ServerInfo> {
++    let authenticated = false;
+     let response: string;
+     const connectTimeout = likelyOnline ? NvHttp.LONG_CONNECTION_TIMEOUT : NvHttp.CONNECTION_TIMEOUT;
+ 
+@@ -997,6 +1000,7 @@
+           Logger.debug('NvHttp', `NvHttp: getServerInfo 尝试 HTTPS + 客户端证书（含 frp 重试）`);
+           // 复用通用 helper：超时 + 自定义端口会按 Sunshine 规则 (httpPort - 5) 重试
+           response = await this.doHttpsRequestWithFrpRetry('serverinfo', { connectTimeout: connectTimeout });
++          authenticated = true;
+         } catch (err) {
+           const errMsg = String(err).toLowerCase();
+           // 存在 cert 错误才降级 HTTP（超时/拒绝/DNS 等矬时错误不降级，避免错误决策）
+@@ -1028,6 +1032,7 @@
+     }
+ 
+     const serverInfo = this.parseServerInfo(response);
++    serverInfo.paired = authenticated && serverInfo.paired;
+     Logger.debug('NvHttp', `NvHttp: serverInfo - hostname=${serverInfo.hostname}, paired=${serverInfo.paired}, mac=${serverInfo.macAddress}`);
+ 
+     // 缓存 HTTPS 端口
+@@ -1125,7 +1130,6 @@
+ 
+     // 启动可能需要较长时间，使用客户端证书
+     const response = await this.doRequest(url, { transferTimeout: 60000, useClientCert: true });
+-    Logger.info('NvHttp', `NvHttp: launchApp 响应: ${response}`);
+ 
+     // 检查是否成功
+     const gamesession = XmlUtil.getValue(response, 'gamesession');
+@@ -1134,7 +1138,6 @@
+     }
+ 
+     const sessionUrl = XmlUtil.getValue(response, 'sessionUrl0') || '';
+-    Logger.info('NvHttp', `NvHttp: launchApp gamesession=${gamesession}, sessionUrl0=${sessionUrl}`);
+     return sessionUrl;
+   }
+ 
+@@ -1399,7 +1402,7 @@
+           url,
+           this.certFilePath,
+           this.keyFilePath,
+-          {
++          { pinnedCert: this.serverCert ?? '',
+             connectTimeout: NvHttp.CONNECTION_TIMEOUT,
+             transferTimeout: NvHttp.READ_TIMEOUT
+           }
+@@ -1407,7 +1410,7 @@
+       } else {
+         // 不使用客户端证书，但跳过服务器证书验证
+         data = await HttpClient.getBinary(url, {
+-          skipServerValidation: true,
++          pinnedCert: this.serverCert ?? '', skipServerValidation: false,
+           connectTimeout: NvHttp.CONNECTION_TIMEOUT,
+           transferTimeout: NvHttp.READ_TIMEOUT
+         });
+@@ -1661,7 +1664,7 @@
+       throw new Error('客户端证书不可用，无法调用 AI 端点');
+     }
+ 
+-    const response = await HttpClient.postWithClientCert(url, body, this.certFilePath, this.keyFilePath, {
++    const response = await HttpClient.postWithClientCert(url, body, this.certFilePath, this.keyFilePath, { pinnedCert: this.serverCert ?? '',
+       transferTimeout: 120000
+     });
+ 
+@@ -1700,7 +1703,7 @@
+     }
+ 
+     try {
+-      const response = await HttpClient.postWithClientCert(url, body, this.certFilePath, this.keyFilePath, {
++      const response = await HttpClient.postWithClientCert(url, body, this.certFilePath, this.keyFilePath, { pinnedCert: this.serverCert ?? '',
+         transferTimeout: 5000
+       });
+       // 403 = AI 未启用, 404 = 版本不支持
+@@ -1744,7 +1747,7 @@
+         JSON.stringify(config),
+         this.certFilePath,
+         this.keyFilePath,
+-        { transferTimeout: 5000 }
++        { pinnedCert: this.serverCert ?? '', transferTimeout: 5000 }
+       );
+       return response.statusCode === 200;
+     } catch {
+@@ -1767,7 +1770,7 @@
+         JSON.stringify(feedback),
+         this.certFilePath,
+         this.keyFilePath,
+-        { transferTimeout: 3000 }
++        { pinnedCert: this.serverCert ?? '', transferTimeout: 3000 }
+       );
+       if (response.statusCode === 200) {
+         return JSON.parse(response.body) as AbrAction;
+--- a/entry/src/main/ets/service/ComputerManager.ets
++++ b/entry/src/main/ets/service/ComputerManager.ets
+@@ -419,9 +419,7 @@
+ 
+     // 配对状态：HTTP 请求总是返回 paired=false，只有 HTTPS + 客户端证书才能拿到正确状态。
+     // 所以本地有 serverCert 时信任本地配对状态，避免被 HTTP 响应误判为未配对。
+-    if (info.paired) {
+-      target.pairState = PairState.PAIRED;
+-    } else if (target.serverCert) {
++    if (target.serverCert) {
+       target.pairState = PairState.PAIRED;
+     } else {
+       target.pairState = PairState.NOT_PAIRED;
+@@ -1334,16 +1332,7 @@
+    * 生成配对 PIN 码（使用加密安全的随机数）
+    */
+   private generatePin(): string {
+-    // 使用 CryptoUtil 生成安全随机数（内部含降级保护，不会产出 NaN）
+-    const randomBytes = CryptoUtil.generateRandomBytes(4);
+-    if (randomBytes.length < 4) {
+-      return Math.floor(1000 + Math.random() * 9000).toString();
+-    }
+-    let pin = '';
+-    for (let i = 0; i < 4; i++) {
+-      pin += (randomBytes[i] % 10).toString();
+-    }
+-    return pin;
++    return CryptoUtil.generatePin();
+   }
+ 
+   // ═══════════════════════════════════════════════════════════
+--- a/entry/src/main/ets/utils/CryptoUtil.ets
++++ b/entry/src/main/ets/utils/CryptoUtil.ets
+@@ -974,16 +974,13 @@
+    * 生成4位数字PIN码
+    */
+   static generatePin(): string {
+-    const bytes = CryptoUtil.generateRandomBytes(4);
+-    if (bytes.length < 4) {
+-      // 加密随机源不可用：降级用非加密随机数，保证 PIN 始终是合法数字
+-      // （PIN 仅用于本次配对的短时展示/输入，降级可接受；NaN 会让配对直接失败）
+-      Logger.warn('CryptoUtil', 'CryptoUtil: 加密随机数不可用，generatePin 降级 Math.random');
+-      return Math.floor(1000 + Math.random() * 9000).toString();
+-    }
+     let pin = '';
+-    for (let i = 0; i < 4; i++) {
+-      pin += (bytes[i] % 10).toString();
++    while (pin.length < 4) {
++      const bytes = CryptoUtil.generateRandomBytes(4);
++      if (bytes.length !== 4) throw new Error('Secure random generator unavailable');
++      for (let i = 0; i < bytes.length && pin.length < 4; i++) {
++        if (bytes[i] < 250) pin += (bytes[i] % 10).toString();
++      }
+     }
+     return pin;
+   }

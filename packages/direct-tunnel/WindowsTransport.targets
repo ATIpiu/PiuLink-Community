@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <DirectTransportBinary>$(MSBuildThisFileDirectory)../../work/direct-tunnel-build/piulink-direct.exe</DirectTransportBinary>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="$(DirectTransportBinary)" Link="piulink-direct.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(MSBuildThisFileDirectory)licenses/*.txt" Link="third_party/direct-tunnel/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <DirectTransportSource Include="$(MSBuildThisFileDirectory)**/*.go;$(MSBuildThisFileDirectory)go.*;$(MSBuildThisFileDirectory)build.ps1" />
+  </ItemGroup>
+  <Target Name="BuildDirectTransport" BeforeTargets="PrepareForBuild" Inputs="@(DirectTransportSource)" Outputs="$(DirectTransportBinary)">
+    <Exec Command='pwsh -NoProfile -File "$(MSBuildThisFileDirectory)build.ps1"' />
+  </Target>
+</Project>

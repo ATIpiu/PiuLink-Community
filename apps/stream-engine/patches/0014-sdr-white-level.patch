@@ -1,0 +1,83 @@
+diff --git a/src/platform/windows/display_vram.cpp b/src/platform/windows/display_vram.cpp
+--- a/src/platform/windows/display_vram.cpp
++++ b/src/platform/windows/display_vram.cpp
+@@ -384,6 +384,47 @@
+     return compile_shader(file, "main_vs", "vs_5_0");
+   }
+ 
++  // scRGB 1.0 represents 80 nits. DWM composites SDR windows at the
++  // selected output's SDR white level, which can be several times higher.
++  static float sdr_white_scale(IDXGIOutput *output) {
++    DXGI_OUTPUT_DESC desc {};
++    if (FAILED(output->GetDesc(&desc))) {
++      return 1.0f;
++    }
++
++    for (int attempt = 0; attempt < 3; ++attempt) {
++      UINT32 path_count = 0, mode_count = 0;
++      if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &path_count, &mode_count) != ERROR_SUCCESS) {
++        break;
++      }
++      std::vector<DISPLAYCONFIG_PATH_INFO> paths(path_count);
++      std::vector<DISPLAYCONFIG_MODE_INFO> modes(mode_count);
++      auto status = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &path_count, paths.data(),
++                                       &mode_count, modes.data(), nullptr);
++      if (status == ERROR_INSUFFICIENT_BUFFER) {
++        continue;
++      }
++      if (status != ERROR_SUCCESS) {
++        break;
++      }
++      for (UINT32 i = 0; i < path_count; ++i) {
++        const auto &path = paths[i];
++        DISPLAYCONFIG_SOURCE_DEVICE_NAME source {};
++        source.header = {DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME, sizeof(source), path.sourceInfo.adapterId, path.sourceInfo.id};
++        if (DisplayConfigGetDeviceInfo(&source.header) != ERROR_SUCCESS || _wcsicmp(source.viewGdiDeviceName, desc.DeviceName)) {
++          continue;
++        }
++        DISPLAYCONFIG_SDR_WHITE_LEVEL white {};
++        white.header = {DISPLAYCONFIG_DEVICE_INFO_GET_SDR_WHITE_LEVEL, sizeof(white), path.targetInfo.adapterId, path.targetInfo.id};
++        if (DisplayConfigGetDeviceInfo(&white.header) == ERROR_SUCCESS && white.SDRWhiteLevel > 0) {
++          return 1000.0f / white.SDRWhiteLevel;
++        }
++      }
++      break;
++    }
++    return 1.0f;
++  }
++
+   class d3d_base_encode_device final {
+   public:
+     int convert(platf::img_t &img_base) {
+@@ -795,6 +836,16 @@
+         return -1;
+       }
+       display = nullptr;
++
++      const float scale = this->display->is_hdr() ? sdr_white_scale(this->display->output.get()) : 1.0f;
++      float scale_data[4] {scale};  // D3D constant buffers require 16-byte alignment.
++      auto white_scale = make_buffer(device.get(), scale_data);
++      if (!white_scale) {
++        BOOST_LOG(error) << "Failed to create SDR white-level buffer";
++        return -1;
++      }
++      device_ctx->PSSetConstantBuffers(2, 1, &white_scale);
++      BOOST_LOG(info) << "scRGB to SDR desktop scale: " << scale;
+ 
+       blend_disable = make_blend(device.get(), false, false);
+       if (!blend_disable) {
+diff --git a/src_assets/windows/assets/shaders/directx/include/convert_linear_base.hlsl b/src_assets/windows/assets/shaders/directx/include/convert_linear_base.hlsl
+--- a/src_assets/windows/assets/shaders/directx/include/convert_linear_base.hlsl
++++ b/src_assets/windows/assets/shaders/directx/include/convert_linear_base.hlsl
+@@ -1,6 +1,10 @@
+ #include "include/common.hlsl"
++
++cbuffer desktop_white_level : register(b2) {
++    float sdr_white_scale;
++};
+ 
+ float3 CONVERT_FUNCTION(float3 input)
+ {
+-    return ApplySRGBCurve(saturate(input));
++    return ApplySRGBCurve(saturate(input * sdr_white_scale));
+ }

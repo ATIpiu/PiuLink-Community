@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="stream_edge_handle_width">22dp</dimen>
+    <dimen name="stream_edge_handle_inset">0dp</dimen>
+    <dimen name="stream_edge_handle_height">60dp</dimen>
+</resources>

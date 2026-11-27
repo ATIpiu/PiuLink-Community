@@ -1,0 +1,30 @@
+--- a/app/main.cpp
++++ b/app/main.cpp
+@@ -922,12 +922,13 @@
+ #ifndef Q_OS_DARWIN
+     // Set the window icon except on macOS where we want to keep the
+     // modified macOS 11 style rounded corner icon.
++    app.setApplicationDisplayName(QStringLiteral("PiuLink"));
+     app.setWindowIcon(QIcon(":/res/moonlight.svg"));
+ #endif
+ 
+     // This is necessary to show our icon correctly on Wayland
+-    app.setDesktopFileName("com.moonlight_stream.Moonlight");
+-    qputenv("SDL_VIDEO_WAYLAND_WMCLASS", "com.moonlight_stream.Moonlight");
++    app.setDesktopFileName("piulink-client");
++    qputenv("SDL_VIDEO_WAYLAND_WMCLASS", "piulink-client");
+-    qputenv("SDL_VIDEO_X11_WMCLASS", "com.moonlight_stream.Moonlight");
++    qputenv("SDL_VIDEO_X11_WMCLASS", "piulink-client");
+ 
+     // Register our C++ types for QML
+--- a/app/streaming/session.cpp
++++ b/app/streaming/session.cpp
+@@ -1843,7 +1843,7 @@
+ #ifdef Q_OS_DARWIN
+     std::string windowName = QString(m_Computer->name).toStdString();
+ #else
+-    std::string windowName = QString(m_Computer->name + " - Moonlight").toStdString();
++    std::string windowName = QString(m_Computer->name + " - PiuLink").toStdString();
+ #endif
+ 
+     m_Window = SDL_CreateWindow(windowName.c_str(),

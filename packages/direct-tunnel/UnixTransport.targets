@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <DirectGoOS Condition="$(RuntimeIdentifier.StartsWith('osx-'))">darwin</DirectGoOS>
+    <DirectGoOS Condition="$(RuntimeIdentifier.StartsWith('linux-'))">linux</DirectGoOS>
+    <DirectGoArch Condition="$(RuntimeIdentifier.EndsWith('-x64'))">amd64</DirectGoArch>
+    <DirectGoArch Condition="$(RuntimeIdentifier.EndsWith('-arm64'))">arm64</DirectGoArch>
+    <DirectUnixBinary>$(MSBuildThisFileDirectory)../../work/direct-tunnel-build/$(RuntimeIdentifier)/piulink-direct</DirectUnixBinary>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(DirectGoOS)' != '' and '$(DirectGoArch)' != ''">
+    <Content Include="$(DirectUnixBinary)" Link="piulink-direct" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(MSBuildThisFileDirectory)licenses/*.txt" Link="third_party/direct-tunnel/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <DirectGoInput Include="$(MSBuildThisFileDirectory)*.go;$(MSBuildThisFileDirectory)cmd/**/*.go;$(MSBuildThisFileDirectory)updates/*.go;$(MSBuildThisFileDirectory)go.*;$(MSBuildThisFileFullPath)" />
+  </ItemGroup>
+  <Target Name="BuildUnixDirectTransport" BeforeTargets="PrepareForBuild" Condition="'$(DirectGoOS)' != '' and '$(DirectGoArch)' != ''"
+          Inputs="@(DirectGoInput)" Outputs="$(DirectUnixBinary)">
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(DirectUnixBinary)'))" />
+    <Exec WorkingDirectory="$(MSBuildThisFileDirectory)" EnvironmentVariables="GOOS=$(DirectGoOS);GOARCH=$(DirectGoArch);CGO_ENABLED=0"
+          Command="go build -trimpath -buildvcs=false -ldflags=&quot;-s -w&quot; -o &quot;$(DirectUnixBinary)&quot; ./cmd/piulink-tunnel" />
+  </Target>
+</Project>

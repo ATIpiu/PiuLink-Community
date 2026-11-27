@@ -1,0 +1,186 @@
+--- a/app/backend/nvpairingmanager.cpp
++++ b/app/backend/nvpairingmanager.cpp
+@@ -211,7 +211,7 @@
+     QByteArray salt = generateRandomBytes(16);
+     QByteArray saltedPin = saltPin(salt, pin);
+ 
+-    QByteArray aesKey = QCryptographicHash::hash(saltedPin, hashAlgo).constData();
++    QByteArray aesKey = QCryptographicHash::hash(saltedPin, hashAlgo);
+     aesKey.truncate(16);
+ 
+     QString getCert = m_Http.openConnectionToString(m_Http.m_BaseUrlHttp,
+@@ -262,7 +262,10 @@
+         return PairState::FAILED;
+     }
+ 
+-    QByteArray challengeResponseData = decrypt(m_Http.getXmlStringFromHex(challengeXml, "challengeresponse"), aesKey);
++    QByteArray ciphertext = m_Http.getXmlStringFromHex(challengeXml, "challengeresponse");
++    if (ciphertext.size() < hashLength + 16 || ciphertext.size() % 16 != 0)
++        return PairState::FAILED;
++    QByteArray challengeResponseData = decrypt(ciphertext, aesKey);
+     QByteArray clientSecretData = generateRandomBytes(16);
+     QByteArray challengeResponse;
+     QByteArray serverResponse(challengeResponseData.data(), hashLength);
+@@ -298,6 +301,7 @@
+     }
+ 
+     QByteArray pairingSecret = NvHTTP::getXmlStringFromHex(respXml, "pairingsecret");
++    if (pairingSecret.size() <= 16) return PairState::FAILED;
+     QByteArray serverSecret = pairingSecret.left(16);
+     QByteArray serverSignature = pairingSecret.mid(16);
+ 
+--- a/app/backend/nvhttp.h
++++ b/app/backend/nvhttp.h
+@@ -149,6 +149,7 @@
+     NvAddress address();
+ 
+     QSslCertificate serverCert();
++    bool authenticatedServerInfo() const { return m_AuthenticatedServerInfo; }
+ 
+     uint16_t httpPort();
+ 
+@@ -197,5 +198,6 @@
+ 
+     NvAddress m_Address;
+     QNetworkAccessManager m_Nam;
++    bool m_AuthenticatedServerInfo = false;
+     QSslCertificate m_ServerCert;
+ };
+--- a/app/backend/nvcomputer.cpp
++++ b/app/backend/nvcomputer.cpp
+@@ -201,7 +201,7 @@
+     // some assumptions about Nvidia hardware that don't apply to Sunshine hosts.
+     this->isNvidiaServerSoftware = NvHTTP::getXmlString(serverInfo, "state").contains("MJOLNIR");
+ 
+-    this->pairState = NvHTTP::getXmlString(serverInfo, "PairStatus") == "1" ?
++    this->pairState = http.authenticatedServerInfo() && NvHTTP::getXmlString(serverInfo, "PairStatus") == "1" ?
+                 PS_PAIRED : PS_NOT_PAIRED;
+     this->currentGameId = NvHTTP::getCurrentGame(serverInfo);
+     this->appVersion = NvHTTP::getXmlString(serverInfo, "appversion");
+--- a/app/backend/nvhttp.cpp
++++ b/app/backend/nvhttp.cpp
+@@ -123,6 +123,7 @@
+ QString
+ NvHTTP::getServerInfo(NvLogLevel logLevel, bool fastFail)
+ {
++    m_AuthenticatedServerInfo = false;
+     QString serverInfo;
+ 
+     // Check if we have a pinned cert and HTTPS port for this host yet
+@@ -139,6 +140,7 @@
+                                                 logLevel);
+             // Throws if the request failed
+             verifyResponseStatus(serverInfo);
++            m_AuthenticatedServerInfo = true;
+         }
+         catch (const GfeHttpResponseException& e)
+         {
+@@ -227,7 +229,6 @@
+                                    LiGetLaunchUrlQueryParameters(),
+                                    LAUNCH_TIMEOUT_MS);
+ 
+-    qInfo() << "Launch response:" << response;
+ 
+     // Throws if the request failed
+     verifyResponseStatus(response);
+@@ -244,7 +245,6 @@
+                                    nullptr,
+                                    QUIT_TIMEOUT_MS);
+ 
+-    qInfo() << "Quit response:" << response;
+ 
+     // Throws if the request failed
+     verifyResponseStatus(response);
+@@ -483,7 +483,11 @@
+                  QUuid::createUuid().toRfc4122().toHex() +
+                  ((arguments != nullptr) ? ("&" + arguments) : ""));
+ 
++    const bool secure = url.scheme() == QStringLiteral("https");
++    if (secure && m_ServerCert.isNull())
++        throw GfeHttpResponseException(401, "Pairing required");
+     QNetworkRequest request(url);
++    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+ 
+     // Add our client certificate
+     request.setSslConfiguration(IdentityManager::get()->getSslConfig());
+@@ -505,13 +509,28 @@
+ 
+     // Run the request with a timeout if requested
+     QEventLoop loop;
++    bool pinMismatch = false;
++    bool tooLarge = false;
++    const qint64 limit = command == "appasset" ? 16 * 1024 * 1024 :
++                         command == "applist" ? 4 * 1024 * 1024 : 128 * 1024;
++    reply->setReadBufferSize(limit + 1);
++    connect(reply, &QNetworkReply::encrypted, &loop, [&, reply]() {
++        if (secure && reply->sslConfiguration().peerCertificate() != m_ServerCert) {
++            pinMismatch = true;
++            reply->abort();
++        }
++    });
++    connect(reply, &QIODevice::readyRead, &loop, [&, reply]() {
++        if (reply->bytesAvailable() > limit) {
++            tooLarge = true;
++            reply->abort();
++        }
++    });
+     connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+     connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, &loop, &QEventLoop::quit);
+-    if (timeoutMs) {
+-        QTimer::singleShot(timeoutMs, &loop, &QEventLoop::quit);
+-    }
++    QTimer::singleShot(timeoutMs > 0 ? timeoutMs : 180000, &loop, &QEventLoop::quit);
+     if (logLevel >= NvLogLevel::NVLL_VERBOSE) {
+-        qInfo() << "Executing request:" << url.toString();
++        qInfo() << "Executing request:" << command;
+     }
+     loop.exec(QEventLoop::ExcludeUserInputEvents);
+ 
+@@ -519,7 +538,7 @@
+     if (!reply->isFinished())
+     {
+         if (logLevel >= NvLogLevel::NVLL_ERROR) {
+-            qWarning() << "Aborting timed out request for" << url.toString();
++            qWarning() << "Aborting timed out request for" << command;
+         }
+         reply->abort();
+     }
+@@ -528,6 +547,15 @@
+     // GFE will puke next time
+     m_Nam.clearAccessCache();
+ 
++    if (tooLarge || reply->bytesAvailable() > limit) {
++        delete reply;
++        throw GfeHttpResponseException(-1, "Host response exceeds size limit");
++    }
++    if (pinMismatch || (secure && reply->error() == QNetworkReply::NoError &&
++                        reply->sslConfiguration().peerCertificate() != m_ServerCert)) {
++        delete reply;
++        throw GfeHttpResponseException(401, "Server certificate mismatch");
++    }
+     // Handle error
+     if (reply->error() != QNetworkReply::NoError)
+     {
+--- a/app/cli/commandlineparser.cpp
++++ b/app/cli/commandlineparser.cpp
+@@ -1,3 +1,4 @@
++#include <cstdio>
+ #include "commandlineparser.h"
+ 
+ #include <QCommandLineParser>
+@@ -285,6 +286,15 @@
+     }
+     m_Host = parser.positionalArguments().at(1);
+     m_PredefinedPin = parser.value("pin");
++    if (m_PredefinedPin == QStringLiteral("stdin")) {
++        char value[7] = {};
++        if (!std::fgets(value, sizeof(value), stdin) || QByteArray(value).size() != 5 || value[4] != '\n')
++            parser.showError("Missing pairing PIN");
++        for (int i = 0; i < 4; i++) {
++            if (value[i] < '0' || value[i] > '9') parser.showError("Invalid pairing PIN");
++        }
++        m_PredefinedPin = QString::fromLatin1(value, 4);
++    }
+     if (!m_PredefinedPin.isEmpty() && m_PredefinedPin.length() != 4) {
+         parser.showError("PIN must be 4 digits");
+     }

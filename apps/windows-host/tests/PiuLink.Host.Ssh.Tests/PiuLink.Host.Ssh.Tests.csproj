@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+    <Compile Include="../../src/PiuLink.Host/Services/RemoteMicrophoneOutput.cs" Link="RemoteMicrophoneOutput.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/VirtualMicrophoneDevice.cs" Link="VirtualMicrophoneDevice.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/SessionMicrophoneRoute.cs" Link="SessionMicrophoneRoute.cs" />
+    <ProjectReference Include="../../src/PiuLink.Host.Core/PiuLink.Host.Core.csproj" />
+    <Compile Include="../../src/PiuLink.Host/Services/DisplayCompanionServer.cs" Link="DisplayCompanionServer.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/FileTransferPairing.cs" Link="FileTransferPairing.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/SessionInputStatus.cs" Link="SessionInputStatus.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/DisplayRecoveryJournal.cs" Link="DisplayRecoveryJournal.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/PhysicalDisplayRecoveryPolicy.cs" Link="PhysicalDisplayRecoveryPolicy.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/SunshineManagedIdentity.cs" Link="SunshineManagedIdentity.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/WindowsCredentialStore.cs" Link="WindowsCredentialStore.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/PairedDisplaySecurity.cs" Link="PairedDisplaySecurity.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/DisplayTopologyService.cs" Link="DisplayTopologyService.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/DisplayTopologyService.Session.cs" Link="DisplayTopologyService.Session.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/SshDefaults.cs" Link="SshDefaults.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/SshTerminalSetup.cs" Link="SshTerminalSetup.cs" />
+    <Compile Include="../../src/PiuLink.Host/Services/SshKeyAuthorization.cs" Link="SshKeyAuthorization.cs" />
+  </ItemGroup>
+</Project>

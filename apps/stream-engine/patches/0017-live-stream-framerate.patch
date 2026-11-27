@@ -1,0 +1,231 @@
+diff --git a/src/confighttp.cpp b/src/confighttp.cpp
+index 49e6a065..3418a911 100644
+--- a/src/confighttp.cpp
++++ b/src/confighttp.cpp
+@@ -1227,11 +1227,11 @@ namespace confighttp {
+         throw std::invalid_argument("Capture output is unavailable");
+       if (action == "resize-video" || action == "video-size") {
+         bool resize = action == "resize-video";
+-        int w = input.value("width", 0), h = input.value("height", 0);
+-        if ((resize && (w < 320 || h < 240 || w > 8192 || h > 8192 || (w % 2) || (h % 2))) ||
+-            !nvhttp::live_video_mode(id, owner, w, h, resize))
++        int w = input.value("width", 0), h = input.value("height", 0), fps = input.value("fps", 0);
++        if ((resize && (w < 320 || h < 240 || w > 8192 || h > 8192 || (w % 2) || (h % 2) || (fps != 0 && (fps < 15 || fps > 240)))) ||
++            !nvhttp::live_video_mode(id, owner, w, h, fps, resize))
+           throw std::invalid_argument("Active encoder did not confirm requested dimensions");
+-        send_response(response, nlohmann::json {{"status", true}, {"width", w}, {"height", h}});
++        send_response(response, nlohmann::json {{"status", true}, {"width", w}, {"height", h}, {"fps", fps}});
+         return;
+       }
+       if (live) {
+@@ -1250,6 +1250,7 @@ namespace confighttp {
+ #ifdef _WIN32
+     state["perSessionCaptureOutput"] = true;
+     state["liveVideoResize"] = true;
++    state["liveVideoFrameRate"] = true;
+ #endif
+     state["activeStreams"] = rtsp_stream::session_count();
+     state["currentApplicationId"] = std::max(0, proc::proc.running());
+diff --git a/src/live_capture.h b/src/live_capture.h
+index 6636cfd0..8807b561 100644
+--- a/src/live_capture.h
++++ b/src/live_capture.h
+@@ -11,47 +11,55 @@ namespace video {
+   class live_resolution_t {
+     std::mutex mutex;
+     std::condition_variable changed;
+-    int width = 0, height = 0, encoded_width = 0, encoded_height = 0;
++    int width = 0, height = 0, encoded_width = 0, encoded_height = 0, encoded_fps = 0;
+     unsigned encoded_generation = 0;
+   public:
+     std::atomic_uint generation {0};
+ 
+-    unsigned configure(int &w, int &h) {
++    std::atomic_int desired_fps {0}, capture_fps {0};
++
++    unsigned configure(int &w, int &h, int &fps, int &fps_x100) {
+       std::lock_guard lock {mutex};
+-      if (!width) { width = w; height = h; }
++      if (!width) { width = w; height = h; desired_fps = fps; }
++      if (desired_fps != fps) { fps = desired_fps.load(); fps_x100 = 0; }
+       w = width;
+       h = height;
+       return generation.load();
+     }
+-    void encoded(unsigned version, int w, int h) {
++    void encoded(unsigned version, int w, int h, int fps) {
+       std::lock_guard lock {mutex};
+-      if (generation != version || width != w || height != h) return;
++      if (generation != version || width != w || height != h || desired_fps != fps) return;
+       encoded_width = w;
+       encoded_height = h;
++      encoded_fps = fps;
+       encoded_generation = version;
+       changed.notify_all();
+     }
+     bool rollback(unsigned version) {
+       std::lock_guard lock {mutex};
+-      if (version != generation || !encoded_width || (width == encoded_width && height == encoded_height)) return false;
++      if (version != generation || !encoded_width || (width == encoded_width && height == encoded_height && desired_fps == encoded_fps)) return false;
+       width = encoded_width;
+       height = encoded_height;
++      desired_fps = encoded_fps;
+       ++generation;
+       changed.notify_all();
+       return true;
+     }
+-    bool current(int &w, int &h) {
++    bool current(int &w, int &h, int &fps) {
+       std::lock_guard lock {mutex};
+       w = encoded_width;
+       h = encoded_height;
++      fps = encoded_fps;
+       return w > 0 && h > 0;
+     }
+-    bool resize(int w, int h) {
++    bool resize(int w, int h, int fps) {
+       std::unique_lock lock {mutex};
+       if (!encoded_width) return false;
+-      if (encoded_generation == generation && encoded_width == w && encoded_height == h) return true;
++      if (!fps) fps = encoded_fps;
++      if (encoded_generation == generation && encoded_width == w && encoded_height == h && encoded_fps == fps) return true;
+       width = w;
+       height = h;
++      desired_fps = fps;
+       const unsigned requested = ++generation;
+       changed.wait_for(lock, std::chrono::seconds(5), [&] {
+         return requested != generation || encoded_generation == requested;
+@@ -60,6 +68,7 @@ namespace video {
+       if (encoded_generation == requested) return true;
+       width = encoded_width;
+       height = encoded_height;
++      desired_fps = encoded_fps;
+       ++generation;
+       return false;
+     }
+diff --git a/src/nvhttp.cpp b/src/nvhttp.cpp
+index 5ffe2ecb..ed949d0b 100644
+--- a/src/nvhttp.cpp
++++ b/src/nvhttp.cpp
+@@ -930,7 +930,7 @@ namespace nvhttp {
+     persist_display_lease();
+   }
+ 
+-  bool live_video_mode(const std::string &id, const std::string &owner, int &width, int &height, bool resize) {
++  bool live_video_mode(const std::string &id, const std::string &owner, int &width, int &height, int &fps, bool resize) {
+     std::shared_ptr<video::live_capture_t> route;
+     {
+       std::lock_guard lock {display_lease_mutex};
+@@ -938,7 +938,7 @@ namespace nvhttp {
+       if (!route || !display_lease_ready || id != display_lease_id || owner != display_lease_owner ||
+           rtsp_stream::session_count() != 1) return false;
+     }
+-    return resize ? route->resolution.resize(width, height) : route->resolution.current(width, height);
++    return resize ? route->resolution.resize(width, height, fps) : route->resolution.current(width, height, fps);
+   }
+ 
+   bool switch_live_capture(const std::string &id, const std::string &owner, const std::string &output) {
+diff --git a/src/nvhttp.h b/src/nvhttp.h
+index 9da02686..cbae5af3 100644
+--- a/src/nvhttp.h
++++ b/src/nvhttp.h
+@@ -23,7 +23,7 @@
+ namespace nvhttp {
+   void register_display_lease(const std::string &request_id, const std::string &owner, const std::string &mode, bool ready, const std::string &output);
+   void revoke_display_lease(const std::string &request_id, const std::string &owner);
+-  bool live_video_mode(const std::string &id, const std::string &owner, int &width, int &height, bool resize);
++  bool live_video_mode(const std::string &id, const std::string &owner, int &width, int &height, int &fps, bool resize);
+   bool switch_live_capture(const std::string &request_id, const std::string &owner, const std::string &output);
+ 
+   /**
+diff --git a/src/video.cpp b/src/video.cpp
+index 0b2fc2db..8e15c135 100644
+--- a/src/video.cpp
++++ b/src/video.cpp
+@@ -1314,7 +1314,10 @@ namespace video {
+     if (!disp) {
+       return;
+     }
+-    if (route) route->captured(prepared_output);
++    if (route) {
++      route->resolution.capture_fps = capture_ctxs.front().config.framerate;
++      route->captured(prepared_output);
++    }
+     display_wp = disp;
+ 
+     constexpr auto capture_buffer_size = 12;
+@@ -1444,7 +1447,8 @@ namespace video {
+           capture_ctxs.emplace_back(std::move(*capture_ctx_queue->pop()));
+         }
+ 
+-        if (switch_display_event->peek() || (route && route->pending)) {
++        if (switch_display_event->peek() || (route && (route->pending ||
++            (route->resolution.desired_fps && route->resolution.desired_fps != route->resolution.capture_fps.load())))) {
+           artificial_reinit = true;
+           return false;
+         }
+@@ -1514,7 +1518,11 @@ namespace video {
+               }
+ 
+               // reset_display() will sleep between retries
+-              reset_display(disp, encoder.platform_formats->dev_type, display_names[display_p], capture_ctxs.front().config);
++              if (capture_ctxs.empty()) return;
++              auto &capture_config = capture_ctxs.front().config;
++              if (route) route->resolution.configure(capture_config.width, capture_config.height, capture_config.framerate, capture_config.framerateX100);
++              reset_display(disp, encoder.platform_formats->dev_type, display_names[display_p], capture_config);
++              if (disp && route) route->resolution.capture_fps = capture_config.framerate;
+               if (disp) {
+                 if (route) route->captured(prepared_output);
+                 break;
+@@ -2176,7 +2184,7 @@ namespace video {
+         BOOST_LOG(error) << "Could not encode video packet"sv;
+         return;
+       }
+-      if (keyframe && config.capture_route) config.capture_route->resolution.encoded(resolution_generation, config.width, config.height);
++      if (keyframe && config.capture_route) config.capture_route->resolution.encoded(resolution_generation, config.width, config.height, config.framerate);
+       ++diagnostic_encoded_frames;
+       const auto diagnostic_now = std::chrono::steady_clock::now();
+       if (diagnostic_now - diagnostic_window_start >= 5s) {
+@@ -2299,7 +2307,7 @@ namespace video {
+ 
+     encode_session.ctx = &ctx;
+     auto route = ctx.config.capture_route;
+-    encode_session.resolution_generation = route ? route->resolution.configure(ctx.config.width, ctx.config.height) : 0;
++    encode_session.resolution_generation = route ? route->resolution.configure(ctx.config.width, ctx.config.height, ctx.config.framerate, ctx.config.framerateX100) : 0;
+ 
+     auto encode_device = make_encode_device(*disp, encoder, ctx.config);
+     if (!encode_device) {
+@@ -2375,7 +2383,9 @@ namespace video {
+       }
+ 
+       // reset_display() will sleep between retries
+-      reset_display(disp, encoder.platform_formats->dev_type, display_names[display_p], synced_session_ctxs.front()->config);
++      auto &capture_config = synced_session_ctxs.front()->config;
++      if (route) route->resolution.configure(capture_config.width, capture_config.height, capture_config.framerate, capture_config.framerateX100);
++      reset_display(disp, encoder.platform_formats->dev_type, display_names[display_p], capture_config);
+       if (disp) {
+         if (route) route->captured(target);
+         break;
+@@ -2471,7 +2481,7 @@ namespace video {
+           }
+ 
+           if (keyframe && ctx->config.capture_route)
+-            ctx->config.capture_route->resolution.encoded(pos->resolution_generation, ctx->config.width, ctx->config.height);
++            ctx->config.capture_route->resolution.encoded(pos->resolution_generation, ctx->config.width, ctx->config.height, ctx->config.framerate);
+           pos->session->request_normal_frame();
+ 
+           ++pos;
+@@ -2586,7 +2596,12 @@ namespace video {
+       auto &encoder = *chosen_encoder;
+ 
+       const auto route = config.capture_route;
+-      const unsigned version = route ? route->resolution.configure(config.width, config.height) : 0;
++      const unsigned version = route ? route->resolution.configure(config.width, config.height, config.framerate, config.framerateX100) : 0;
++      if (route && route->resolution.capture_fps != config.framerate) {
++        display.reset();
++        std::this_thread::sleep_for(5ms);
++        continue;
++      }
+       auto encode_device = make_encode_device(*display, encoder, config);
+       if (!encode_device) {
+         if (route && route->resolution.rollback(version)) continue;

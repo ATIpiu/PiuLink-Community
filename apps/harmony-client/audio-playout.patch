@@ -1,0 +1,142 @@
+diff --git a/nativelib/src/main/cpp/audio_renderer.cpp b/nativelib/src/main/cpp/audio_renderer.cpp
+index 9826fdc..53aedcb 100644
+--- a/nativelib/src/main/cpp/audio_renderer.cpp
++++ b/nativelib/src/main/cpp/audio_renderer.cpp
+@@ -144,7 +144,7 @@ int AudioRenderer::Init(const AudioRendererConfig& config) {
+     
+     // 动态分配环形缓冲区：根据实际声道数和采样率计算容量
+     // 兼容模式使用更大的缓冲区（120ms，与 v724 行为一致）
+-    int bufferMs = audioCompatMode_ ? TARGET_BUFFER_COMPAT_MS : TARGET_BUFFER_MS;
++    int bufferMs = audioCompatMode_ ? TARGET_BUFFER_COMPAT_MS : static_cast<int>(pl_audio_storage_ms());
+     int usableSamples = config_.sampleRate * config_.channelCount * bufferMs / 1000;
+     // 对齐到帧边界（channelCount × samplesPerFrame）
+     int frameSize = config_.channelCount * config_.samplesPerFrame;
+@@ -165,7 +165,7 @@ int AudioRenderer::Init(const AudioRendererConfig& config) {
+                 bufferMs,
+                 config_.channelCount,
+                 config_.sampleRate,
+-                audioCompatMode_ ? "disabled" : "40ms",
++                audioCompatMode_ ? "disabled" : "adaptive",
+                 audioCompatMode_ ? "true" : "false");
+     
+     OH_LOG_INFO(LOG_APP, "Initializing audio renderer: sampleRate=%{public}d, channels=%{public}d, samplesPerFrame=%{public}d",
+@@ -411,6 +411,7 @@ int AudioRenderer::Start() {
+     ringHead_.store(0, std::memory_order_relaxed);
+     ringTail_.store(0, std::memory_order_relaxed);
+     wasUnderrun_.store(false, std::memory_order_relaxed);
++    resetPlayout_.store(true, std::memory_order_release);
+     
+     InvalidatePresentationEstimate();
+     OH_AudioStream_Result result = OH_AudioRenderer_Start(renderer_);
+@@ -440,6 +441,7 @@ int AudioRenderer::Stop() {
+     ringHead_.store(0, std::memory_order_relaxed);
+     ringTail_.store(0, std::memory_order_relaxed);
+     wasUnderrun_.store(false, std::memory_order_relaxed);
++    resetPlayout_.store(true, std::memory_order_release);
+     
+     OH_LOG_INFO(LOG_APP, "Audio renderer stopped");
+     return 0;
+@@ -534,6 +536,7 @@ int AudioRenderer::TryRestart() {
+     ringHead_.store(0, std::memory_order_relaxed);
+     ringTail_.store(0, std::memory_order_relaxed);
+     wasUnderrun_.store(false, std::memory_order_relaxed);
++    resetPlayout_.store(true, std::memory_order_release);
+     OH_AudioRenderer_Flush(renderer_);
+     
+     // 尝试重新启动
+@@ -780,24 +783,23 @@ OH_AudioData_Callback_Result AudioRenderer::OnWriteData(OH_AudioRenderer* render
+     // 延迟裁剪（消费者端）：如果缓冲区积累过多，跳过旧数据到合理位置
+     // 兼容模式下跳过此逻辑，依赖缓冲区自然满溢丢弃（与 v724 行为一致）
+     // 在消费者线程推进 head 是 SPSC 安全的（head 本就是消费者的写变量）
+-    if (!self->audioCompatMode_ && available > 0 && self->config_.sampleRate > 0) {
+-        int bufferedFrames = available / channelCount;
+-        double latencyMs = (double)bufferedFrames * 1000.0 / self->config_.sampleRate;
+-        if (latencyMs > MAX_AUDIO_LATENCY_MS) {
+-            // 跳到只保留 MAX_AUDIO_LATENCY_MS/2 的数据，给后续帧留余量
+-            int targetSamples = self->config_.sampleRate * channelCount * MAX_AUDIO_LATENCY_MS / 2 / 1000;
+-            // 对齐到帧边界
+-            targetSamples = (targetSamples / channelCount) * channelCount;
+-            int toDrop = available - targetSamples;
+-            if (toDrop > 0) {
+-                toDrop = (toDrop / channelCount) * channelCount;
+-                head = (head + toDrop) % self->ringCapacity_;
+-                self->ringHead_.store(head, std::memory_order_release);
+-                available -= toDrop;
+-                self->droppedSamples_.fetch_add(toDrop / channelCount, std::memory_order_relaxed);
+-                // 标记需要 fade-in（跳过数据后波形不连续）
+-                self->wasUnderrun_.store(true, std::memory_order_relaxed);
+-            }
++    if (!self->audioCompatMode_ && self->config_.sampleRate > 0) {
++        if (self->resetPlayout_.load(std::memory_order_acquire) &&
++            self->resetPlayout_.exchange(false, std::memory_order_acq_rel)) {
++            self->playout_ = {};
++        }
++        timespec now{};
++        clock_gettime(CLOCK_MONOTONIC, &now);
++        const uint64_t nowUs = static_cast<uint64_t>(now.tv_sec) * 1000000 + now.tv_nsec / 1000;
++        const uint32_t drop = pl_audio_trim_frames(&self->playout_, nowUs, self->config_.sampleRate,
++                                                   samplesNeeded / channelCount, available / channelCount);
++        if (drop > 0) {
++            const int skipped = static_cast<int>(drop) * channelCount;
++            head = (head + skipped) % self->ringCapacity_;
++            self->ringHead_.store(head, std::memory_order_release);
++            available -= skipped;
++            self->droppedSamples_.fetch_add(drop, std::memory_order_relaxed);
++            self->wasUnderrun_.store(true, std::memory_order_relaxed);
+         }
+     }
+     
+diff --git a/nativelib/src/main/cpp/audio_renderer.h b/nativelib/src/main/cpp/audio_renderer.h
+index d24d7be..2f9283a 100644
+--- a/nativelib/src/main/cpp/audio_renderer.h
++++ b/nativelib/src/main/cpp/audio_renderer.h
+@@ -24,6 +24,7 @@
+ #define AUDIO_RENDERER_H
+ 
+ #include <cstdint>
++#include "piulink_audio_playout.h"
+ #include <mutex>
+ #include <atomic>
+ #include <ohaudio/native_audiostream_base.h>
+@@ -157,16 +158,10 @@ private:
+     // 生产者: PlaySamples() (解码线程)
+     // 消费者: OnWriteData() (OHAudio 音频回调线程)
+     // =========================================================================
+-    // 缓冲区容量：根据实际声道数动态计算，所有声道配置统一 TARGET_BUFFER_MS 时长
+-    // 延迟控制：消费者 OnWriteData 在读取前检查缓冲区填充水平，
+-    // 超过 MAX_AUDIO_LATENCY_MS 时跳过旧数据
+-    // 生产者 PlaySamples 不触碰 ringHead_，保持 SPSC 无锁正确性
+-    //
+-    // 兼容模式：TARGET_BUFFER_COMPAT_MS=120ms 缓冲 + 禁用延迟裁剪（与 v724 行为一致）
+-    static constexpr int TARGET_BUFFER_MS = 50;           // 默认环形缓冲区容量（毫秒）
+-    static constexpr int TARGET_BUFFER_COMPAT_MS = 120;   // 兼容模式缓冲区容量（毫秒）
+-    static constexpr int MAX_AUDIO_LATENCY_MS = 40;       // 延迟丢弃阈值（毫秒），匹配 Android
+-    
++    static constexpr int TARGET_BUFFER_COMPAT_MS = 120;
++    std::atomic<bool> resetPlayout_{true};
++    PiuAudioPlayout playout_{}; // Owned by the renderer callback while running.
++
+     bool audioCompatMode_ = false;  // 兼容模式标志
+     int ringCapacity_ = 0;          // 实际环形缓冲区容量（int16_t 数量，含 SPSC 保留位）
+     int16_t* ringBuffer_ = nullptr; // 动态分配的环形缓冲区
+diff --git a/nativelib/src/main/cpp/callbacks.cpp b/nativelib/src/main/cpp/callbacks.cpp
+index 8e59885..009cb36 100644
+--- a/nativelib/src/main/cpp/callbacks.cpp
++++ b/nativelib/src/main/cpp/callbacks.cpp
+@@ -1451,7 +1451,7 @@ void BridgeArDecodeAndPlaySample(char* sampleData, int sampleLength) {
+             "plcFrames=%{public}llu "
+             "hapticMaxUs=%{public}lld hapticOver2ms=%{public}llu "
+             "hapticQueueDrops=%{public}llu "
+-            "audioUnderruns=%{public}u audioDropped=%{public}llu audioBufferedMs=%{public}.2f",
++            "audioUnderruns=%{public}u audioDropped=%{public}llu audioPlayed=%{public}llu audioBufferedMs=%{public}.2f",
+             (unsigned long long)s_arvFrameSeq, kFramesPerLog,
+             s_arvSampleCount, s_arvMaxAbs, meanAbs, satPct,
+             s_arvHapticFrames, s_arvHapticAmplitudeMax,
+@@ -1463,6 +1463,7 @@ void BridgeArDecodeAndPlaySample(char* sampleData, int sampleLength) {
+             static_cast<unsigned long long>(s_arvHapticQueueDrops),
+             audioStats.underruns,
+             static_cast<unsigned long long>(audioStats.droppedSamples),
++            static_cast<unsigned long long>(audioStats.playedSamples),
+             audioStats.latencyMs);
+         s_arvSatSum = 0;
+         s_arvAbsSum = 0;

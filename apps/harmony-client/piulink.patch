@@ -1,0 +1,399 @@
+diff --git a/AppScope/app.json5 b/AppScope/app.json5
+index 9224f42..a583e78 100644
+--- a/AppScope/app.json5
++++ b/AppScope/app.json5
+@@ -1,9 +1,9 @@
+ {
+   "app": {
+-    "bundleName": "com.alkaidlab.sdream",
+-    "vendor": "Moonlight",
+-    "versionCode": 1000825,
+-    "versionName": "1.0.0.825",
++    "bundleName": "labs.atipiu.piulink.harmony",
++    "vendor": "ATIpiu",
++    "versionCode": 8,
++    "versionName": "0.1.7",
+     "icon": "$media:layered_icon",
+     "label": "$string:app_name",
+     "bundleType": "app",
+diff --git a/AppScope/resources/base/element/string.json b/AppScope/resources/base/element/string.json
+index 0024e71..819682c 100644
+--- a/AppScope/resources/base/element/string.json
++++ b/AppScope/resources/base/element/string.json
+@@ -2,7 +2,7 @@
+   "string": [
+     {
+       "name": "app_name",
+-      "value": "Moonlight V+"
++      "value": "PiuLink"
+     }
+   ]
+ }
+diff --git a/entry/src/main/ets/components/PcListTitleBar.ets b/entry/src/main/ets/components/PcListTitleBar.ets
+index 8ceeda1..3ebb56a 100644
+--- a/entry/src/main/ets/components/PcListTitleBar.ets
++++ b/entry/src/main/ets/components/PcListTitleBar.ets
+@@ -60,7 +60,7 @@ export struct PcListTitleBar {
+             .flexShrink(0)
+ 
+           Column() {
+-            Text('Moonlight V+')
++            Text('PiuLink')
+               .fontSize(AppSizes.FontLargeTitle)
+               .fontWeight(FontWeight.Bold)
+               .fontColor(AppColors.Primary)
+diff --git a/entry/src/main/ets/pages/AddPcPageV2.ets b/entry/src/main/ets/pages/AddPcPageV2.ets
+index 1bf5c85..0d81e24 100644
+--- a/entry/src/main/ets/pages/AddPcPageV2.ets
++++ b/entry/src/main/ets/pages/AddPcPageV2.ets
+@@ -360,8 +360,8 @@ struct AddPcPageV2 {
+             .backgroundColor(Color.Transparent)
+             .onChange((value: string) => {
+               this.ipAddress = value;
+-              this.validateInput();
+               this.errorMessage = '';
++              this.validateInput();
+             })
+             .onSubmit(() => {
+               if (this.isValidInput) {
+@@ -537,6 +537,11 @@ struct AddPcPageV2 {
+   private validateInput(): void {
+     const value = this.ipAddress.trim();
+     
++    if (value.includes('://') || /[/?#@]/.test(value)) {
++      this.isValidInput = false;
++      this.errorMessage = '请输入 PiuLink Host 的 IP 地址或主机名。此版本仅支持地址配对。';
++      return;
++    }
+     if (!value) {
+       this.isValidInput = false;
+       return;
+diff --git a/entry/src/main/ets/pages/Index.ets b/entry/src/main/ets/pages/Index.ets
+index 458d804..1968009 100644
+--- a/entry/src/main/ets/pages/Index.ets
++++ b/entry/src/main/ets/pages/Index.ets
+@@ -269,7 +269,7 @@ struct Index {
+ 
+         // 标题
+         Column() {
+-          Text('Moonlight')
++          Text('PiuLink')
+             .fontSize(36)
+             .fontWeight(FontWeight.Bold)
+             .fontColor(AppColors.TextPrimary)
+@@ -277,7 +277,7 @@ struct Index {
+             .translate({ y: this.moonlightTranslateY })
+ 
+           Row() {
+-            Text('V+')
++            Text('NEXT')
+               .fontSize(14)
+               .fontWeight(FontWeight.Bold)
+               .fontColor(AppColors.Primary)
+@@ -350,7 +350,7 @@ struct Index {
+           .padding({ top: 24, bottom: 12, left: 20, right: 20 })
+ 
+           // 概述
+-          Text('欢迎使用 Moonlight V+！在您使用本应用之前，请仔细阅读并了解我们的隐私政策：')
++          Text('欢迎使用 PiuLink！在您使用本应用之前，请仔细阅读并了解我们的隐私政策：')
+             .fontSize(14)
+             .fontColor(AppColors.TextSecondary)
+             .padding({ left: 20, right: 20, bottom: 8 })
+diff --git a/entry/src/main/ets/pages/PcListPageV2.ets b/entry/src/main/ets/pages/PcListPageV2.ets
+index 62b0973..a10a28f 100644
+--- a/entry/src/main/ets/pages/PcListPageV2.ets
++++ b/entry/src/main/ets/pages/PcListPageV2.ets
+@@ -514,7 +514,11 @@ struct PcListPageV2 {
+         if (this.isInitializing) {
+           this.LoadingState()
+         } else if (this.viewModel.computers.length === 0) {
+-          this.EmptyState()
++          Scroll() {
++            this.EmptyState()
++          }
++          .width('100%')
++          .layoutWeight(1)
+         } else {
+           this.ComputerList()
+         }
+@@ -594,8 +598,8 @@ struct PcListPageV2 {
+           .height(48)
+           .fillColor(AppColors.Primary)
+       }
+-      .width(120)
+-      .height(120)
++      .width(this.isLandscape ? 64 : 120)
++      .height(this.isLandscape ? 64 : 120)
+       .borderRadius(60)
+       .backgroundColor(AppColors.Surface)
+       .borderWidth(2)
+@@ -609,13 +613,13 @@ struct PcListPageV2 {
+         .fontColor(AppColors.Primary)
+         .margin({ bottom: AppSpacing.Small })
+ 
+-      Text('自动发现局域网内运行 Foundation Sunshine 的电脑')
++      Text('查找同一局域网内运行 PiuLink Host 的电脑')
+         .fontSize(AppSizes.FontBody)
+         .fontColor(AppColors.TextSecondary)
+         .textAlign(TextAlign.Center)
+         .padding({ left: AppSpacing.XXLarge, right: AppSpacing.XXLarge })
+ 
+-      Text('或手动输入 IP 地址添加')
++      Text('模拟器未发现主机时，可手动输入被控电脑的局域网地址')
+         .fontSize(AppSizes.FontCaption)
+         .fontColor(AppColors.TextTertiary)
+         .margin({ top: AppSpacing.Small })
+@@ -667,7 +671,7 @@ struct PcListPageV2 {
+       .margin({ top: AppSpacing.XXLarge })
+     }
+     .width('100%')
+-    .height('100%')
++    .padding({ top: AppSpacing.Large, bottom: AppSpacing.Large })
+     .justifyContent(FlexAlign.Center)
+   }
+ 
+diff --git a/entry/src/main/ets/service/network/PairingManager.ets b/entry/src/main/ets/service/network/PairingManager.ets
+index 16d4b3a..2b7d0ed 100644
+--- a/entry/src/main/ets/service/network/PairingManager.ets
++++ b/entry/src/main/ets/service/network/PairingManager.ets
+@@ -360,7 +360,7 @@ export class PairingManager {
+    * @param useClientCert 是否使用客户端证书（HTTPS 请求需要）
+    */
+   private async doRequest(url: string, timeout: number = 7000, useClientCert: boolean = false): Promise<string> {
+-    Logger.info('PairingManager', `PairingManager: 请求 ${url}`);
++    Logger.info('PairingManager', `PairingManager: 请求 ${url.split('?')[0]}`);
+     Logger.info('PairingManager', `PairingManager: 超时设置 = ${timeout > 0 ? timeout : '无限制'}, 使用客户端证书 = ${useClientCert}`);
+ 
+     if (useClientCert && this.certFilePath && this.keyFilePath) {
+diff --git a/entry/src/main/ets/service/streaming/BackgroundStreamService.ets b/entry/src/main/ets/service/streaming/BackgroundStreamService.ets
+index ec134b1..8d4b5f3 100644
+--- a/entry/src/main/ets/service/streaming/BackgroundStreamService.ets
++++ b/entry/src/main/ets/service/streaming/BackgroundStreamService.ets
+@@ -267,7 +267,7 @@ export class BackgroundStreamService {
+       // 创建 WantAgent（点击通知时跳转回应用）
+       const wantAgentInfo: wantAgent.WantAgentInfo = {
+         wants: [{
+-          bundleName: 'com.alkaidlab.sdream',
++          bundleName: 'labs.atipiu.piulink.harmony',
+           abilityName: 'EntryAbility'
+         }],
+         actionType: wantAgent.OperationType.START_ABILITY,
+diff --git a/entry/src/main/ets/service/streaming/NvHttp.ets b/entry/src/main/ets/service/streaming/NvHttp.ets
+index b10312a..43d8123 100644
+--- a/entry/src/main/ets/service/streaming/NvHttp.ets
++++ b/entry/src/main/ets/service/streaming/NvHttp.ets
+@@ -605,7 +605,7 @@ export class NvHttp {
+     const transferTimeout = options?.transferTimeout ?? NvHttp.READ_TIMEOUT;
+     const connectTimeout = options?.connectTimeout ?? NvHttp.CONNECTION_TIMEOUT;
+     const useClientCert = options?.useClientCert ?? false;
+-    Logger.debug('NvHttp', `NvHttp: 请求 ${url}`);
++    Logger.debug('NvHttp', `NvHttp: 请求 ${url.split('?')[0]}`);
+ 
+     if (useClientCert && this.certFilePath && this.keyFilePath) {
+       return HttpClient.getWithClientCert(url, this.certFilePath, this.keyFilePath, {
+@@ -1147,7 +1147,7 @@ export class NvHttp {
+     const query = this.buildLaunchQuery(config.appId, config, 'resume');
+     const url = this.buildUrl(await this.getHttpsBaseUrl(), 'resume', query);
+ 
+-    Logger.info('NvHttp', `NvHttp: resumeApp URL: ${url}`);
++    Logger.info('NvHttp', `NvHttp: resumeApp URL: ${url.split('?')[0]}`);
+ 
+     // 使用客户端证书
+     const response = await this.doRequest(url, { transferTimeout: 60000, useClientCert: true });
+@@ -1390,7 +1390,7 @@ export class NvHttp {
+       `appid=${appId}&AssetType=2&AssetIdx=0`);
+ 
+     try {
+-      Logger.info('NvHttp', `NvHttp: 获取应用图标 appId=${appId}, url=${url}`);
++      Logger.info('NvHttp', `NvHttp: 获取应用图标 appId=${appId}, url=${url.split('?')[0]}`);
+       let data: ArrayBuffer;
+ 
+       if (this.hasCertificateFiles()) {
+@@ -1552,7 +1552,7 @@ export class NvHttp {
+       params.push(`customScreenMode=${config.screenCombinationMode}`);
+     }
+ 
+-    Logger.info('NvHttp', `NvHttp: buildLaunchQuery: ${params.join('&')}`);
++    Logger.info('NvHttp', `NvHttp: buildLaunchQuery: appId=${appId}`);
+     return params.join('&');
+   }
+ 
+diff --git a/entry/src/main/ets/utils/HttpClient.ets b/entry/src/main/ets/utils/HttpClient.ets
+index d6df7db..4db5872 100644
+--- a/entry/src/main/ets/utils/HttpClient.ets
++++ b/entry/src/main/ets/utils/HttpClient.ets
+@@ -180,7 +180,7 @@ export class HttpClient {
+     const key = RcpSessionPool.keyFor(url, config?.clientCertPath);
+     const session = RcpSessionPool.acquire(key, { skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
+ 
+-    Logger.debug('HttpClient', `HttpClient: GET ${url} (connect=${connectTimeout}ms, transfer=${transferTimeout}ms, sessionKey=${key})`);
++    Logger.debug('HttpClient', `HttpClient: GET ${url.split('?')[0]} (connect=${connectTimeout}ms, transfer=${transferTimeout}ms)`);
+ 
+     try {
+       // 构造也在 try 内：同步抛出（如非法 URL）时 finally 的 release 仍会执行
+@@ -211,7 +211,7 @@ export class HttpClient {
+         RcpSessionPool.invalidate(session);
+       }
+       if (HttpClient.isTimeoutError(error.message)) {
+-        Logger.warn('HttpClient', `HttpClient: 请求超时 - ${url}`);
++        Logger.warn('HttpClient', `HttpClient: 请求超时 - ${url.split('?')[0]}`);
+       } else {
+         Logger.error('HttpClient', `HttpClient: 请求失败 - ${error.message}`);
+       }
+@@ -302,7 +302,7 @@ export class HttpClient {
+       clientKeyPath: config?.clientKeyPath
+     });
+ 
+-    Logger.debug('HttpClient', `HttpClient: RAW ${method} ${url} (connect=${connectTimeout}ms, transfer=${transferTimeout}ms, sessionKey=${key})`);
++    Logger.debug('HttpClient', `HttpClient: RAW ${method} ${url.split('?')[0]} (connect=${connectTimeout}ms, transfer=${transferTimeout}ms)`);
+ 
+     try {
+       const request = new rcp.Request(
+@@ -362,7 +362,7 @@ export class HttpClient {
+     const key = RcpSessionPool.keyFor(url, config?.clientCertPath);
+     const session = RcpSessionPool.acquire(key, { skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
+ 
+-    Logger.info('HttpClient', `HttpClient: 二进制 GET ${url} (sessionKey=${key})`);
++    Logger.info('HttpClient', `HttpClient: 二进制 GET ${url.split('?')[0]}`);
+ 
+     try {
+       const request = new rcp.Request(
+@@ -429,7 +429,7 @@ export class HttpClient {
+     const key = RcpSessionPool.keyFor(url, config?.clientCertPath);
+     const session = RcpSessionPool.acquire(key, { skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
+ 
+-    Logger.debug('HttpClient', `HttpClient: POST ${url} (connect=${connectTimeout}ms, transfer=${transferTimeout}ms, sessionKey=${key})`);
++    Logger.debug('HttpClient', `HttpClient: POST ${url.split('?')[0]} (connect=${connectTimeout}ms, transfer=${transferTimeout}ms)`);
+ 
+     try {
+       const request = new rcp.Request(
+@@ -470,7 +470,7 @@ export class HttpClient {
+     const key = RcpSessionPool.keyFor(url, config?.clientCertPath);
+     const session = RcpSessionPool.acquire(key, { skipServerValidation: skipValidation, clientCertPath: config?.clientCertPath, clientKeyPath: config?.clientKeyPath });
+ 
+-    Logger.debug('HttpClient', `HttpClient: POST(binary) ${url} (connect=${connectTimeout}ms, transfer=${transferTimeout}ms, sessionKey=${key})`);
++    Logger.debug('HttpClient', `HttpClient: POST(binary) ${url.split('?')[0]} (connect=${connectTimeout}ms, transfer=${transferTimeout}ms)`);
+ 
+     const requestBody = HttpClient.toExactArrayBuffer(body);
+     try {
+diff --git a/entry/src/main/resources/base/element/string.json b/entry/src/main/resources/base/element/string.json
+index fcfea8d..789d053 100644
+--- a/entry/src/main/resources/base/element/string.json
++++ b/entry/src/main/resources/base/element/string.json
+@@ -2,15 +2,15 @@
+   "string": [
+     {
+       "name": "module_desc",
+-      "value": "Moonlight V+ 主模块"
++      "value": "PiuLink 主模块"
+     },
+     {
+       "name": "EntryAbility_desc",
+-      "value": "Moonlight V+ 游戏串流客户端"
++      "value": "PiuLink 游戏串流客户端"
+     },
+     {
+       "name": "EntryAbility_label",
+-      "value": "Moonlight V+"
++      "value": "PiuLink"
+     },
+     {
+       "name": "streaming_service_desc",
+diff --git a/nativelib/src/main/cpp/video_decoder.cpp b/nativelib/src/main/cpp/video_decoder.cpp
+index 2047d8f..a415996 100644
+--- a/nativelib/src/main/cpp/video_decoder.cpp
++++ b/nativelib/src/main/cpp/video_decoder.cpp
+@@ -240,7 +240,7 @@ static OH_NativeBuffer_StaticMetadata ToNativeHdrStaticMetadata(const Smpte2086M
+ 
+ // 查询指定 MIME 类型解码器的硬件能力
+ // 返回: OH_AVCapability* (系统管理，无需释放), 或 nullptr 不支持
+-static OH_AVCapability* GetHWDecoderCapability(const char* mimeType) {
++static OH_AVCapability* GetPreferredDecoderCapability(const char* mimeType) {
+     if (mimeType == nullptr) {
+         return nullptr;
+     }
+@@ -249,7 +249,12 @@ static OH_AVCapability* GetHWDecoderCapability(const char* mimeType) {
+     if (cap != nullptr && OH_AVCapability_IsHardware(cap)) {
+         return cap;
+     }
++#if defined(__x86_64__)
++    // The x86 phone emulator exposes software codecs through the same AVCodec API.
++    return OH_AVCodec_GetCapabilityByCategory(mimeType, false, SOFTWARE);
++#else
+     return nullptr;
++#endif
+ }
+ 
+ /**
+@@ -504,22 +509,22 @@ int VideoDecoder::Init(const VideoDecoderConfig& config, OHNativeWindow* window)
+                      static_cast<int>(config_.codec));
+         return -1;
+     }
+-    OH_AVCapability* hwCapability = GetHWDecoderCapability(mimeType);
++    OH_AVCapability* hwCapability = GetPreferredDecoderCapability(mimeType);
+     if (hwCapability == nullptr) {
+-        OH_LOG_ERROR(LOG_APP, "{Init} No hardware decoder capability for mime type: %{public}s", mimeType);
++        OH_LOG_ERROR(LOG_APP, "{Init} No decoder capability for mime type: %{public}s", mimeType);
+         return -1;
+     }
+     const char* decoderName = OH_AVCapability_GetName(hwCapability);
+     if (decoderName == nullptr || decoderName[0] == '\0') {
+-        OH_LOG_ERROR(LOG_APP, "{Init} Hardware decoder name unavailable for mime type: %{public}s", mimeType);
++        OH_LOG_ERROR(LOG_APP, "{Init} Decoder name unavailable for mime type: %{public}s", mimeType);
+         return -1;
+     }
+-    OH_LOG_INFO(LOG_APP, "{Init} Creating hardware decoder: %{public}s (mime=%{public}s)",
++    OH_LOG_INFO(LOG_APP, "{Init} Creating decoder: %{public}s (mime=%{public}s)",
+                 decoderName, mimeType);
+ 
+     decoder_ = OH_VideoDecoder_CreateByName(decoderName);
+     if (decoder_ == nullptr) {
+-        OH_LOG_ERROR(LOG_APP, "{Init} Failed to create hardware decoder: %{public}s", decoderName);
++        OH_LOG_ERROR(LOG_APP, "{Init} Failed to create decoder: %{public}s", decoderName);
+         return -1;
+     }
+     
+@@ -2415,7 +2420,7 @@ bool IsCodecSupported(VideoCodecType codec) {
+             return false;
+     }
+     
+-    return GetHWDecoderCapability(mimeType) != nullptr;
++    return GetPreferredDecoderCapability(mimeType) != nullptr;
+ }
+ 
+ // 获取解码器能力（使用 OH_AVCapability API 查询真实硬件参数）
+@@ -2429,7 +2434,7 @@ DecoderCapabilities GetCapabilities() {
+     // 查询实际硬件支持的最大分辨率和帧率
+     // 优先用 HEVC（通常上限更高），回退 H264
+     const char* probeMime = caps.supportsHEVC ? OH_AVCODEC_MIMETYPE_VIDEO_HEVC : OH_AVCODEC_MIMETYPE_VIDEO_AVC;
+-    OH_AVCapability* cap = GetHWDecoderCapability(probeMime);
++    OH_AVCapability* cap = GetPreferredDecoderCapability(probeMime);
+     
+     if (cap != nullptr) {
+         const char* codecName = OH_AVCapability_GetName(cap);
+diff --git a/entry/src/main/ets/model/StreamConfig.ets b/entry/src/main/ets/model/StreamConfig.ets
+index f87f2a5..6c60f15 100644
+--- a/entry/src/main/ets/model/StreamConfig.ets
++++ b/entry/src/main/ets/model/StreamConfig.ets
+@@ -8,6 +8,8 @@
+  * (at your option) any later version.
+  */
+ 
++import deviceInfo from '@ohos.deviceInfo';
++
+ /**
+  * 串流配置模型
+  *
+@@ -368,5 +370,11 @@ export function getRecommendedBitrate(width: number, height: number, fps: number
+     }
+   }
+ 
+-  return Math.round(resolutionFactor * frameRateFactor) * 1000;
++  const recommended = Math.round(resolutionFactor * frameRateFactor) * 1000;
++  // The x86 phone emulator can lose whole 4K H.264 frames at the physical-device bitrate.
++  if (pixels >= 3840 * 2160 && deviceInfo.productModel === 'emulator' &&
++      deviceInfo.abiList.includes('x86_64')) {
++    return Math.min(recommended, 12000);
++  }
++  return recommended;
+ }

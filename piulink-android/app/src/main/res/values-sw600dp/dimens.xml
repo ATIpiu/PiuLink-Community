@@ -1,0 +1,22 @@
+<resources>
+    <dimen name="piulink_page_margin">28dp</dimen>
+    <dimen name="piulink_toolbar_height">84dp</dimen>
+    <dimen name="piulink_card_spacing">18dp</dimen>
+    <dimen name="stream_menu_fallback_width">340dp</dimen>
+    <dimen name="shortcut_rail_fallback_width">210dp</dimen>
+    <dimen name="pc_grid_column_width">180dp</dimen>
+    <dimen name="pc_grid_card_height">124dp</dimen>
+    <dimen name="pc_grid_icon_size">84dp</dimen>
+    <dimen name="pc_grid_item_min_height">220dp</dimen>
+    <dimen name="home_side_rail_width">104dp</dimen>
+    <dimen name="empty_state_width">420dp</dimen>
+    <dimen name="app_grid_column_width">180dp</dimen>
+    <dimen name="app_grid_poster_width">164dp</dimen>
+    <dimen name="app_grid_poster_height">219dp</dimen>
+    <dimen name="app_grid_small_column_width">124dp</dimen>
+    <dimen name="app_grid_small_poster_width">108dp</dimen>
+    <dimen name="app_grid_small_poster_height">145dp</dimen>
+    <dimen name="home_page_gutter">32dp</dimen>
+    <dimen name="home_header_top">36dp</dimen>
+    <dimen name="detail_instrument_height">159dp</dimen>
+</resources>

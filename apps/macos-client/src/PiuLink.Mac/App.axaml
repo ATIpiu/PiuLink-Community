@@ -1,0 +1,41 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PiuLink.Mac.App" RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Dark" Accent="#EBE8E2" BaseHigh="#F4F1EC"
+                               BaseMedium="#B8B7B3" ChromeLow="#18191A" ChromeHigh="#303133"
+                               ChromeMedium="#222325" RegionColor="#101112" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <Style Selector="Window">
+      <Setter Property="Background" Value="#101112" />
+      <Setter Property="Foreground" Value="#F4F1EC" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="#18191A" />
+      <Setter Property="BorderBrush" Value="#353638" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="16" />
+      <Setter Property="Padding" Value="20" />
+    </Style>
+    <Style Selector="Button, ComboBox, TextBox">
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="MinHeight" Value="40" />
+    </Style>
+    <Style Selector="Button.connect">
+      <Setter Property="Background" Value="#EBE8E2" />
+      <Setter Property="Foreground" Value="#18191A" />
+      <Setter Property="Padding" Value="24,9" />
+    </Style>
+    <Style Selector="Button.connect:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.connect:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#CECBC5" />
+      <Setter Property="Foreground" Value="#18191A" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Foreground" Value="#B8B7B3" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+  </Application.Styles>
+</Application>

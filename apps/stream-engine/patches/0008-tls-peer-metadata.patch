@@ -1,0 +1,24 @@
+diff --git a/server_http.hpp b/server_http.hpp
+index 63e4546..7ca14f9 100644
+--- a/server_http.hpp
++++ b/server_http.hpp
+@@ -240,6 +240,11 @@ namespace SimpleWeb {
+ 
+     public:
+       std::string method, path, query_string, http_version;
++      // Populated by the authenticated TLS handshake, never parsed from HTTP headers.
++      std::string authenticated_peer() const noexcept {
++        if(auto locked = connection.lock()) return locked->authenticated_peer;
++        return {};
++      }
+ 
+       Content content;
+ 
+@@ -308,6 +313,7 @@ namespace SimpleWeb {
+       std::shared_ptr<ScopeRunner> handler_runner;
+ 
+       std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
++      std::string authenticated_peer;
+ 
+       /**
+        * Needed for TLS communication where async_write could be called outside of the io_context runners.

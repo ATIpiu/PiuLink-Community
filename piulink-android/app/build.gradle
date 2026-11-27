@@ -1,0 +1,277 @@
+apply plugin: 'com.android.application'
+
+def localSigningProperties = new Properties()
+def localSigningPropertiesFile = rootProject.file('keystore.properties')
+if (localSigningPropertiesFile.isFile()) {
+    localSigningPropertiesFile.withInputStream { localSigningProperties.load(it) }
+}
+def signingValue = { String propertyName, String environmentName ->
+    providers.gradleProperty(propertyName).orNull
+            ?: providers.environmentVariable(environmentName).orNull
+            ?: localSigningProperties.getProperty(propertyName, '')
+}
+def releaseStoreFilePath = signingValue('piulinkUploadStoreFile', 'PIULINK_UPLOAD_STORE_FILE')
+def releaseStorePassword = signingValue('piulinkUploadStorePassword', 'PIULINK_UPLOAD_STORE_PASSWORD')
+def releaseKeyAlias = signingValue('piulinkUploadKeyAlias', 'PIULINK_UPLOAD_KEY_ALIAS')
+def releaseKeyPassword = signingValue('piulinkUploadKeyPassword', 'PIULINK_UPLOAD_KEY_PASSWORD')
+def releaseStoreFile = releaseStoreFilePath.isBlank()
+        ? null
+        : rootProject.file(releaseStoreFilePath)
+def releaseSigningConfigured = !releaseStoreFilePath.isBlank() &&
+        !releaseStorePassword.isBlank() &&
+        !releaseKeyAlias.isBlank() &&
+        !releaseKeyPassword.isBlank()
+android {
+    sourceSets.main.assets.srcDir('../../packages/direct-tunnel/licenses')
+    ndkVersion "27.0.12077973"
+    testBuildType "release"
+
+    compileSdk 36
+
+    namespace 'com.limelight'
+
+    defaultConfig {
+        minSdk 26
+        targetSdk 36
+
+        versionName "0.3.260"
+        versionCode = 280
+        buildConfigField "String", "UPDATE_CHANNEL", project.hasProperty("piulinkAbi") ? '"android-arm64"' : '"android-client"'
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // Generate native debug symbols to allow Google Play to symbolicate our native crashes
+        ndk.debugSymbolLevel = 'FULL'
+
+        // Use -PpiulinkAbi=arm64-v8a for the Android-first compact build.
+        if (project.hasProperty('piulinkAbi')) {
+            ndk {
+                abiFilters project.property('piulinkAbi').toString()
+            }
+        }
+    }
+
+    flavorDimensions.add("root")
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    productFlavors {
+        root {
+            minSdk 21
+            // Android O has native mouse capture, so don't show the rooted
+            // version to devices running O on the Play Store.
+            maxSdk 25
+
+            externalNativeBuild {
+                ndkBuild {
+                    arguments "PRODUCT_FLAVOR=root"
+                }
+            }
+
+            applicationId "labs.atipiu.piulink.root"
+            dimension "root"
+            buildConfigField "boolean", "ROOT_BUILD", "true"
+        }
+
+        nonRoot {
+            externalNativeBuild {
+                ndkBuild {
+                    arguments "PRODUCT_FLAVOR=nonRoot"
+                }
+            }
+
+            applicationId "labs.atipiu.piulink"
+            dimension "root"
+            buildConfigField "boolean", "ROOT_BUILD", "false"
+        }
+    }
+
+    compileOptions {
+        encoding "UTF-8"
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        disable 'MissingTranslation'
+        lintConfig file('lint.xml')
+    }
+
+    packaging {
+        resources {
+            excludes += 'META-INF/versions/9/OSGI-INF/MANIFEST.MF'
+        }
+    }
+
+    bundle {
+        language {
+            // Avoid splitting by language, since we allow users
+            // to manually switch language in settings.
+            enableSplit = false
+        }
+        density {
+            // FIXME: This should not be necessary but we get
+            // weird crashes due to missing drawable resources
+            // when this split is enabled.
+            enableSplit = false
+        }
+    }
+
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            releaseUpload {
+                storeFile releaseStoreFile
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            resValue "string", "app_label", "PiuLink"
+            resValue "string", "app_label_root", "PiuLink (Root)"
+
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+        release {
+            testProguardFiles 'proguard-android-test-rules.pro'
+            // To whomever is releasing/using an APK in release mode with
+            // Moonlight's official application ID, please stop. I see every
+            // single one of your crashes in my Play Console and it makes
+            // Moonlight's reliability look worse and makes it more difficult
+            // to distinguish real crashes from your crashy VR app. Seriously,
+            // 44 of the *same* native crash in 72 hours and a few each of
+            // several other crashes.
+            //
+            // This is technically not your fault. I would have hoped Google
+            // would validate the signature of the APK before attributing
+            // the crash to it. I asked their Play Store support about this
+            // and they said they don't and don't have plans to, so that sucks.
+            //
+            // In any case, it's bad form to release an APK using someone
+            // else's application ID. There is no legitimate reason, that
+            // anyone would need to comment out the following line, except me
+            // when I release an official signed Moonlight build. If you feel
+            // like doing so would solve something, I can tell you it will not.
+            // You can't upgrade an app while retaining data without having the
+            // same signature as the official version. Nor can you post it on
+            // the Play Store, since that application ID is already taken.
+            // Reputable APK hosting websites similarly validate the signature
+            // is consistent with the Play Store and won't allow an APK that
+            // isn't signed the same as the original.
+            //
+            // I wish any and all people using Moonlight as the basis of other
+            // cool projects the best of luck with their efforts. All I ask
+            // is to please change the applicationId before you publish.
+            //
+            // TL;DR: Leave the following line alone!
+            resValue "string", "app_label", "PiuLink"
+            resValue "string", "app_label_root", "PiuLink (Root)"
+
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.releaseUpload
+            }
+        }
+    }
+
+    externalNativeBuild {
+        ndkBuild {
+            path "src/main/jni/Android.mk"
+        }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def abiName = project.hasProperty('piulinkAbi')
+                    ? project.property('piulinkAbi').toString()
+                    : 'universal'
+            outputFileName = "PiuLink-Android-${variant.versionName}-${variant.flavorName}-${abiName}-${variant.buildType.name}.apk"
+        }
+    }
+}
+
+dependencies {
+    implementation files('libs/piulink-direct.aar')
+    implementation 'com.github.mwiede:jsch:2.28.0'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.84'
+    implementation 'org.bouncycastle:bcpkix-jdk18on:1.84'
+    implementation 'org.jcodec:jcodec:0.2.5'
+    implementation 'com.google.protobuf:protobuf-java:3.25.5'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'org.jmdns:jmdns:3.5.9'
+    implementation 'com.github.cgutman:ShieldControllerExtensions:1.0.1'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20250517'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
+}
+
+dependencyLocking {
+    lockAllConfigurations()
+}
+
+// AGP's unified test platform still requests vulnerable Netty/Protobuf patch levels.
+// Keep its binary-compatible dependency family on patched versions even though these
+// configurations are build-time only and are not packaged in the application.
+configurations.configureEach {
+    resolutionStrategy {
+        force 'com.google.protobuf:protobuf-java:3.25.5'
+        force 'com.google.protobuf:protobuf-java-util:3.25.5'
+        force 'com.google.protobuf:protobuf-kotlin:3.25.5'
+        force 'io.netty:netty-buffer:4.1.137.Final'
+        force 'io.netty:netty-codec:4.1.137.Final'
+        force 'io.netty:netty-codec-http:4.1.137.Final'
+        force 'io.netty:netty-codec-http2:4.1.137.Final'
+        force 'io.netty:netty-codec-socks:4.1.137.Final'
+        force 'io.netty:netty-common:4.1.137.Final'
+        force 'io.netty:netty-handler:4.1.137.Final'
+        force 'io.netty:netty-handler-proxy:4.1.137.Final'
+        force 'io.netty:netty-resolver:4.1.137.Final'
+        force 'io.netty:netty-transport:4.1.137.Final'
+        force 'io.netty:netty-transport-native-unix-common:4.1.137.Final'
+    }
+}
+
+tasks.register('verifyReleaseSigningConfiguration') {
+    group = 'verification'
+    description = 'Fails unless the Android release signing-key configuration is complete.'
+    doLast {
+        if (!releaseSigningConfigured) {
+            throw new GradleException('Android release signing is not configured. ' +
+                    'Set piulinkUploadStoreFile/piulinkUploadStorePassword/' +
+                    'piulinkUploadKeyAlias/piulinkUploadKeyPassword as Gradle properties, ' +
+                    'or use the matching PIULINK_UPLOAD_* environment variables.')
+        }
+        if (!releaseStoreFile.isFile()) {
+            throw new GradleException('Android release keystore does not exist: ' +
+                    releaseStoreFile)
+        }
+    }
+}
+
+tasks.withType(Test).configureEach {
+    systemProperty 'piulink.companionContract', rootProject.file('../contracts/companion-v1.json').absolutePath
+}
+
+// Native configuration resolves the Rust archives listed in Android.mk.
+def rustSources = rootProject.file('../engines/rust/integration')
+def rustAndroid = tasks.register('buildPiuLinkRustArchives', Exec) {
+    inputs.dir(new File(rustSources, 'wire'))
+    inputs.file(new File(rustSources, 'android/wire.py'))
+    inputs.file(new File(rustSources, 'android/build-archives.py'))
+    outputs.dir(file('src/main/jni/moonlight-core/rust-wire'))
+    commandLine(System.getenv('PYTHON') ?: (System.getProperty('os.name').startsWith('Windows') ? 'python' : 'python3'),
+            new File(rustSources, 'android/build-archives.py'), rootProject.projectDir)
+}
+tasks.configureEach {
+    if (name.startsWith('configureNdkBuild') || name.startsWith('buildNdkBuild') || name == 'preBuild') dependsOn(rustAndroid)
+}

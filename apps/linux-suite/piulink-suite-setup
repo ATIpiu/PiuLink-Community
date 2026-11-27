@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+if [[ $(id -u) == 0 ]]; then echo '请用自己的桌面账户运行此命令。' >&2; exit 1; fi
+if [[ ${1:-} == --terminal ]]; then
+    trap 'status=$?; echo; read -r -p "按回车关闭窗口 " _ || true; exit "$status"' EXIT
+fi
+. /etc/os-release
+if [[ $ID != ubuntu || $VERSION_ID != 26.04 || $(uname -m) != x86_64 ]]; then
+    echo 'PiuLink Linux 整合版的组件安装需要 Ubuntu 26.04 x64。' >&2
+    exit 1
+fi
+base=${XDG_DATA_HOME:-$HOME/.local/share}/piulink-linux
+mkdir -p "$base/runtime" "$base/downloads"
+exec 8>"$base/downloads/suite-setup.lock"
+flock -n 8 || { echo '已有组件安装正在进行。' >&2; exit 1; }
+/usr/bin/piulink-host-setup-user
+printf '\n%s\n' '组件已准备好。控制端可从应用菜单打开。启用本机被控端时，在本账户运行以下两条命令：'
+printf '%s\n' '  piulink-host setup desktop' '  systemctl --user enable --now piulink-host.service'
