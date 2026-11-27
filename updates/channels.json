@@ -128,11 +128,11 @@
     "mapSha256": "dff2a8bc376502d228b2bc0c5b2db908fa1f853d4fe9ff2d556d5828f17b95d2"
   },
   "harmony-client": {
-    "version": "0.1.4",
-    "tag": "unix-harmony-updates-2026.11.27",
-    "name": "PiuLink-HarmonyOS-0.1.4-unsigned.hap",
-    "bytes": 36636318,
-    "sha256": "060afcd47b9b3425c29014888379093823f963aa17cfe7f026cf708cc6170a99",
-    "mapSha256": "cfde32654bf8fc38aeb1bd6e35a59de56bdad804d5a6d0433ace80736bf1a139"
+    "version": "0.1.5",
+    "tag": "harmony-0.1.5",
+    "name": "PiuLink-HarmonyOS-0.1.5-unsigned.hap",
+    "bytes": 36636788,
+    "sha256": "d4150d47726caac45f83d7edf55975497f14ffcc9a5f4306d1347b86851cb74c",
+    "mapSha256": "ddf7f11ded006222aee806d49da2c8b5daf83c515b82332a51cc43baf5021666"
   }
 }
