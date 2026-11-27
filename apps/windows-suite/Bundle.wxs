@@ -9,8 +9,13 @@
           SuppressOptionsUI="yes" />
     </BootstrapperApplication>
     <Chain>
+      <?ifdef HostCacheId?>
+      <MsiPackage Id="Host" Name="Host\PiuLink-Host.msi" SourceFile="$(var.HostMsi)" CacheId="$(var.HostCacheId)" Compressed="yes" Vital="yes" />
+      <MsiPackage Id="Client" Name="Client\PiuLink-Client.msi" SourceFile="$(var.ClientMsi)" CacheId="$(var.ClientCacheId)" Compressed="yes" Vital="yes" />
+      <?else?>
       <MsiPackage Id="Host" SourceFile="$(var.HostMsi)" Compressed="yes" Vital="yes" />
       <MsiPackage Id="Client" SourceFile="$(var.ClientMsi)" Compressed="yes" Vital="yes" />
+      <?endif?>
     </Chain>
   </Bundle>
 </Wix>

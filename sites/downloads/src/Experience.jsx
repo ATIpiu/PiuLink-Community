@@ -384,6 +384,15 @@ function Downloads({ selected, setSystem }) {
 
 const updates = [
   {
+    title: "Windows 整合版 0.2.136",
+    tag: "windows-0.2.136",
+    date: "2026-11-27",
+    changes: [
+      "Windows 默认下载的离线整合版从 180.42 MiB 减至 118.47 MiB。内含 Host 0.2.135 和 Client 0.2.36，两端共用的运行库只下载一次。",
+      "已在 Windows x64 实测从 0.2.135 升级、从系统维护入口修复，以及卸载后重装。14 个已有配对、Host 配置、客户端连接历史和证书均保留。",
+    ],
+  },
+  {
     title: "Android 0.3.222",
     tag: "android-0.3.222",
     date: "2026-11-27",
