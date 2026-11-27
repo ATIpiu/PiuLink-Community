@@ -32,6 +32,8 @@ jobs:
         run: |
           python3 apps/ios-client/prepare.py "$RUNNER_TEMP/iphone"
           python3 apps/ios-client/simulator-tests/instrument-output.py "$RUNNER_TEMP/iphone"
+      - name: Route test host and iOS output separately
+        run: bash apps/ios-client/simulator-tests/prepare-audio.sh
       - name: Boot simulator and verify startup
         working-directory: ${{ runner.temp }}
         run: |

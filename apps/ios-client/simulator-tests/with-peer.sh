@@ -16,6 +16,7 @@ sunshine_name = PiuLink Simulator Host
 origin_web_ui_allowed = pc
 upnp = disabled
 encoder = software
+audio_sink = BlackHole 16ch
 file_state = $scratch/state/sunshine_state.json
 credentials_file = $scratch/state/sunshine_state.json
 EOF
@@ -33,8 +34,20 @@ python3 "$GITHUB_WORKSPACE/apps/ios-client/simulator-tests/pin_helper.py" &
 helper_pid=$!
 trap 'kill "$host_pid" "$helper_pid" 2>/dev/null || true' EXIT
 cd "$test_dir"
-clang -fobjc-arc -framework Foundation -framework CoreAudio -framework AudioToolbox OutputTap.m -o "$scratch/output-tap"
+curl -fsSL --retry 3 https://github.com/cameroncooke/AXe/releases/download/v1.0.0/AXe-macOS-v1.0.0.tar.gz -o "$scratch/axe.tgz"
+echo "5d32037aaef3bd8c57b454cf43b40b470c209d5dd2a39ab78eeb7b9c438817f9  $scratch/axe.tgz" | shasum -a 256 -c -
+mkdir -p "$scratch/axe"
+tar -xzf "$scratch/axe.tgz" -C "$scratch/axe"
+ln -s "$(find "$scratch/axe" -type f -name axe | head -1)" "$scratch/axe-bin"
+test -x "$scratch/axe-bin"
 python3 tones.py generate "$scratch/tones.wav"
+sox -q -t coreaudio 'BlackHole 2ch' -c 1 -r 48000 -b 32 -e floating-point -t raw "$scratch/negative.raw" trim 0 6 &
+negative_pid=$!
+sleep 1
+sox -q "$scratch/tones.wav" -t coreaudio 'BlackHole 16ch'
+wait "$negative_pid"
+printf '48000 1\n' > "$scratch/negative.format"
+python3 tones.py quiet "$scratch/negative.raw" "$scratch/negative.format"
 swiftc DesktopProbe.swift -o "$scratch/probe"
 "$scratch/probe" "$scratch/input-received" &
 probe_pid=$!

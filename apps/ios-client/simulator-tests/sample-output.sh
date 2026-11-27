@@ -1,18 +1,17 @@
 #!/bin/bash
+# The source player and the Simulator render to separate CoreAudio devices.
 set -euo pipefail
 scratch=$1
-pid=$(xcrun simctl spawn booted launchctl list | awk '/labs[.]atipiu[.]piulink[.]ios/ && $1 ~ /^[0-9]+$/ {print $1;exit}')
-"$scratch/output-tap" "$pid" "$scratch/output.raw" > "$scratch/format.txt" &
+udid=$(xcrun simctl list devices booted -j | python3 -c 'import sys,json; print(next(d["udid"] for ds in json.load(sys.stdin)["devices"].values() for d in ds if d["state"]=="Booted"))')
+xcrun simctl io "$udid" screenshot "$scratch/phone.png"
+printf '48000 1\n' > "$scratch/format.txt"
+sox -q -t coreaudio 'BlackHole 2ch' -c 1 -r 48000 -b 32 -e floating-point -t raw "$scratch/output.raw" trim 0 9 &
 monitor=$!
-xcrun simctl io booted screenshot "$scratch/phone.png"
-for i in {1..20}; do
-  [[ -s "$scratch/format.txt" ]] && break
-  kill -0 "$monitor" 2>/dev/null || break
-  sleep .2
-done
-echo "Starting test tones"
-sleep .5
-afplay "$scratch/tones.wav"
+trap 'kill "$monitor" 2>/dev/null || true' EXIT
+sleep 1.5
+sox -q "$scratch/tones.wav" -t coreaudio 'BlackHole 16ch'
+sleep 1
+"$scratch/axe-bin" key 19 --udid "$udid"
 wait "$monitor"
 wc -c "$scratch/output.raw"
 touch "$scratch/output-finished"

@@ -32,5 +32,6 @@ else:
         if max(scores) > .55:
             label = tones[scores.index(max(scores))]
             if not observed or observed[-1] != label: observed.append(label)
-    print("iOS output detected frequencies", observed)
+    print(sys.argv[1], "detected frequencies", observed, "captured samples", len(chan))
+    if sys.argv[1] == "quiet": sys.exit(0 if not observed and len(chan) >= rate * 5 else 1)
     sys.exit(0 if list(tones) == observed else 1)
