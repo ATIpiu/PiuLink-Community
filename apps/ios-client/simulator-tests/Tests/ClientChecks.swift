@@ -112,7 +112,7 @@ final class ClientChecks: XCTestCase {
             response.fulfill()
         }.resume()
         wait(for: [response], timeout: 15)
-        let desktop = app.staticTexts["Desktop"].firstMatch
+        let desktop = app.buttons["Desktop"].firstMatch
         XCTAssertTrue(desktop.waitForExistence(timeout: 30), app.debugDescription)
         desktop.tap()
         sleep(7)

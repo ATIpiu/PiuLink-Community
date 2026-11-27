@@ -2,7 +2,7 @@ name: Test iOS Simulator
 on:
   workflow_dispatch:
   push:
-    branches: [main, codex/ios-download, codex/ios-simulator-validation]
+    branches: [main, codex/ios-download, codex/ios-simulator-validation, codex/ios-peer-qa]
     paths:
       - 'apps/ios-client/**'
       - 'packages/direct-tunnel/**'
@@ -65,13 +65,21 @@ jobs:
           set -euo pipefail
           device=$(xcrun simctl list devices booted -j | python3 -c 'import sys,json; print(next(d["udid"] for ds in json.load(sys.stdin)["devices"].values() for d in ds if d["state"]=="Booted"))')
           bash with-peer.sh xcodebuild -quiet test -scheme Checks -only-testing:Checks/ClientChecks/testPairingAndApplicationLibrary -destination "id=$device" -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/Checks.xcresult"
+      - name: Preserve pairing result and failure summary
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP"
+          if [[ -d Checks.xcresult ]]; then
+            xcrun xcresulttool get test-results summary --path Checks.xcresult
+            ditto -c -k --keepParent Checks.xcresult pairing.zip
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: ios-ui
           path: |
             ${{ runner.temp }}/startup.png
-            ${{ runner.temp }}/Checks.xcresult/
+            ${{ runner.temp }}/pairing.zip
             ${{ runner.temp }}/Controls.xcresult/
 
 
