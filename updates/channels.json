@@ -1,11 +1,11 @@
 {
   "win-suite": {
-    "version": "0.2.138",
-    "tag": "desktop-updates-2026.11.27",
-    "name": "PiuLink-Windows-0.2.138-win-x64.exe",
-    "bytes": 125254307,
-    "sha256": "84b21ba733d3524b3b4bc6876a420eebacd5ec7ffc55441d702c64387be0ad2f",
-    "mapSha256": "16ae2d6ca8a6778f518662166252da28af52ad9f6b1eeb7471c05d7b17f0c3e0"
+    "version": "0.2.139",
+    "tag": "windows-0.2.139",
+    "name": "PiuLink-Windows-0.2.139-win-x64.exe",
+    "bytes": 125350525,
+    "sha256": "f03b6d24d957aa268bfaa5c60223c153ac0b551d68ac416765256ec1eeeed91c",
+    "mapSha256": "eaa27d8db9139f9b8796be14d7a517d0862d088e1ada3eafba733238c8143000"
   },
   "win-client": {
     "version": "0.2.37",
