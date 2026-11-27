@@ -1,6 +1,7 @@
 // Record only the iOS simulator client process on the disposable macOS runner.
 #import <Foundation/Foundation.h>
 #import <CoreAudio/CoreAudio.h>
+#import <CoreAudio/AudioHardwareTapping.h>
 #import <CoreAudio/CATapDescription.h>
 #include <unistd.h>
 
