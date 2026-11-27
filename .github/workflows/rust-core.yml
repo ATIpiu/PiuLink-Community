@@ -1,0 +1,29 @@
+name: Rust streaming core
+on:
+  push:
+    branches: [main]
+    paths: ['engines/rust/**', '.github/workflows/rust-core.yml']
+  pull_request:
+    branches: [main]
+    paths: ['engines/rust/**', '.github/workflows/rust-core.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Test the streaming crates
+        shell: pwsh
+        run: |
+          foreach ($manifest in 'Cargo.toml','integration/portable/Cargo.toml','integration/wire/Cargo.toml','integration/sunshine/Cargo.toml') {
+            cargo test --locked --manifest-path "engines/rust/$manifest"
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+      - name: Replay Android audio startup
+        shell: pwsh
+        run: |
+          rustc --edition 2021 engines/rust/tests/audio_acquisition.rs -o "$env:RUNNER_TEMP/audio-acquisition.exe"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & "$env:RUNNER_TEMP/audio-acquisition.exe"

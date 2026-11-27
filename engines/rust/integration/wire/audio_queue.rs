@@ -190,11 +190,20 @@ impl Queue {
             self.synchronized = false;
             self.last_late = None;
         }
-        let Some(first) = self.first else {
-            self.last_admitted = now;
-            self.next = h.base.wrapping_add(4);
-            self.first = Some(self.next);
-            return 0;
+        let first = match self.first {
+            Some(first) => first,
+            None => {
+                // A data packet at index zero is already a complete block boundary.
+                self.last_admitted = now;
+                if index != 0 {
+                    self.next = h.base.wrapping_add(DATA as u16);
+                    self.first = Some(self.next);
+                    return 0;
+                }
+                self.next = h.base;
+                self.first = Some(h.base);
+                h.base
+            }
         };
         if h.base.wrapping_sub(first) as usize >= DATA * MAX_BLOCKS {
             return 0;
@@ -416,7 +425,7 @@ mod tests {
                             continue;
                         }
                         let mut q = Queue::new(false);
-                        q.add(&packets(65528, 0)[0], 5, 0);
+                        q.add(&packets(65528, 0)[1], 5, 0);
                         let mut all = vec![];
                         for i in [a, b, c, d] {
                             let result = q.add(&p[i], 5, 5);
@@ -435,9 +444,25 @@ mod tests {
         }
     }
     #[test]
+    fn first_block_at_wrap_accepts_only_an_aligned_start() {
+        let first = packets(65532, 0);
+        let next = packets(0, 20);
+        for start in 0..TOTAL {
+            let mut q = Queue::new(false);
+            for index in start..TOTAL {
+                let expected = if start == 0 && index < DATA { DIRECT } else { 0 };
+                assert_eq!(q.add(&first[index], 5, index as u64 * 5), expected);
+                assert_eq!(q.add(&first[index], 5, index as u64 * 5), 0);
+            }
+            assert_eq!(q.add(&next[0], 5, 30), DIRECT);
+            assert_eq!(q.concealed, 0);
+        }
+    }
+
+    #[test]
     fn admission_window_wraps_and_resynchronizes_after_silence() {
         let mut q = Queue::new(false);
-        q.add(&packets(65528, 0)[0], 5, 0);
+        q.add(&packets(65528, 0)[1], 5, 0);
         let beyond_window = packets(124, 1);
         assert_eq!(q.add(&beyond_window[0], 5, 1), 0);
         assert!(q.blocks.is_empty());
@@ -450,14 +475,16 @@ mod tests {
 
         // After an idle interval, a valid sender may have advanced past the window.
         let resumed = packets(800, 1000);
-        assert_eq!(q.add(&resumed[0], 5, 1003), 0);
-        assert_eq!(q.add(&packets(804, 1020)[0], 5, 1008), DIRECT);
+        for (i, packet) in resumed[..4].iter().enumerate() {
+            assert_eq!(q.add(packet, 5, 1003 + 5 * i as u64), DIRECT);
+        }
+        assert_eq!(q.add(&packets(804, 1020)[0], 5, 1023), DIRECT);
     }
 
     #[test]
     fn discontinuity_late_data_restart_and_alloc_failure() {
         let mut q = Queue::new(false);
-        q.add(&packets(0, 0)[0], 5, 0);
+        q.add(&packets(0, 0)[1], 5, 0);
         let p = packets(4, 20);
         assert_eq!(q.add(&p[0], 5, 5), DIRECT);
         assert_eq!(q.add(&p[2], 5, 10), 0);

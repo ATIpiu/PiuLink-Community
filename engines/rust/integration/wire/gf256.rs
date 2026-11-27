@@ -56,6 +56,35 @@ unsafe fn chunks<const ACCUMULATE: bool>(
     end
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#[target_feature(enable = "avx2")]
+unsafe fn wide_chunks<const ACCUMULATE: bool>(
+    dst: *mut u8,
+    src: *const u8,
+    len: usize,
+    k: usize,
+) -> usize {
+    #[cfg(target_arch = "x86")]
+    use core::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use core::arch::x86_64::*;
+    let low = _mm256_broadcastsi128_si256(_mm_loadu_si128(MUL[k].as_ptr().cast()));
+    let high = _mm256_broadcastsi128_si256(_mm_loadu_si128(HIGH[k].as_ptr().cast()));
+    let mask = _mm256_set1_epi8(15);
+    let end = len & !31;
+    for i in (0..end).step_by(32) {
+        let input = _mm256_loadu_si256(src.add(i).cast());
+        let a = _mm256_shuffle_epi8(low, _mm256_and_si256(input, mask));
+        let b = _mm256_shuffle_epi8(high, _mm256_and_si256(_mm256_srli_epi16::<4>(input), mask));
+        let mut result = _mm256_xor_si256(a, b);
+        if ACCUMULATE {
+            result = _mm256_xor_si256(result, _mm256_loadu_si256(dst.add(i).cast()));
+        }
+        _mm256_storeu_si256(dst.add(i).cast(), result);
+    }
+    end
+}
+
 #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 unsafe fn chunks<const ACCUMULATE: bool>(
     dst: *mut u8,
@@ -95,7 +124,9 @@ pub(super) unsafe fn combine<const ACCUMULATE: bool>(
     }
     let k = factor as usize;
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    let start = if len >= 16 && std::is_x86_feature_detected!("ssse3") {
+    let start = if len >= 512 && std::is_x86_feature_detected!("avx2") {
+        wide_chunks::<ACCUMULATE>(dst, src, len, k)
+    } else if len >= 16 && std::is_x86_feature_detected!("ssse3") {
         chunks::<ACCUMULATE>(dst, src, len, k)
     } else {
         0
@@ -124,9 +155,9 @@ pub(super) unsafe fn combine<const ACCUMULATE: bool>(
 
 #[test]
 fn scalar_equivalence_for_all_factors_and_unaligned_tails() {
-    let input: Vec<_> = (0..288).map(|i| (i * 37) as u8).collect();
+    let input: Vec<_> = (0..1450).map(|i| (i * 37) as u8).collect();
     for k in 0..=255u8 {
-        for len in [1, 15, 16, 17, 31, 32, 33, 255, 256, 269] {
+        for len in [1, 15, 16, 17, 31, 32, 33, 255, 256, 269, 511, 512, 513, 1408, 1439] {
             let mut dst = vec![0xa5; len + 7];
             unsafe {
                 combine::<true>(dst.as_mut_ptr().add(3), input.as_ptr().add(1), len, k);
