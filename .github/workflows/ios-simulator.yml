@@ -49,6 +49,8 @@ jobs:
           fi
           mkdir -p "$RUNNER_TEMP/installed"
           ditto -x -k "$HOME/piulink-simulator-app.zip" "$RUNNER_TEMP/installed"
+          executable=$(find "$RUNNER_TEMP/installed" -type f -name Moonlight | head -1)
+          xcrun llvm-objdump --macho --arch=arm64 --disassemble-symbols=_RtpvAddPacket "$executable" > "$RUNNER_TEMP/rtpv-assembly.txt" || true
           xcrun simctl install "$device" "$RUNNER_TEMP"/installed/*.app
           xcrun simctl launch "$device" labs.atipiu.piulink.ios
           sleep 8
@@ -88,6 +90,7 @@ jobs:
         with:
           name: ios-ui
           path: |
+            ${{ runner.temp }}/rtpv-assembly.txt
             ${{ runner.temp }}/startup.png
             ${{ runner.temp }}/pairing.zip
             ${{ runner.temp }}/sunshine-test/phone.png
