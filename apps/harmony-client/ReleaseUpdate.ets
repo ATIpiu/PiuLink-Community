@@ -77,7 +77,10 @@ async function blocks(r: HapRelease): Promise<Block[]> {
     if (await zip.inflate(stream, zlib.CompressFlushMode.FINISH) !== zlib.ReturnStatus.STREAM_END) {
       throw new Error('分块索引解压失败');
     }
-    const data = JSON.parse(decode(output.slice(0, stream.totalOut))) as Block[];
+    const result = await zip.getZStream();
+    const length = result.totalOut;
+    if (length === undefined || length < 1 || length > output.byteLength) throw new Error('分块索引长度有误');
+    const data = JSON.parse(decode(output.slice(0, length))) as Block[];
     let size = 0;
     for (const b of data) {
       if (!Number.isInteger(b.n) || b.n < 1 || b.n > maxBlock || !hashPattern.test(b.h)) throw new Error('分块数据有误');

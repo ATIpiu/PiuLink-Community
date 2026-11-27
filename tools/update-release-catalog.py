@@ -1,4 +1,5 @@
 """Index supported installers from a GitHub release after verifying their GitHub digests."""
+import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -27,6 +28,18 @@ for arch, deb in [("arm64", "arm64"), ("x64", "amd64")]:
     FORMATS["mac-" + arch] = rf"PiuLink-Mac-{VERSION}-osx-{arch}-unsigned\.zip"
     FORMATS["linux-" + arch] = rf"piulink-client_{VERSION}-1_{deb}\.deb"
     FORMATS["linux-" + arch + "-portable"] = rf"PiuLink-Client-{VERSION}-linux-{arch}\.tar\.gz"
+
+
+def harmony_compatible_map(record, maps):
+    # 0.1.3/0.1.4 read the entire 4 MiB inflate buffer on some HarmonyOS
+    # versions. JSON whitespace keeps those installed clients upgradeable.
+    blocks = gzip.decompress((maps / (record["mapSha256"] + ".gz")).read_bytes())
+    if len(blocks) > 4 << 20:
+        raise ValueError("HarmonyOS block map exceeds the client limit")
+    packed = gzip.compress(blocks.ljust(4 << 20, b" "), compresslevel=6, mtime=0)
+    digest = hashlib.sha256(packed).hexdigest()
+    (maps / (digest + ".gz")).write_bytes(packed)
+    return {**record, "mapSha256": digest}
 
 
 def main(tag):
@@ -60,7 +73,8 @@ def main(tag):
                     digest = hashlib.file_digest(stream, "sha256").hexdigest()
                 if "sha256:" + digest != asset["digest"] or file.stat().st_size != asset["size"]:
                     raise ValueError(f"GitHub digest mismatch for {name}")
-                channels[channel] = json.loads(subprocess.check_output([builder, file, dist/"maps", version, tag]))
+                record = json.loads(subprocess.check_output([builder, file, dist/"maps", version, tag]))
+                channels[channel] = harmony_compatible_map(record, dist/"maps") if channel == "harmony-client" else record
                 break
     # Keep previous maps available to downloads that are already in progress.
     new = catalog.with_suffix(".tmp")
