@@ -2,6 +2,15 @@
 set -euo pipefail
 export HOMEBREW_NO_AUTO_UPDATE=1
 brew install cmake pkgconf miniupnpc openssl@3 opus icu4c@78
+# Build and link against the same OpenSSL ABI on the disposable runner.
+if [[ -L "$(brew --prefix)/include/openssl" ]]; then
+  linked="$(readlink "$(brew --prefix)/include/openssl")"
+  case "$linked" in *openssl@4*) brew unlink openssl@4 ;; esac
+fi
+ssl="$(brew --prefix openssl@3)"
+export CPPFLAGS="-I$ssl/include"
+export CFLAGS="-I$ssl/include"
+export CXXFLAGS="-I$ssl/include"
 src="$RUNNER_TEMP/qa-peer-src"
 git init -q "$src"
 git -C "$src" fetch -q --depth 1 https://github.com/LizardByte/Sunshine.git 14ffa6fdaa53f7b51512be2b3d24f3939695403c
