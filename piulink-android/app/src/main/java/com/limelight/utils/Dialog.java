@@ -12,8 +12,8 @@ import android.widget.CheckBox;
 import com.limelight.R;
 
 public class Dialog implements Runnable {
-    private static final String SUPPRESSION_PREFERENCES = "piulink_suppressed_dialogs";
-    private final String tipKey;
+    private final int topic;
+    private final boolean errorNotice;
     private static String noticeKey(String title, String message) {
         return "notice/" + UUID.nameUUIDFromBytes((title + "\n" + message).getBytes(StandardCharsets.UTF_8));
     }
@@ -27,9 +27,10 @@ public class Dialog implements Runnable {
 
     private static final ArrayList<Dialog> rundownDialogs = new ArrayList<>();
 
-    private Dialog(Activity activity, String title, String message, Runnable runOnDismiss, String tipKey)
+    private Dialog(Activity activity, String title, String message, Runnable runOnDismiss, int topic, boolean errorNotice)
     {
-        this.tipKey = tipKey;
+        this.topic = topic;
+        this.errorNotice = errorNotice;
         this.activity = activity;
         this.title = title;
         this.message = message;
@@ -49,66 +50,58 @@ public class Dialog implements Runnable {
         }
     }
 
-    public static void displayDialog(final Activity activity, String title, String message, final boolean endAfterDismiss)
+    public static void displayDialog(final Activity activity, int title, String message, final boolean endAfterDismiss)
     {
-        activity.runOnUiThread(new Dialog(activity, title, message, new Runnable() {
+        activity.runOnUiThread(new Dialog(activity, activity.getString(title), message, new Runnable() {
             @Override
             public void run() {
                 if (endAfterDismiss) {
                     activity.finish();
                 }
             }
-        }, noticeKey(title, message)));
+        }, title, true));
     }
 
-    public static void displayDialog(Activity activity, String title, String message, Runnable runOnDismiss)
+    public static void displayDialog(Activity activity, int title, String message, Runnable runOnDismiss)
     {
-        activity.runOnUiThread(new Dialog(activity, title, message, runOnDismiss, noticeKey(title, message)));
+        activity.runOnUiThread(new Dialog(activity, activity.getString(title), message, runOnDismiss, title, true));
     }
 
     public static void displayResult(Activity activity, String title, String message) {
-        activity.runOnUiThread(new Dialog(activity, title, message, () -> { }, null));
+        activity.runOnUiThread(new Dialog(activity, title, message, () -> { }, 0, false));
     }
 
     public static void displayTip(Activity activity, int title, int message, Runnable onDismiss) {
-        String key = activity.getResources().getResourceEntryName(title);
+        displayTip(activity, title, title, message, onDismiss);
+    }
+
+    public static void displayTip(Activity activity, int topic, int title, int message, Runnable onDismiss) {
         activity.runOnUiThread(new Dialog(activity, activity.getString(title), activity.getString(message),
-                onDismiss, key));
+                onDismiss, topic, false));
     }
 
     @Override
     public void run() {
         if (activity.isFinishing() || activity.isDestroyed()) return;
-        android.content.SharedPreferences prefs = activity.getSharedPreferences(SUPPRESSION_PREFERENCES, Activity.MODE_PRIVATE);
-        if (tipKey != null) {
-            String legacy = "dialog_" + Integer.toHexString(title.hashCode());
-            if (!tipKey.startsWith("notice/") && prefs.getBoolean(legacy, false)) prefs.edit().remove(legacy).putBoolean(tipKey, true).apply();
-            if (prefs.getBoolean(tipKey, false)) {
-                if (tipKey.startsWith("notice/")) Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
-                runOnDismiss.run();
-                return;
-            }
+        if (errorNotice) ReminderPreferences.migrateNotice(activity, topic, noticeKey(title, message));
+        if (topic != 0 && !ReminderPreferences.shouldShow(activity, topic)) {
+            if (errorNotice) Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
+            runOnDismiss.run();
+            return;
         }
 
         TouchDialog builder = new TouchDialog(activity).setTitle(title);
         builder.setMessage(message);
-        CheckBox remember = tipKey == null ? null : new CheckBox(activity);
-        if (remember != null) {
-            remember.setText(R.string.dialog_dont_show_again);
-            android.widget.FrameLayout area = new android.widget.FrameLayout(activity);
-            area.setPadding(TouchDialog.dp(activity, 20), 0, TouchDialog.dp(activity, 16), 0);
-            area.addView(remember);
-            builder.setView(area);
-        }
+        CheckBox remember = topic == 0 ? null : ReminderPreferences.addCheckbox(activity, builder);
         Runnable acknowledge = () -> {
             synchronized (rundownDialogs) {
                 if (!rundownDialogs.remove(this)) return;
             }
-            if (remember != null && remember.isChecked()) prefs.edit().putBoolean(tipKey, true).apply();
+            if (remember != null) ReminderPreferences.remember(activity, topic, remember);
             runOnDismiss.run();
         };
         builder.setPositiveButton(android.R.string.ok, (d, which) -> acknowledge.run());
-        if (tipKey == null || tipKey.startsWith("notice/")) builder.setNeutralButton(R.string.help, (d, which) -> {
+        if (topic == 0 || errorNotice) builder.setNeutralButton(R.string.help, (d, which) -> {
             acknowledge.run();
             HelpLauncher.launchTroubleshooting(activity);
         });
@@ -118,11 +111,6 @@ public class Dialog implements Runnable {
             rundownDialogs.add(this);
             alert.show();
         }
-    }
-
-    public static void resetSuppressedDialogs(Activity activity) {
-        activity.getSharedPreferences(SUPPRESSION_PREFERENCES, Activity.MODE_PRIVATE)
-                .edit().clear().apply();
     }
 
 }

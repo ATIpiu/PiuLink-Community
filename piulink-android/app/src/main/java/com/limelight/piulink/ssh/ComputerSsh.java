@@ -157,15 +157,14 @@ public final class ComputerSsh {
                 loading.dismiss();
                 if (activity.isFinishing() || activity.isDestroyed()) return;
                 if (profile == null) {
-                    new TouchDialog(activity).setTitle(R.string.ssh_title).setMessage(R.string.ssh_host_update_needed)
-                            .setPositiveButton(R.string.monitor_refresh, (d, w) -> fetchDefaults(activity, computer))
-                            .setNegativeButton(android.R.string.cancel, null).show();
+                    com.limelight.utils.ReminderPreferences.offerAction(activity, R.string.reminder_ssh,
+                            R.string.ssh_title, R.string.ssh_host_update_needed, R.string.monitor_refresh,
+                            () -> fetchDefaults(activity, computer));
                     return;
                 }
                 try { profile.replace(activity, null); }
                 catch (IllegalStateException invalidStorage) {
-                    new TouchDialog(activity).setTitle(R.string.ssh_title)
-                            .setMessage(R.string.ssh_storage_error).setPositiveButton(android.R.string.ok, null).show();
+                    com.limelight.utils.Dialog.displayTip(activity, R.string.reminder_ssh, R.string.ssh_title, R.string.ssh_storage_error, () -> {});
                     return;
                 }
                 activity.getSharedPreferences("computer_ssh", 0).edit()

@@ -28,6 +28,9 @@ namespace PiuLink.Host;
 
 public partial class MainWindow : Window
 {
+    private async void CheckForUpdate_Click(object sender, RoutedEventArgs e) =>
+        await PiuLink.Updates.WindowsUpdateDialog.ShowAsync(this, (System.Windows.Controls.Button)sender, true);
+
     private readonly HostDiagnosticsService _diagnostics = HostDiagnosticsService.CreateDefault();
     private readonly LocalLog _log = new();
     private readonly SunshineApiClient _sunshineApi = SunshineApiClient.CreateForLoopback();

@@ -5,12 +5,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>0.1.7</Version>
+    <Version>0.1.10</Version>
     <AssemblyName Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux-'))">PiuLink.Linux</AssemblyName>
     <UseAppHost>true</UseAppHost>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../../../packages/updates/ReleaseDownload.cs" Link="Updates/ReleaseDownload.cs" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.19" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.19" />
     <ProjectReference Include="../../../../packages/client-core/src/PiuLink.Client.Core/PiuLink.Client.Core.csproj" />

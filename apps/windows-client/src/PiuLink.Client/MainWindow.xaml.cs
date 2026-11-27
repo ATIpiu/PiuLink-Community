@@ -16,6 +16,9 @@ namespace PiuLink.Client;
 
 public partial class MainWindow : Window
 {
+    private async void CheckForUpdate_Click(object sender, RoutedEventArgs e) =>
+        await PiuLink.Updates.WindowsUpdateDialog.ShowAsync(this, (System.Windows.Controls.Button)sender, false);
+
     private readonly JsonHostRepository _repository;
     private readonly HostCompanionClient _companion = new();
     private HostDisplayInventory? _displayInventory;

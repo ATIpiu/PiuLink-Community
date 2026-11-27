@@ -13,6 +13,8 @@ fi
 install -d -m 0700 "$base" "$base/app"
 mkdir -p "$HOME/.local/bin" "$units"
 install -m 0600 "$1"/PiuLink.Host.Linux.dll "$1"/PiuLink.Host.Linux.deps.json "$1"/PiuLink.Host.Linux.runtimeconfig.json "$base/app/"
+install -m 0700 "$1/piulink-direct" "$base/app/piulink-direct"
+if [[ -d "$1/third_party" ]]; then cp -R -- "$1/third_party" "$base/app/"; fi
 if [[ -r "$source/native/libpiulink-x11-input.so" ]]; then
     install -d -m 0700 "$base/runtime"
     install -m 0700 "$source/native/libpiulink-x11-input.so" "$base/runtime/"

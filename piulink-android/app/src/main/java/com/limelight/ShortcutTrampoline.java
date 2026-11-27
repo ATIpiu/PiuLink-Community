@@ -83,7 +83,7 @@ public class ShortcutTrampoline extends Activity {
     private void finishWithError(int message) {
         handled = true;
         if (blockingLoadSpinner != null) blockingLoadSpinner.dismiss();
-        Dialog.displayDialog(this, getString(R.string.conn_error_title), getString(message), true);
+        Dialog.displayDialog(this, R.string.conn_error_title, getString(message), true);
     }
 
     private void openLibrary(ComputerManagerService.ComputerManagerBinder binder, ComputerDetails details) {
@@ -120,7 +120,7 @@ public class ShortcutTrampoline extends Activity {
         // Validate PC UUID/Name
         if (uuidString == null && nameString == null) {
             Dialog.displayDialog(ShortcutTrampoline.this,
-                    getResources().getString(R.string.conn_error_title),
+                    R.string.conn_error_title,
                     getResources().getString(R.string.scut_invalid_uuid),
                     true);
             return false;
@@ -131,7 +131,7 @@ public class ShortcutTrampoline extends Activity {
                 UUID.fromString(uuidString);
             } catch (IllegalArgumentException ex) {
                 Dialog.displayDialog(ShortcutTrampoline.this,
-                        getResources().getString(R.string.conn_error_title),
+                        R.string.conn_error_title,
                         getResources().getString(R.string.scut_invalid_uuid),
                         true);
                 return false;
@@ -140,7 +140,7 @@ public class ShortcutTrampoline extends Activity {
             // UUID is null, so fallback to Name
             if (nameString == null || nameString.isEmpty()) {
                 Dialog.displayDialog(ShortcutTrampoline.this,
-                        getResources().getString(R.string.conn_error_title),
+                        R.string.conn_error_title,
                         getResources().getString(R.string.scut_invalid_uuid),
                         true);
                 return false;
@@ -153,7 +153,7 @@ public class ShortcutTrampoline extends Activity {
                 if (Integer.parseInt(appIdString) <= 0) throw new NumberFormatException();
             } catch (NumberFormatException ex) {
                 Dialog.displayDialog(ShortcutTrampoline.this,
-                        getResources().getString(R.string.conn_error_title),
+                        R.string.conn_error_title,
                         getResources().getString(R.string.scut_invalid_app_id),
                         true);
                 return false;
@@ -191,7 +191,7 @@ public class ShortcutTrampoline extends Activity {
 
             if (_computer == null) {
                 Dialog.displayDialog(ShortcutTrampoline.this,
-                        getResources().getString(R.string.conn_error_title),
+                        R.string.conn_error_title,
                         getResources().getString(R.string.scut_pc_not_found),
                         true);
                 return;
@@ -216,7 +216,7 @@ public class ShortcutTrampoline extends Activity {
 
                 if (rawAppList.isEmpty()) {
                     Dialog.displayDialog(ShortcutTrampoline.this,
-                            getResources().getString(R.string.conn_error_title),
+                            R.string.conn_error_title,
                             getResources().getString(R.string.scut_invalid_app_id),
                             true);
                     return;
@@ -231,7 +231,7 @@ public class ShortcutTrampoline extends Activity {
                 }
                 if (appId < 0) {
                     Dialog.displayDialog(ShortcutTrampoline.this,
-                            getResources().getString(R.string.conn_error_title),
+                            R.string.conn_error_title,
                             getResources().getString(R.string.scut_invalid_app_id),
                             true);
                     return;
@@ -243,7 +243,7 @@ public class ShortcutTrampoline extends Activity {
                         getIntent().getBooleanExtra(Game.EXTRA_APP_HDR, false));
             } catch (IOException | XmlPullParserException e) {
                 Dialog.displayDialog(ShortcutTrampoline.this,
-                        getResources().getString(R.string.conn_error_title),
+                        R.string.conn_error_title,
                         getResources().getString(R.string.scut_invalid_app_id),
                         true);
                 return;

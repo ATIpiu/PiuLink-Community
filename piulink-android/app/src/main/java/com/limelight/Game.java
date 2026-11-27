@@ -849,7 +849,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
 
             // If we can't find an AVC decoder, we can't proceed
-            Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title),
+            Dialog.displayDialog(this, R.string.conn_error_title,
                     "This device or ROM doesn't support hardware accelerated H.264 playback.", true);
             return;
         }
@@ -2844,11 +2844,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             updatePipAutoEnter();
             showMicMessage(R.string.mic_permission);
             if (grants.length > 0 && !shouldShowRequestPermissionRationale(android.Manifest.permission.RECORD_AUDIO)) {
-                new TouchDialog(this).setMessage(R.string.mic_permission)
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .setPositiveButton(R.string.mic_settings, (dialog, which) -> startActivity(new Intent(
+                com.limelight.utils.ReminderPreferences.offerAction(this, R.string.reminder_microphone,
+                        R.string.reminder_microphone, R.string.mic_permission, R.string.mic_settings, () -> startActivity(new Intent(
                                 android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                android.net.Uri.fromParts("package", getPackageName(), null)))).show();
+                                android.net.Uri.fromParts("package", getPackageName(), null))));
             }
         }
     }
@@ -4769,7 +4768,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         dialogText += "\n\n" + getResources().getString(R.string.nettest_text_blocked);
                     }
 
-                    Dialog.displayDialog(Game.this, getResources().getString(R.string.conn_error_title), dialogText, true);
+                    Dialog.displayDialog(Game.this, R.string.conn_error_title, dialogText, true);
                 }
             }
         });
@@ -4876,7 +4875,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                                     MoonBridge.stringifyPortFlags(portFlags, "\n");
                         }
 
-                        Dialog.displayDialog(Game.this, getResources().getString(R.string.conn_terminated_title),
+                        Dialog.displayDialog(Game.this, R.string.conn_terminated_title,
                                 message, true);
                     }
                     else {

@@ -18,6 +18,7 @@ FORMATS = {
     "android-arm64": rf"PiuLink-Android-{VERSION}-nonRoot-arm64-v8a-release\.apk",
     "ios-client": rf"PiuLink-iOS-{VERSION}-arm64-unsigned\.ipa",
     "mac-universal": rf"PiuLink-Mac-{VERSION}-universal-unsigned\.zip",
+    "linux-universal": rf"PiuLink-Client-{VERSION}-linux-universal\.tar\.gz",
     "linux-host": rf"piulink-host_{VERSION}-1_amd64\.deb",
     "linux-host-portable": rf"PiuLink-Host-{VERSION}-ubuntu26\.04-x64\.tar\.gz",
 }

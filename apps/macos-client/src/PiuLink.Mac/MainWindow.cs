@@ -60,6 +60,26 @@ public sealed class MainWindow : Window
         controls.Children.Add(Card("桌面与应用", apps, Row(connect, refreshApps, pair)));
         status.Classes.Add("hint");
         root.Children.Add(status);
+        var updateButton = new Button { Content = "检查更新" };
+        PiuLink.Updates.UpdateInfo? offeredUpdate = null;
+        updateButton.Click += async (_, _) => {
+            updateButton.IsEnabled = false;
+            try {
+                var channel = PiuLink.Updates.ReleaseDownload.Channel(false);
+                if (offeredUpdate == null) {
+                    offeredUpdate = await PiuLink.Updates.ReleaseDownload.CheckAsync(channel);
+                    status.Text = offeredUpdate == null ? "当前已是最新版本。" : $"发现 {offeredUpdate.Version} 版，可复用本机旧安装包。";
+                } else {
+                    var prepared = await PiuLink.Updates.ReleaseDownload.PrepareAsync(channel, offeredUpdate);
+                    offeredUpdate = null;
+                    status.Text = $"已校验安装包，下载 {prepared.Downloaded / 1048576.0:F1} MiB，复用 {prepared.Reused / 1048576.0:F1} MiB。文件位于 {prepared.Path}";
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                        System.IO.Path.GetDirectoryName(prepared.Path)!) { UseShellExecute = true });
+                }
+            } catch (Exception error) { status.Text = "更新未完成：" + error.Message; }
+            finally { updateButton.Content = offeredUpdate == null ? "检查更新" : "下载更新"; updateButton.IsEnabled = true; }
+        };
+        root.Children.Add(updateButton);
         if (OperatingSystem.IsLinux())
         {
             var fileButton = new Button { Content = "发送文件" };

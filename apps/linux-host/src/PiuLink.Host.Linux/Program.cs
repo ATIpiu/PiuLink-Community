@@ -13,10 +13,29 @@ if (!OperatingSystem.IsLinux())
     return 1;
 }
 
+if (args.Length > 0 && args[0] == "update")
+{
+    try {
+        if (args is not (["update","check"] or ["update","download"] or ["update","download",_])) {
+            Console.Error.WriteLine("piulink-host update check | update download [previous-installer]"); return 2;
+        }
+        var channel = PiuLink.Updates.ReleaseDownload.Channel(true);
+        var info = await PiuLink.Updates.ReleaseDownload.CheckAsync(channel);
+        if (info == null) { Console.WriteLine("当前已是最新版本。"); return 0; }
+        Console.WriteLine($"可更新至 {info.Version}，完整包 {info.Bytes} 字节。");
+        if (args[1] == "download") {
+            var prepared = await PiuLink.Updates.ReleaseDownload.PrepareAsync(channel, info, args.Length == 3 ? args[2] : null);
+            Console.WriteLine($"下载 {prepared.Downloaded} 字节，复用 {prepared.Reused} 字节。已校验的安装包：{prepared.Path}");
+        }
+        return 0;
+    } catch (Exception e) { Console.Error.WriteLine(e.Message); return 1; }
+}
+
 if (args.Length == 0 || args[0] is "-h" or "--help")
 {
     Console.WriteLine("""
-        PiuLink Host Linux 0.1.4
+        PiuLink Host Linux 0.1.7
+        update check | update download [previous-installer]
         doctor | apps | clients | config | pin | peers | send <device-name-or-fingerprint> <file> [file ...]
         ssh-pending | ssh-approve <request-id> <ssh-key-fingerprint>
         invite | invite-off | capture-index | serve

@@ -10,7 +10,7 @@
     <RootNamespace>PiuLink.Client</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\..\..\windows-host\src\PiuLink.Host\Assets\PiuLink.ico</ApplicationIcon>
-    <Version>0.2.36</Version>
+    <Version>0.2.37</Version>
     <Authors>Ryan</Authors>
     <Company>ATIPiu Labs</Company>
     <Product>PiuLink Client</Product>
@@ -18,6 +18,8 @@
     <PiuLinkQtEngineDirectory Condition="'$(PiuLinkQtEngineDirectory)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\artifacts\windows-engine\PiuLink-Moonlight-6.1.0-piulink.10-x64</PiuLinkQtEngineDirectory>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../../../packages/updates/ReleaseDownload.cs" Link="Updates/ReleaseDownload.cs" />
+    <Compile Include="../../../../packages/updates/WindowsUpdateDialog.cs" Link="Updates/WindowsUpdateDialog.cs" />
     <Compile Include="../../../../packages/windows-ui/DesktopClipboard.cs" Link="Services/DesktopClipboard.cs" />
     <Compile Include="..\..\..\..\packages\windows-ui\WindowChrome.cs" Link="Themes\WindowChrome.cs" />
     <Page Include="..\..\..\..\packages\windows-ui\PiuLinkTheme.xaml" Link="Themes\PiuLinkTheme.xaml" />

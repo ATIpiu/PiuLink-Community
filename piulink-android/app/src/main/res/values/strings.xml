@@ -563,5 +563,25 @@
     <string name="pcview_status_online_p2p">Online · P2P</string>
     <string name="touchpad_pointer_speed">Touchpad pointer speed</string>
     <string name="touchpad_pointer_speed_summary">How far the pointer moves when you slide one finger.</string>
+    <string name="show_reminders">Show reminder dialogs</string>
+    <string name="show_reminders_summary">Show tips and connection notices in dialogs</string>
+    <string name="manage_reminders">Choose reminders</string>
+    <string name="manage_reminders_summary">Select which reminders appear, or restore all</string>
+    <string name="reminder_screen">Display availability</string>
+    <string name="reminder_ssh">SSH connection guidance</string>
+    <string name="reminder_microphone">Microphone permission guidance</string>
+    <string name="check_for_update">Check for updates</string>
+    <string name="update_failed">Update incomplete: %1$s</string>
+    <string name="update_retry">Check again</string>
+    <string name="update_checking">Checking GitHub Releases…</string>
+    <string name="update_current">You have the latest version.</string>
+    <string name="update_available">Version %1$s is available. Unchanged parts of your installed APK can be reused.</string>
+    <string name="update_download">Download update</string>
+    <string name="update_preparing">Preparing and verifying the APK…</string>
+    <string name="update_verified">APK verified. Downloaded %1$.1f MiB and reused %2$.1f MiB.</string>
+    <string name="update_install">Install update</string>
+    <string name="update_installing">Opening the system installer…</string>
+    <string name="update_done">Update complete.</string>
+    <string name="update_incomplete">The system did not complete installation.</string>
 </resources>
 

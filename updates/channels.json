@@ -118,5 +118,13 @@
     "bytes": 80551,
     "sha256": "65ae6ac4b4156050769ad4a44b005ff828a2425fafde0973f15cf1f3e1456986",
     "mapSha256": "e435487b7caaf357db7e332d49178d2cc33ff63fc2fe0ef27645be0127203402"
+  },
+  "linux-universal": {
+    "version": "0.1.7",
+    "tag": "unix-preview-2026.11.25",
+    "name": "PiuLink-Client-0.1.7-linux-universal.tar.gz",
+    "bytes": 86415214,
+    "sha256": "68f9dc734bf0b71aafe0c7702a2340913c87f978a9480e19b0cfd51be201a2f8",
+    "mapSha256": "943e7c62bf90212916591f91454d56515c2c4e4b4d45bcc9d300050e7fe0ff7e"
   }
 }

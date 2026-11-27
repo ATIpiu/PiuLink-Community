@@ -4,9 +4,10 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>0.1.4</Version>
+    <Version>0.1.7</Version>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../../../packages/updates/ReleaseDownload.cs" Link="Updates/ReleaseDownload.cs" />
     <Compile Include="../../../../packages/rendezvous/*.cs" Link="Rendezvous/%(Filename)%(Extension)" />
     <Compile Include="../../../windows-host/src/PiuLink.Host/Services/FileTransferTls.cs" Link="Shared/FileTransferTls.cs" />
     <Compile Include="../../../windows-host/src/PiuLink.Host/Services/FileTransferServer.cs" Link="Shared/FileTransferServer.cs" />
@@ -15,4 +16,5 @@
     <Compile Include="../../../windows-host/src/PiuLink.Host.Core/Diagnostics/LocalLog.cs" Link="Shared/LocalLog.cs" />
     <Compile Include="../../../windows-host/src/PiuLink.Host.Core/Diagnostics/DiagnosticPolicy.cs" Link="Shared/DiagnosticPolicy.cs" />
   </ItemGroup>
+  <Import Project="../../../../packages/direct-tunnel/UnixTransport.targets" />
 </Project>

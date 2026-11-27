@@ -193,13 +193,13 @@ public class AddComputerManually extends Activity {
                     }
                     finish();
                 } else if (expectedHostId != null && getIntent().hasExtra(EXTRA_ROUTE_HOST)) {
-                    Dialog.displayDialog(this, getString(R.string.conn_error_title), getString(message), () -> {
+                    Dialog.displayDialog(this, R.string.conn_error_title, getString(message), () -> {
                         if (visible && managerBinder != null && !isFinishing()) {
                             ConnectionRoutePicker.show(this, managerBinder, expectedHostId, this::connectRoute);
                         }
                     });
                 } else {
-                    Dialog.displayDialog(this, getString(R.string.conn_error_title), getString(message), false);
+                    Dialog.displayDialog(this, R.string.conn_error_title, getString(message), false);
                 }
             });
         }, "PiuLink add computer");

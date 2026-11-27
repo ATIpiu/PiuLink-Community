@@ -289,6 +289,16 @@
             android:entries="@array/background_stream_duration_names"
             android:entryValues="@array/background_stream_duration_values"
             android:defaultValue="15" />
+        <CheckBoxPreference
+            android:key="show_reminder_dialogs"
+            android:title="@string/show_reminders"
+            android:summary="@string/show_reminders_summary"
+            android:defaultValue="true" />
+        <Preference
+            android:key="manage_reminders"
+            android:title="@string/manage_reminders"
+            android:summary="@string/manage_reminders_summary"
+            android:dependency="show_reminder_dialogs" />
         <com.limelight.preferences.LanguagePreference
             android:key="list_languages"
             android:title="@string/title_language_list"
@@ -318,10 +328,7 @@
             android:title="@string/title_checkbox_disable_warnings"
             android:summary="@string/summary_checkbox_disable_warnings"
             android:defaultValue="false" />
-        <Preference
-            android:key="reset_suppressed_dialogs"
-            android:title="@string/title_reset_suppressed_dialogs"
-            android:summary="@string/summary_reset_suppressed_dialogs" />
+        <Preference android:key="check_updates" android:title="@string/check_for_update" />
         <Preference
             android:key="view_logs"
             android:title="@string/view_logs_title"

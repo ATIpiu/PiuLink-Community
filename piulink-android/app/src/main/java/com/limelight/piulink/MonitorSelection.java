@@ -154,8 +154,7 @@ public final class MonitorSelection {
                 DisplayInventoryClient.Display target = DisplayInventoryClient.defaultDisplay(inventory, saved, virtualApp);
                 if (target == null && virtualApp) {
                     loading.dismiss();
-                    new TouchDialog(activity).setMessage(R.string.super_screen_missing)
-                        .setPositiveButton(android.R.string.ok, null).show();
+                    com.limelight.utils.Dialog.displayTip(activity, R.string.reminder_screen, R.string.reminder_screen, R.string.super_screen_missing, () -> {});
                     return;
                 }
                 if (target == null) {
@@ -627,8 +626,7 @@ public final class MonitorSelection {
             List<DisplayInventoryClient.Resolution> ignoredSizes, List<Integer> ignoredRates, boolean beforeConnection) {
         List<DisplayInventoryClient.Mode> modes = supportedModes(activity, display);
         if (modes.isEmpty()) {
-            new TouchDialog(activity).setTitle(R.string.monitor_resolution_title)
-                .setMessage(R.string.monitor_resolution_unavailable).setPositiveButton(android.R.string.ok, null).show();
+            com.limelight.utils.Dialog.displayTip(activity, R.string.reminder_screen, R.string.monitor_resolution_title, R.string.monitor_resolution_unavailable, () -> {});
             return;
         }
         final int[] chosen = {modes.indexOf(preferredMode(activity, hostId, modes))};

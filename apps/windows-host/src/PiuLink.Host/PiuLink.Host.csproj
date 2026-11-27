@@ -14,12 +14,14 @@
          Establish DPI awareness in the manifest before WPF creates any HWND. -->
     <NoWarn>$(NoWarn);WFAC010</NoWarn>
     <ApplicationIcon>Assets\PiuLink.ico</ApplicationIcon>
-    <Version>0.2.135</Version>
+    <Version>0.2.136</Version>
     <Authors>Ryan</Authors>
     <Company>ATIPiu Labs</Company>
     <Product>PiuLink Host</Product>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../../../packages/updates/ReleaseDownload.cs" Link="Updates/ReleaseDownload.cs" />
+    <Compile Include="../../../../packages/updates/WindowsUpdateDialog.cs" Link="Updates/WindowsUpdateDialog.cs" />
     <Compile Include="../../../../packages/windows-ui/DesktopClipboard.cs" Link="Services/DesktopClipboard.cs" />
     <Compile Include="..\..\..\..\packages\windows-ui\WindowChrome.cs" Link="Themes\WindowChrome.cs" />
     <Page Include="..\..\..\..\packages\windows-ui\PiuLinkTheme.xaml" Link="Themes\PiuLinkTheme.xaml" />

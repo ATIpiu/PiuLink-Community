@@ -491,16 +491,19 @@ public class StreamSettings extends Activity {
             addPreferencesFromResource(R.xml.preferences);
             PreferenceScreen screen = getPreferenceScreen();
 
-            Preference resetSuppressedDialogs = findPreference("reset_suppressed_dialogs");
-            if (resetSuppressedDialogs != null) {
-                resetSuppressedDialogs.setOnPreferenceClickListener(preference -> {
-                    Dialog.resetSuppressedDialogs(getActivity());
-                    Toast.makeText(getActivity(), R.string.suppressed_dialogs_reset,
-                            Toast.LENGTH_SHORT).show();
+            Preference reminders = findPreference("manage_reminders");
+            if (reminders != null) {
+                reminders.setOnPreferenceClickListener(preference -> {
+                    com.limelight.utils.ReminderPreferences.manage(getActivity());
                     return true;
                 });
             }
 
+            Preference updates = findPreference("check_updates");
+            if (updates != null) updates.setOnPreferenceClickListener(pref -> {
+                startActivity(new Intent(getActivity(), UpdateActivity.class));
+                return true;
+            });
             Preference viewLogs = findPreference("view_logs");
             if (viewLogs != null) {
                 viewLogs.setOnPreferenceClickListener(preference -> {

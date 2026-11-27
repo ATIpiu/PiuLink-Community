@@ -9,7 +9,7 @@
   <ItemGroup Condition="'$(DirectGoOS)' != '' and '$(DirectGoArch)' != ''">
     <Content Include="$(DirectUnixBinary)" Link="piulink-direct" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="$(MSBuildThisFileDirectory)licenses/*.txt" Link="third_party/direct-tunnel/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <DirectGoInput Include="$(MSBuildThisFileDirectory)*.go;$(MSBuildThisFileDirectory)cmd/**/*.go;$(MSBuildThisFileDirectory)go.*;$(MSBuildThisFileFullPath)" />
+    <DirectGoInput Include="$(MSBuildThisFileDirectory)*.go;$(MSBuildThisFileDirectory)cmd/**/*.go;$(MSBuildThisFileDirectory)updates/*.go;$(MSBuildThisFileDirectory)go.*;$(MSBuildThisFileFullPath)" />
   </ItemGroup>
   <Target Name="BuildUnixDirectTransport" BeforeTargets="PrepareForBuild" Condition="'$(DirectGoOS)' != '' and '$(DirectGoArch)' != ''"
           Inputs="@(DirectGoInput)" Outputs="$(DirectUnixBinary)">

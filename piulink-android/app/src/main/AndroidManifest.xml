@@ -54,6 +54,8 @@
         android:name="android.hardware.type.pc"
         android:required="false"/>
 
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:name=".PiuLinkApplication"
         android:allowBackup="true"
@@ -105,6 +107,8 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".preferences.UpdateActivity" android:exported="false" android:label="@string/check_for_update" />
 
         <provider
             android:name=".PosterContentProvider"
