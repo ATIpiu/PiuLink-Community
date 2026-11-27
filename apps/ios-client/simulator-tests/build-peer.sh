@@ -9,8 +9,24 @@ git -C "$src" checkout -q --detach FETCH_HEAD
 git -C "$src" submodule update --init --recursive --depth 1
 git -C "$src" apply "$PWD/apps/ios-client/simulator-tests/peer-endpoints.patch"
 cd "$src"
+configure() {
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DBUILD_DOCS=OFF -DBUILD_WERROR=OFF \
   -DICU_ROOT="$(brew --prefix icu4c@78)" -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" -DOpus_ROOT_DIR="$(brew --prefix opus)"
+}
+if ! configure; then
+  # CMake checks this IDE source group more strictly than Boost.Locale's original build.
+  python3 - <<'PY'
+from pathlib import Path
+import re
+p = Path("build/_deps/boost-src/libs/locale/CMakeLists.txt")
+s = p.read_text()
+s, count = re.subn(r'(source_group\(TREE\s+[^)\s]*?include/boost)/locale(?=["\s])', r'\1', s, count=1, flags=re.I)
+if count != 1:
+    raise SystemExit("Could not identify Boost.Locale source-group root")
+p.write_text(s)
+PY
+  configure
+fi
 cmake --build build -j "$(sysctl -n hw.ncpu)"
 cpack -G DragNDrop --config build/CPackConfig.cmake
 cp build/cpack_artifacts/Sunshine.dmg "$HOME/piulink-qa-peer.dmg"
