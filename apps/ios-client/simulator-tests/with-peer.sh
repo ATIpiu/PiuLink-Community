@@ -41,13 +41,14 @@ tar -xzf "$scratch/axe.tgz" -C "$scratch/axe"
 ln -s "$(find "$scratch/axe" -type f -name axe | head -1)" "$scratch/axe-bin"
 test -x "$scratch/axe-bin"
 python3 tones.py generate "$scratch/tones.wav"
-sox -q -t coreaudio 'BlackHole 2ch' -c 1 -r 48000 -b 32 -e floating-point -t raw "$scratch/negative.raw" trim 0 6 &
+perl -e 'alarm 20; exec @ARGV or die' sox -q -t coreaudio 'BlackHole 2ch' -c 1 -r 48000 -b 32 -e floating-point -t raw "$scratch/negative.raw" trim 0 6 &
 negative_pid=$!
+negative_ok=1
 sleep 1
-sox -q "$scratch/tones.wav" -t coreaudio 'BlackHole 16ch'
-wait "$negative_pid"
+perl -e 'alarm 20; exec @ARGV or die' sox -q "$scratch/tones.wav" -t coreaudio 'BlackHole 16ch' || negative_ok=0
+wait "$negative_pid" || negative_ok=0
 printf '48000 1\n' > "$scratch/negative.format"
-python3 tones.py quiet "$scratch/negative.raw" "$scratch/negative.format"
+python3 tones.py quiet "$scratch/negative.raw" "$scratch/negative.format" || negative_ok=0
 swiftc DesktopProbe.swift -o "$scratch/probe"
 "$scratch/probe" "$scratch/input-received" &
 probe_pid=$!
@@ -55,6 +56,7 @@ trap 'kill "$host_pid" "$helper_pid" "$probe_pid" 2>/dev/null || true' EXIT
 set +e
 "$@"
 test_rc=$?
+[[ "$negative_ok" == 1 ]] || test_rc=1
 set -e
 if [[ -f "$scratch/input-received" ]]; then echo "Desktop test window received pointer input"; else echo "Desktop input unconfirmed"; test_rc=1; fi
 for i in {1..40}; do
