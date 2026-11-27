@@ -34,7 +34,7 @@ if (args.Length > 0 && args[0] == "update")
 if (args.Length == 0 || args[0] is "-h" or "--help")
 {
     Console.WriteLine("""
-        PiuLink Host Linux 0.1.7
+        PiuLink Host Linux 0.1.8
         update check | update download [previous-installer]
         doctor | apps | clients | config | pin | peers | send <device-name-or-fingerprint> <file> [file ...]
         ssh-pending | ssh-approve <request-id> <ssh-key-fingerprint>

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>Bundle</OutputType>
     <Platform>x64</Platform>
+    <DefaultCompressionLevel Condition="'$(HostCacheId)' != ''">none</DefaultCompressionLevel>
     <OutputName>PiuLink-Windows-$(SuiteVersion)-win-x64</OutputName>
     <DefineConstants>SuiteVersion=$(SuiteVersion);HostMsi=$(HostMsi);ClientMsi=$(ClientMsi)</DefineConstants>
     <DefineConstants Condition="'$(HostCacheId)' != ''">$(DefineConstants);HostCacheId=$(HostCacheId);ClientCacheId=$(ClientCacheId)</DefineConstants>

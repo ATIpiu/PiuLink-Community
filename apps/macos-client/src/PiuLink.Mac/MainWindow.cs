@@ -62,24 +62,42 @@ public sealed class MainWindow : Window
         root.Children.Add(status);
         var updateButton = new Button { Content = "检查更新" };
         PiuLink.Updates.UpdateInfo? offeredUpdate = null;
+        var chooseBase = new Button { Content = "选择旧安装包", IsVisible = false };
+        string? previousInstaller = null;
+        chooseBase.Click += async (_, _) => {
+            var files = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions {
+                Title = "选择以前下载的 PiuLink 安装包", AllowMultiple = false
+            });
+            if (files.Count == 1 && files[0].Path.IsFile) {
+                previousInstaller = files[0].Path.LocalPath;
+                status.Text = $"将复用 {System.IO.Path.GetFileName(previousInstaller)}。";
+            }
+        };
         updateButton.Click += async (_, _) => {
             updateButton.IsEnabled = false;
+            chooseBase.IsEnabled = false;
             try {
                 var channel = PiuLink.Updates.ReleaseDownload.Channel(false);
                 if (offeredUpdate == null) {
                     offeredUpdate = await PiuLink.Updates.ReleaseDownload.CheckAsync(channel);
                     status.Text = offeredUpdate == null ? "当前已是最新版本。" : $"发现 {offeredUpdate.Version} 版，可复用本机旧安装包。";
                 } else {
-                    var prepared = await PiuLink.Updates.ReleaseDownload.PrepareAsync(channel, offeredUpdate);
+                    var prepared = await PiuLink.Updates.ReleaseDownload.PrepareAsync(channel, offeredUpdate, previousInstaller);
                     offeredUpdate = null;
+                    previousInstaller = null;
                     status.Text = $"已校验安装包，下载 {prepared.Downloaded / 1048576.0:F1} MiB，复用 {prepared.Reused / 1048576.0:F1} MiB。文件位于 {prepared.Path}";
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
                         System.IO.Path.GetDirectoryName(prepared.Path)!) { UseShellExecute = true });
                 }
             } catch (Exception error) { status.Text = "更新未完成：" + error.Message; }
-            finally { updateButton.Content = offeredUpdate == null ? "检查更新" : "下载更新"; updateButton.IsEnabled = true; }
+            finally {
+                chooseBase.IsVisible = offeredUpdate != null;
+                chooseBase.IsEnabled = true;
+                updateButton.Content = offeredUpdate == null ? "检查更新" : "下载更新";
+                updateButton.IsEnabled = true;
+            }
         };
-        root.Children.Add(updateButton);
+        root.Children.Add(Row(updateButton, chooseBase));
         if (OperatingSystem.IsLinux())
         {
             var fileButton = new Button { Content = "发送文件" };

@@ -116,6 +116,33 @@ def host(root, docs, arch, version, args):
           "systemctl --user enable --now piulink-host.service.\n")
 
 
+def compress_deb_payload(package: Path):
+    """Split the data archive at large file boundaries for release-to-release block reuse."""
+    # Preserve the original tar byte stream, including ownership, permissions, and timestamps.
+    with tempfile.TemporaryDirectory(dir=package.parent) as folder:
+        folder = Path(folder)
+        tar = folder / "data.tar"
+        with tar.open("wb") as out:
+            subprocess.run(["dpkg-deb", "--fsys-tarfile", package], stdout=out, check=True)
+        ends = {tar.stat().st_size}
+        with tarfile.open(tar, "r:") as archive:
+            for item in archive:
+                if item.isfile() and item.size >= 256 * 1024:
+                    ends.add(item.offset_data)
+                    ends.add(item.offset_data + (item.size + 511) // 512 * 512)
+        sizes = []
+        last = 0
+        for end in sorted(ends):
+            if end > last:
+                sizes.append(str(end - last))
+                last = end
+        # Single standard XZ stream. The decoder and package manager need no extensions.
+        with tar.open("rb") as source, (folder / "data.tar.xz").open("wb") as out:
+            subprocess.run(["xz", "-T1", "-3", "-c", "--block-list=" + ",".join(sizes)],
+                           stdin=source, stdout=out, check=True)
+        subprocess.run(["ar", "rD", str(package.resolve()), "data.tar.xz"], cwd=folder, check=True)
+
+
 def build(role, arch, version, args):
     package = "piulink-" + role
     output = args.packages / f"{package}_{version}-1_{arch}.deb"
@@ -148,6 +175,7 @@ def build(role, arch, version, args):
         with tempfile.TemporaryDirectory(dir=output.parent) as staging:
             pending = Path(staging) / output.name
             subprocess.run(["dpkg-deb", "--root-owner-group", "-Zxz", "-z3", "--build", str(root), str(pending)], check=True)
+            compress_deb_payload(pending)
             os.replace(pending, output)
     print(output.name, output.stat().st_size, flush=True)
 

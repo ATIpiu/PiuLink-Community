@@ -39,10 +39,18 @@ function Read-Package($role, $path) {
                 $null = [WixToolset.Core.Native.Cabinet]::new($cabPath).Extract($files)
             } finally { $view.Dispose() }
         }
-        foreach ($id in $db.ExecuteStringQuery('SELECT `File` FROM `File`')) {
-            $source = Join-Path $files $id
-            $entries[$id] = [pscustomobject]@{ Id=$id; Path=$source; Hash=(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash }
-        }
+        $view = $db.OpenView('SELECT `File`, `FileName` FROM `File`')
+        try {
+            $view.Execute()
+            while ($row = $view.Fetch()) {
+                try {
+                    $id = $row.GetString(1)
+                    $name = $row.GetString(2).Split('|')[-1]
+                    $source = Join-Path $files $id
+                    $entries[$id] = [pscustomobject]@{ Id=$id; Name=$name; Path=$source; Hash=(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash }
+                } finally { $row.Dispose() }
+            }
+        } finally { $view.Dispose() }
     } finally { $db.Dispose() }
     [pscustomobject]@{ Role=$role; Input=$path; Output=(Join-Path $out ([IO.Path]::GetFileName($path))); Entries=$entries }
 }
@@ -137,13 +145,20 @@ foreach ($package in $server, $client) {
         }
     }
 }
-$sharedCab = if ($common.Count) { Write-Cabinet 'PiuLinkCommon.cab' $common.Values }
+function Write-RoleMedia($role, $entries) {
+    # Keep the framework and third-party files in a cabinet independent of new application builds.
+    $app = [Collections.Generic.List[object]]::new()
+    $runtime = [Collections.Generic.List[object]]::new()
+    foreach ($entry in $entries) {
+        if ($entry.Name -match '^(PiuLink|Sunshine)') { $app.Add($entry) } else { $runtime.Add($entry) }
+    }
+    if ($runtime.Count) { Write-Cabinet "PiuLink${role}Runtime.cab" $runtime }
+    if ($app.Count) { Write-Cabinet "PiuLink${role}App.cab" $app }
+}
+$shared = @(Write-RoleMedia 'Common' $common.Values)
 $result = @{}
 foreach ($package in $server, $client) {
-    $media = @(
-        if ($sharedCab) { $sharedCab }
-        if ($private[$package.Role].Count) { Write-Cabinet "PiuLink$($package.Role).cab" $private[$package.Role] }
-    )
+    $media = @($shared; Write-RoleMedia $package.Role $private[$package.Role])
     $result[$package.Role] = Write-Package $package $media
 }
 $result

@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>0.1.10</Version>
+    <Version>0.1.11</Version>
     <AssemblyName Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux-'))">PiuLink.Linux</AssemblyName>
     <UseAppHost>true</UseAppHost>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
