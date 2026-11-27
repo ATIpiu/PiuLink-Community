@@ -78,7 +78,10 @@ export function recommendDevice(userAgent, touch = 0, hints = {}) {
   if (/riscv|ppc|powerpc|s390|mips|loongarch/i.test(cpu + " " + userAgent))
     return standIn(name, "当前提供 x64 和 ARM64 安装包");
   if (arm64 || x64) {
-    const file = packages[arm64 ? 1 : 0];
+    if (x64 && !arm64 && /Ubuntu[ /]26\.04(?:\D|$)/i.test(userAgent)) {
+      return choice(packages.find((item) => item.id === "linux-suite"));
+    }
+    const file = packages.find((item) => item.id === (arm64 ? "linux-arm64" : "linux-x64"));
     // A generic Linux user agent does not identify the distribution's package manager.
     return choice(
       /Debian|Ubuntu|Linux Mint/i.test(userAgent)

@@ -80,7 +80,8 @@ function Hero({ selected, setSystem, playFilm }) {
     };
   }, []);
   const [paused, setPaused] = useState(false);
-  const downloadLabel = device.id === "windows" ? "下载 Windows 整合版"
+  const downloadLabel = device.file?.id === "linux-suite" ? "下载 Linux 整合版"
+    : device.id === "windows" ? "下载 Windows 整合版"
     : device.id === "android" ? "下载 Android 通用版" : device.id === "ios" ? "下载未签名 IPA" : `下载 ${device.name} 版`;
 
   const [reduced, setReduced] = useState(
@@ -212,7 +213,7 @@ function PackageRow({ item, platform }) {
       ? (item.bytes / 1048576).toFixed(1) + " MiB"
       : Math.round(item.bytes / 1024) + " KiB";
   return (
-    <li className={"package-row" + (["win-suite", "android-client"].includes(item.id) ? " recommended" : "")}>
+    <li className={"package-row" + (["win-suite", "android-client", "linux-suite"].includes(item.id) ? " recommended" : "")}>
       <span className="package-icon" aria-hidden="true"><Icon name={item.role} size={22} /></span>
       <div className="package-info">
         <div className="package-title">
@@ -365,6 +366,15 @@ function Downloads({ selected, setSystem }) {
 }
 
 const updates = [
+  {
+    title: "Linux 整合版 0.1.0",
+    tag: "linux-suite-0.1.0",
+    date: "2026-11-27",
+    changes: [
+      "Ubuntu 26.04 x64 可以只安装一个 DEB，同时获得控制端和被控端。首次打开组件设置时会校验下载的 Moonlight 和 Sunshine。",
+      "整合版有独立的增量更新通道。升级时会显示实际下载量，已安装的单独版可通过 apt 切换到整合版。",
+    ],
+  },
   {
     title: "鸿蒙、Linux 和 macOS 增量更新",
     tag: "unix-harmony-updates-2026.11.27",

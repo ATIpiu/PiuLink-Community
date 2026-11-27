@@ -169,6 +169,17 @@ export const platforms = [
     name: "Linux",
     packages: [
       {
+        id: "linux-suite",
+        title: "整合版",
+        role: "linux",
+        description: "一台电脑既可控制别人，也可作为被控端。首次配置串流组件需要联网。",
+        version: "0.1.0",
+        arch: "Ubuntu 26.04 x64",
+        format: "DEB",
+        bytes: 36868336,
+        url: published("linux-suite-0.1.0", "piulink-suite_0.1.0-1_amd64.deb"),
+      },
+      {
         id: "linux-x64",
         title: "控制端",
         role: "client",
@@ -217,7 +228,7 @@ export const platforms = [
         },
       },
     ],
-    note: "Debian / Ubuntu 可用 apt 安装 DEB。控制端需另装 Moonlight Qt。Ubuntu 26.04 x64 被控端安装后，请用桌面用户运行 piulink-host-setup-user 配置运行环境。",
+    note: "Ubuntu 26.04 x64 可用 apt 安装整合版，在应用菜单打开「PiuLink 串流组件设置」。独立控制端需另装 Moonlight Qt。Ubuntu 26.04 x64 被控端安装后，请用桌面用户运行 piulink-host-setup-user 配置运行环境。",
   },
 ];
 
