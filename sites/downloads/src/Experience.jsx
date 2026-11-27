@@ -384,6 +384,24 @@ function Downloads({ selected, setSystem }) {
 
 const updates = [
   {
+    title: "跨平台增量更新预览",
+    tag: "updates-preview-2026.11.27",
+    date: "2026-11-27",
+    changes: [
+      "Windows 整合版 0.2.137、macOS / Linux 控制端 0.1.10、Linux 被控端 0.1.7 和 iOS 0.1.3 加入检查更新。更新文件来自 GitHub，复用旧包中相同的内容并验证完整文件。",
+      "Windows 默认下载仍是已完成升级、修复和卸载重装验证的 0.2.136。想使用应用内更新，可在 Windows 下载列表选择 0.2.137。macOS 和 iOS 未做真机验证，iOS 更新后仍需自行签名。",
+    ],
+  },
+  {
+    title: "Android 0.3.225",
+    tag: "android-0.3.225",
+    date: "2026-11-27",
+    changes: [
+      "在「设置 → 高级选项 → 检查更新」复用当前 APK 下载新版本，由系统确认安装。旧版需从 GitHub 覆盖安装一次。",
+      "在「设置 → 界面外观」选择哪些提醒可以弹出，或恢复以前勾选了「下次不再提醒」的提示。",
+    ],
+  },
+  {
     title: "Windows 整合版 0.2.136",
     tag: "windows-0.2.136",
     date: "2026-11-27",
