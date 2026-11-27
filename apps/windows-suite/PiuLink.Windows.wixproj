@@ -1,0 +1,11 @@
+<Project Sdk="WixToolset.Sdk/6.0.0">
+  <PropertyGroup>
+    <OutputType>Bundle</OutputType>
+    <Platform>x64</Platform>
+    <OutputName>PiuLink-Windows-$(SuiteVersion)-win-x64</OutputName>
+    <DefineConstants>SuiteVersion=$(SuiteVersion);HostMsi=$(HostMsi);ClientMsi=$(ClientMsi)</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Bal.wixext" Version="6.0.0" />
+  </ItemGroup>
+</Project>

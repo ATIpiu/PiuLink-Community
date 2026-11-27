@@ -4,6 +4,7 @@ public partial class App : System.Windows.Application
 {
     public App()
     {
+        PiuLink.Diagnostics.DiagnosticUpload.Initialize(ClientLog.DirectoryPath, "windows-client");
         PiuLink.Desktop.WindowChrome.Register();
         DispatcherUnhandledException += (_, args) =>
         {

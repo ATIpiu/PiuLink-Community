@@ -13,7 +13,7 @@ internal static partial class DisplayTopologyService
     private const uint AllPaths = 1, ActivePaths = 2;
     private const uint PathActive = 1, InvalidModeIndex = uint.MaxValue;
     private const uint Supplied = 0x20, Validate = 0x40, Apply = 0x80, NoOptimization = 0x100,
-        AllowChanges = 0x400,
+        SaveToDatabase = 0x200, AllowChanges = 0x400,
         ForceModeEnumeration = 0x1000;
     private static readonly int[] DpiScalePercents =
         [100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500];
@@ -21,6 +21,7 @@ internal static partial class DisplayTopologyService
     {
         public Dictionary<string, PiuLink.Host.Core.Sunshine.DesktopRectangle> StreamBounds { get; init; } = new(StringComparer.OrdinalIgnoreCase);
         public string Layout { get; init; } = "";
+        public bool PersistIdleLayout { get; init; }
         public Dictionary<string, int> Scales { get; init; } = new(StringComparer.OrdinalIgnoreCase);
     }
     internal sealed record DisplayMode(int Width, int Height, int Fps);
@@ -76,6 +77,19 @@ internal static partial class DisplayTopologyService
                 .Where(item => item.Scale != null).DistinctBy(item => item.Name)
                 .ToDictionary(item => item.Name, item => item.Scale!.CurrentPercent, StringComparer.OrdinalIgnoreCase)
         };
+
+    // An already attached Super Screen belongs to this session. Recording it in the
+    // restore target would leave a phantom monitor beside the physical desktop.
+    internal static Snapshot SuperScreenIdleDesktop(Snapshot desktop, string targetPath)
+    {
+        var selected = desktop.TargetNames.Select(name => string.Equals(name, targetPath,
+            StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (!selected.Any(match => match)) throw new InvalidOperationException("The selected virtual display changed.");
+        var virtualPaths = desktop.Paths.Select(IsVirtual).ToArray();
+        if (virtualPaths.All(isVirtual => isVirtual)) return desktop; // Headless Host: keep a usable desktop.
+        var (paths, modes) = PrepareIdleTopology(desktop.Paths, desktop.Modes, virtualPaths, selected);
+        return CaptureSnapshot(paths, modes) with { PersistIdleLayout = true };
+    }
 
     public static bool RestorePhysicalDesktop(Snapshot snapshot)
     {
@@ -185,8 +199,18 @@ internal static partial class DisplayTopologyService
             if (snapshot.Scales.TryGetValue(GetTargetName(path).DevicePath, out var scale) &&
                 !SetDisplayScale(GetSourceName(path), scale)) return false;
         }
-        if (snapshot.TargetNames.All(names.Contains))
-            return LayoutMatches(actual.Paths, actual.Modes, snapshot);
+        if (snapshot.TargetNames.All(names.Contains)) {
+            if (!LayoutMatches(actual.Paths, actual.Modes, snapshot)) return false;
+            if (snapshot.PersistIdleLayout) {
+                // Save only the complete, verified idle layout. Session-only modes and
+                // partial recovery after a monitor was unplugged must stay temporary.
+                Check(SetDisplayConfig((uint)actual.Paths.Length, actual.Paths, (uint)actual.Modes.Length,
+                    actual.Modes, Supplied | Apply | SaveToDatabase));
+                actual = ReadActive();
+                return LayoutMatches(actual.Paths, actual.Modes, snapshot);
+            }
+            return true;
+        }
         // A missing monitor must not prevent restoring the still-connected output.
         return actual.Paths.Length > 0 && actual.Paths.All(path => snapshot.TargetNames.Contains(
             GetTargetName(path).DevicePath, StringComparer.OrdinalIgnoreCase));

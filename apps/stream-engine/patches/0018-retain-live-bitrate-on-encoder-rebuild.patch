@@ -1,0 +1,26 @@
+diff --git a/src/video.cpp b/src/video.cpp
+--- a/src/video.cpp
++++ b/src/video.cpp
+@@ -2065,7 +2065,7 @@
+     int &frame_nr,  // Store progress of the frame number
+     safe::mail_t mail,
+     img_event_t images,
+-    config_t config,
++    config_t &config,
+     std::shared_ptr<platf::display_t> disp,
+     std::unique_ptr<platf::encode_device_t> encode_device,
+     safe::signal_t &reinit_event,
+@@ -2138,7 +2138,12 @@
+ 
+       if (live_bitrate->peek()) {
+         if (auto requested = live_bitrate->pop()) {
+-          live_bitrate_ack->raise(session->reconfigure_bitrate(*requested) ? *requested : 0);
++          // capture_async reuses this session's config when rebuilding the encoder.
++          const bool applied = session->reconfigure_bitrate(*requested);
++          if (applied) {
++            config.bitrate = static_cast<int>(*requested);
++          }
++          live_bitrate_ack->raise(applied ? *requested : 0);
+         }
+       }
+       if (content_adaptive->peek()) {

@@ -2685,9 +2685,14 @@ public partial class MainWindow : Window
                 DisplayTopologyService.ResolveDisplaySource(target!.DisplayName, target.FriendlyName),
                 width.Value, height!.Value, DisplayRequestContext.FramesPerSecond.Value ?? 60))
                 throw new InvalidOperationException("The selected target does not support this resolution and refresh rate.");
-            before = before with { StreamBounds = state.Displays.Where(d => d.Bounds != null)
+            var virtualTarget = exclusive && target?.IsVirtual == true
+                ? DisplayTopologyService.FindActiveVirtualTarget(target.DisplayName, target.FriendlyName) : null;
+            var idleDesktop = pending?.Desktop ?? (virtualTarget != null
+                ? DisplayTopologyService.SuperScreenIdleDesktop(before, virtualTarget) : before);
+            idleDesktop = idleDesktop with { StreamBounds = pending?.Desktop.StreamBounds ?? state.Displays
+                .Where(d => d.Bounds != null && !(idleDesktop.PersistIdleLayout && d.DeviceId == deviceId))
                 .ToDictionary(d => d.DeviceId, d => d.Bounds!, StringComparer.OrdinalIgnoreCase) };
-            preparationLock = DisplayRecoveryJournal.Begin(owner, requestId, before, preparation.Configuration, pending);
+            preparationLock = DisplayRecoveryJournal.Begin(owner, requestId, idleDesktop, preparation.Configuration, pending);
             if (pending is not null)
             {
                 transactionStarted = true;
@@ -2697,6 +2702,9 @@ public partial class MainWindow : Window
             transactionStarted = true;
             await _sunshineApi.RegisterPreparedDisplayLeaseAsync(DisplayRequestContext.RequestId.Value!, DisplayRequestContext.Owner.Value!,
                 credential.Username, credential.Secret, cancellationToken, ready: false, mode: DisplayRequestContext.Mode.Value ?? "");
+            if (!retained && pending == null && exclusive && target?.IsVirtual == true)
+                await DisplayRecoveryJournal.RetireObsoleteSuperScreenStateAsync(_sunshineApi, credential, target.DeviceId,
+                    state.Displays.ToArray(), cancellationToken);
             if (switching && pending != null && (before.Layout != pending.Desktop.Layout ||
                 !pending.Desktop.Scales.All(scale => before.Scales.TryGetValue(scale.Key, out var value) && value == scale.Value))) {
                 if (!DisplayTopologyService.RestorePhysicalDesktop(pending.Desktop))
@@ -2708,7 +2716,7 @@ public partial class MainWindow : Window
                     !d.IsVirtual && d.Bounds != null) ?? throw new InvalidOperationException("The selected physical display is no longer active.");
                 before = DisplayTopologyService.CaptureDesktop();
             }
-            _physicalDesktopSnapshot = pending?.Desktop ?? before;
+            _physicalDesktopSnapshot = idleDesktop;
             _physicalDisplayRecovery.CaptureBaseline(_physicalDesktopSnapshot.Layout);
             _pendingDisplayScale = null;
             if (scalePercent.HasValue)
@@ -2718,14 +2726,6 @@ public partial class MainWindow : Window
                 if (!DisplayTopologyService.SupportedScalePercents.Contains(scalePercent.Value))
                     throw new ArgumentOutOfRangeException(nameof(scalePercent), "Unsupported Windows display scale.");
             }
-
-            // The virtual desktop belongs to the client-selected merge mode. Keep it out of
-            // the idle Windows topology; Sunshine will activate it when the stream starts and
-            // restore the captured physical topology after the last client disconnects.
-            var virtualTarget = exclusive && target?.IsVirtual == true
-                ? DisplayTopologyService.FindActiveVirtualTarget(
-                    target.DisplayName, target.FriendlyName)
-                : null;
 
             var physicalPrepared = false;
             if (!settingsMatch && exclusive && target is { IsVirtual: false, Width: > 0, Height: > 0 } &&

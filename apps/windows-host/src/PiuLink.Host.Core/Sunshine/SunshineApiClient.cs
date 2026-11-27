@@ -192,6 +192,16 @@ public sealed class SunshineApiClient : IDisposable
         }
     }
 
+    public async Task ResetDisplayPersistenceAsync(string username, string password, CancellationToken token)
+    {
+        using var request = CreateRequest(HttpMethod.Post, "api/reset-display-device-persistence", username, password);
+        using var response = await _httpClient.SendAsync(request, token);
+        response.EnsureSuccessStatusCode();
+        using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+        if (!result.RootElement.GetProperty("status").GetBoolean())
+            throw new IOException("Sunshine could not retire its obsolete display recovery state.");
+    }
+
     public async Task RegisterPreparedDisplayLeaseAsync(string requestId, string owner, string username, string password, CancellationToken token,
         bool ready = true, string mode = "", string action = "", string? output = null)
     {

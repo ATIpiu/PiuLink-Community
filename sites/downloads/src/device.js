@@ -63,9 +63,7 @@ export function recommendDevice(userAgent, touch = 0, hints = {}) {
   if (id === "windows") {
     if (arm64 || cpu === "arm")
       return standIn("Windows ARM", "当前提供 x64 安装包");
-    // Windows' legacy UA can omit WOW64. Do not treat Win32 as a CPU claim.
-    if (x64) return choice(packages[0]);
-    return standIn(name, "请选择适用的安装包");
+    return choice(packages.find((item) => item.id === "win-suite"));
   }
   if (id === "macos") {
     if (arm64) return choice(packages[0]);

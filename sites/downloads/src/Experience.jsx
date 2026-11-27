@@ -80,6 +80,9 @@ function Hero({ selected, setSystem, playFilm }) {
     };
   }, []);
   const [paused, setPaused] = useState(false);
+  const downloadLabel = device.id === "windows" ? "下载 Windows 整合版"
+    : device.id === "ios" ? "下载未签名 IPA" : "下载当前设备版";
+  const roleLabel = device.id === "windows" ? "整合版" : "控制端";
   const [reduced, setReduced] = useState(
     () => matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
@@ -117,10 +120,10 @@ function Hero({ selected, setSystem, playFilm }) {
                 className="primary-button"
                 href={device.file.url}
                 download
-                aria-label={`${device.id === "ios" ? "下载未签名 IPA" : "下载当前设备版"}，${device.name} 控制端，${device.detail}`}
+                aria-label={`${downloadLabel}，${device.detail}`}
               >
                 <span>
-                  {device.id === "ios" ? "下载未签名 IPA" : "下载当前设备版"}
+                  {downloadLabel}
                 </span>
                 <span className="button-arrow">
                   <Icon name="download" size={16} />
@@ -141,7 +144,7 @@ function Hero({ selected, setSystem, playFilm }) {
             <span className="device-match" aria-live="polite">
               <strong>
                 {device.name}
-                {device.file && " 控制端"}
+                {device.file && ` ${roleLabel}`}
               </strong>
               <small>{device.detail}</small>
             </span>
@@ -380,6 +383,15 @@ function Downloads({ selected, setSystem }) {
 }
 
 const updates = [
+  {
+    title: "Windows 整合版 0.2.135",
+    tag: "windows-0.2.135",
+    date: "2026-11-27",
+    changes: [
+      "Windows 默认下载整合版，一次安装控制端 0.2.36 和被控端 0.2.135。只需要一个角色时，可在 Windows 下载列表选择单独的 MSI。",
+      "被控端离线安装包从上一公开版的 148.9 MiB 减至 95.1 MiB，保留串流引擎、P2P、网页访问和 Windows 分享。超级屏断开后可恢复实体屏布局。",
+    ],
+  },
   {
     title: "Android 0.3.209",
     tag: "android-0.3.209",

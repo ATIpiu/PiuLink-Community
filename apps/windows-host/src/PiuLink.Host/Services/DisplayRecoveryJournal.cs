@@ -221,6 +221,65 @@ internal static class DisplayRecoveryJournal
         using var process = Process.Start(start) ?? throw new IOException("Display recovery agent could not start.");
     }
 
+    internal static bool IsObsoleteSuperScreenState(JsonElement state, string selectedId, SunshineDisplay[] displays)
+    {
+        if (!displays.Any(d => !d.IsVirtual && d.Bounds != null) ||
+            !displays.Any(d => d.IsVirtual && d.DeviceId.Equals(selectedId, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        static Guid[] ReadTargets(JsonElement root, string name)
+        {
+            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(name, out var section) ||
+                section.ValueKind != JsonValueKind.Object || !section.TryGetProperty("topology", out var groups) ||
+                groups.ValueKind != JsonValueKind.Array || groups.GetArrayLength() == 0) return [];
+            var ids = new HashSet<Guid>();
+            foreach (var group in groups.EnumerateArray()) {
+                if (group.ValueKind != JsonValueKind.Array || group.GetArrayLength() == 0) return [];
+                foreach (var id in group.EnumerateArray()) {
+                    if (id.ValueKind != JsonValueKind.String || !Guid.TryParse(id.GetString(), out var parsed)) return [];
+                    ids.Add(parsed);
+                }
+            }
+            return ids.ToArray();
+        }
+        var initial = ReadTargets(state, "initial");
+        var modified = ReadTargets(state, "modified");
+        if (!Guid.TryParse(selectedId, out var target) || modified.Length != 1 || modified[0] != target ||
+            initial.Length == 0 || displays.Any(d => !Guid.TryParse(d.DeviceId, out _))) return false;
+        var available = displays.Select(d => Guid.Parse(d.DeviceId)).ToHashSet();
+        return !initial.Any(available.Contains);
+    }
+
+    // Called with an authenticated engine reservation and the recovery writer lock. An
+    // obsolete Sunshine restore job otherwise turns every monitor on after our restore.
+    internal static async Task RetireObsoleteSuperScreenStateAsync(SunshineApiClient api, SunshineDeviceCredential credential,
+        string selectedId, SunshineDisplay[] displays, CancellationToken token)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "engine", "config", "display_device.state");
+        if (!File.Exists(path)) return;
+        var contents = await File.ReadAllBytesAsync(path, token);
+        try {
+            using var state = JsonDocument.Parse(contents);
+            if (!IsObsoleteSuperScreenState(state.RootElement, selectedId, displays)) return;
+        } catch (JsonException) { return; }
+        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(contents));
+        var archive = Path.Combine(DirectoryPath, $"superseded-engine-{digest}.json");
+        if (!File.Exists(archive)) {
+            var temporary = archive + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try {
+                using (var file = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None)) {
+                    file.Write(contents); file.Flush(true);
+                }
+                File.Move(temporary, archive);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        }
+        if (!contents.SequenceEqual(await File.ReadAllBytesAsync(archive, token)))
+            throw new IOException("The archived engine recovery state could not be verified.");
+        if (File.Exists(path) && contents.SequenceEqual(await File.ReadAllBytesAsync(path, token)))
+            await api.ResetDisplayPersistenceAsync(credential.Username, credential.Secret, token);
+    }
+
     public static async Task<bool> RestoreAsync(bool engineDead = false, Entry? observed = null, bool requireIdleApplication = false)
     {
         if (!await Gate.WaitAsync(0)) return false;
@@ -266,7 +325,7 @@ internal static class DisplayRecoveryJournal
                 var state = await api.GetOverviewAsync(credential!.Username, credential.Secret);
                 if (state.HasActiveStreams) throw new IOException("A stream became active during recovery.");
                 if (!await api.RestoreDisplayConfigurationAsync(entry.Configuration, credential.Username, credential.Secret,
-                        allowRestart: !state.HasRetainedApplication) || (entry.TransientRoute && state.HasRetainedApplication))
+                        allowRestart: !state.HasRetainedApplication) || ((entry.TransientRoute || entry.Exclusive) && state.HasRetainedApplication))
                 {
                     // The configured engine route may differ from the prepared physical target.
                     // Retain its owner and target while the game is suspended so it can resume.

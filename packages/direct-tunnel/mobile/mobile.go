@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net"
 	"sync"
-	"time"
 
 	"github.com/atipiu/piulink/packages/tunnel"
 	"github.com/pion/transport/v5"
@@ -91,7 +90,6 @@ func start(configJSON, iface string, binder SocketBinder) (*Session, error) {
 		}
 		cfg.ICENetwork = &boundUDPNetwork{n, binder}
 		cfg.ICEInterface = iface
-		cfg.StartupTimeout = 9 * time.Second
 	}
 	active, err := tunnel.Start(context.Background(), cfg)
 	if err != nil {

@@ -15,7 +15,9 @@
     <?else?>
     <MajorUpgrade DowngradeErrorMessage="A newer version of PiuLink Host is already installed." />
     <?endif?>
-    <MediaTemplate EmbedCab="yes" />
+    <!-- Keep the Host and ShareTarget runtimes in the same cabinet so WiX can
+         reuse identical file data while MSI tracks both installed paths. -->
+    <MediaTemplate EmbedCab="yes" MaximumUncompressedMediaSize="1024" />
     <?if $(var.PublicPreview) = 1 ?>
     <Property Id="PIULINK_REGISTER_SHARE" Secure="yes" />
     <?endif?>

@@ -262,6 +262,24 @@ foreach (var path in actual.Paths)
         "Native source mode did not round-trip");
 Console.WriteLine($"PASS native QueryDisplayConfig: {actual.Paths.Length} active paths; physical-only={IsPhysicalDesktopOnly()}");
 Require(!string.IsNullOrEmpty(ReadDesktopState().Layout), "Native topology fingerprint is empty");
+var initialDesktop = CaptureDesktop();
+var activeVirtuals = GetActiveVirtualTargets();
+foreach (var targetPath in activeVirtuals)
+{
+    var idle = SuperScreenIdleDesktop(initialDesktop, targetPath);
+    if (activeVirtuals.Length == initialDesktop.Paths.Length) {
+        Require(ReferenceEquals(initialDesktop, idle), "Headless recovery must keep a usable display");
+    } else {
+        var expected = initialDesktop.TargetNames.Where(name =>
+            !string.Equals(name, targetPath, StringComparison.OrdinalIgnoreCase));
+        Require(idle.PersistIdleLayout && idle.TargetNames.SequenceEqual(expected),
+            "Recovery must exclude exactly the selected Super Screen");
+        Require(!idle.Scales.ContainsKey(targetPath) && !idle.Layout.Contains(targetPath, StringComparison.OrdinalIgnoreCase),
+            "A detached Super Screen is still part of the idle layout");
+    }
+    Require(CaptureDesktop().Layout == initialDesktop.Layout, "Planning recovery changed the live desktop");
+    Console.WriteLine("PASS Super Screen idle snapshot against the active Windows topology (read-only)");
+}
 foreach (var screen in System.Windows.Forms.Screen.AllScreens)
 {
     var scale = DisplayTopologyService.TryGetDisplayScale(screen.DeviceName);

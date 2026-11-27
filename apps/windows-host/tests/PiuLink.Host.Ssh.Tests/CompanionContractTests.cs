@@ -2,6 +2,7 @@ using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
@@ -28,6 +29,15 @@ internal static class CompanionContractTests
             new SunshineDisplay(virtualId, "TESTDISPLAY3", "PiuLink Virtual", false, true, null, null, null)
         };
         int selected = 0;
+        bool Obsolete(SunshineDisplay[] inventory, string[] initial, params string[] modified) =>
+            DisplayRecoveryJournal.IsObsoleteSuperScreenState(System.Text.Json.JsonSerializer.SerializeToElement(new {
+                initial = new { topology = new[] { initial } }, modified = new { topology = new[] { modified } }
+            }), virtualId, inventory);
+        string missing = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+        if (!Obsolete(displays, [missing], virtualId) || Obsolete(displays, [missing, displays[0].DeviceId], virtualId) ||
+            Obsolete(displays, [missing], displays[0].DeviceId, virtualId) || Obsolete(displays, [], virtualId) ||
+            Obsolete(displays, ["invalid"], virtualId) || Obsolete([displays[2]], [missing], virtualId))
+            throw new Exception("Only an obsolete recovery job for the selected Super Screen may be archived.");
         string? pairedName = null;
         string? authenticatedPeer = null;
         using var transfer = new DisplayCompanionServer(_ => Task.FromResult<SunshineDisplayState?>(null),
@@ -246,26 +256,27 @@ internal static class CompanionContractTests
         var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
         try {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-            using var client = new TcpClient();
-            await client.ConnectAsync(IPAddress.Loopback, ((IPEndPoint)listener.LocalEndpoint).Port, timeout.Token);
+            using var client = new HttpClient(new SocketsHttpHandler {
+                UseProxy = false,
+                SslOptions = new SslClientAuthenticationOptions {
+                    ClientCertificates = new X509CertificateCollection { ClientCertificate },
+                    CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
+                    RemoteCertificateValidationCallback = (_, peer, _, _) => peer != null &&
+                        peer.GetRawCertData().AsSpan().SequenceEqual(ServerCertificate.RawData)
+                }
+            });
+            var scheme = secure ? "https" : "http";
+            using var request = new HttpRequestMessage(new HttpMethod(method), $"{scheme}://{listener.LocalEndpoint}{path}");
+            if (body != null) request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+            var responseTask = client.SendAsync(request, timeout.Token);
             var accepted = await listener.AcceptTcpClientAsync(timeout.Token);
             server.LoadTlsCertificate = () => new X509Certificate2(ServerCertificate.Export(X509ContentType.Pkcs12));
             server.AuthenticatePeer = peer => peer != null && peer.GetRawCertData().AsSpan().SequenceEqual(ClientCertificate.RawData);
             var handling = (Task)typeof(DisplayCompanionServer).GetMethod("HandleAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .Invoke(server, [accepted, timeout.Token])!;
-            using var tls = secure ? new SslStream(client.GetStream(), true, (_, peer, _, _) =>
-                peer != null && peer.GetRawCertData().AsSpan().SequenceEqual(ServerCertificate.RawData)) : null;
-            try { if (tls != null) await tls.AuthenticateAsClientAsync(new SslClientAuthenticationOptions {
-                TargetHost = "localhost", ClientCertificates = new X509CertificateCollection { ClientCertificate },
-                CertificateRevocationCheckMode = X509RevocationMode.NoCheck
-            }, timeout.Token); } catch { await handling; throw; }
-            Stream stream = tls is null ? client.GetStream() : tls;
-            var payload = Encoding.UTF8.GetBytes(body ?? "");
-            var header = Encoding.ASCII.GetBytes($"{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: {payload.Length}\r\n\r\n");
-            await stream.WriteAsync(header, timeout.Token); await stream.WriteAsync(payload, timeout.Token);
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-            var response = await reader.ReadToEndAsync(timeout.Token); await handling;
-            return (int.Parse(response.Split(' ')[1]), JsonNode.Parse(response[(response.IndexOf("\r\n\r\n") + 4)..])!.AsObject());
+            await Task.WhenAll(handling, responseTask);
+            using var response = await responseTask;
+            return ((int)response.StatusCode, JsonNode.Parse(await response.Content.ReadAsStringAsync(timeout.Token))!.AsObject());
         } finally { listener.Stop(); }
     }
 }

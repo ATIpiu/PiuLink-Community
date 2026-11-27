@@ -187,11 +187,17 @@ func rendezvousOn(ctx context.Context, cfg Config, cert *ephemeralCertificate, n
 			return nil, err
 		}
 	}
+	checkCtx := ctx
+	if cfg.ICENetwork != nil && cfg.ICEInterface != "" {
+		var cancel context.CancelFunc
+		checkCtx, cancel = context.WithTimeout(ctx, 9*time.Second)
+		defer cancel()
+	}
 	var conn *ice.Conn
 	if cfg.Role == RoleSource {
-		conn, err = agent.Dial(ctx, remote.User, remote.Password)
+		conn, err = agent.Dial(checkCtx, remote.User, remote.Password)
 	} else {
-		conn, err = agent.Accept(ctx, remote.User, remote.Password)
+		conn, err = agent.Accept(checkCtx, remote.User, remote.Password)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("direct ICE checks failed (%d local, %d remote candidates): %w", len(desc.Candidates), len(remote.Candidates), err)

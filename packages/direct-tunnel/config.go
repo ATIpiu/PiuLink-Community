@@ -78,6 +78,11 @@ func (c *Config) normalize() error {
 	}
 	if c.StartupTimeout <= 0 {
 		c.StartupTimeout = 24 * time.Second
+		if c.ICENetwork != nil && c.ICEInterface != "" {
+			// HTTPS signaling still uses the VPN. Budget for it separately
+			// from the short UDP connectivity checks on the physical network.
+			c.StartupTimeout = 18 * time.Second
+		}
 	}
 	if c.IdleTimeout <= 0 {
 		c.IdleTimeout = 45 * time.Second

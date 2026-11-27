@@ -1,0 +1,16 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+  <Bundle Name="PiuLink Windows" Manufacturer="ATIPiu Labs" Version="$(var.SuiteVersion)"
+          UpgradeCode="{F64CE4C2-4931-47CE-91CA-4E3760AA1CA5}"
+          IconSourceFile="../windows-host/src/PiuLink.Host/Assets/PiuLink.ico">
+    <BootstrapperApplication>
+      <bal:WixStandardBootstrapperApplication Theme="hyperlinkLicense"
+          LicenseUrl="https://github.com/ATIpiu/PiuLink-Community/blob/main/LICENSE.md"
+          SuppressOptionsUI="yes" />
+    </BootstrapperApplication>
+    <Chain>
+      <MsiPackage Id="Host" SourceFile="$(var.HostMsi)" Compressed="yes" Vital="yes" />
+      <MsiPackage Id="Client" SourceFile="$(var.ClientMsi)" Compressed="yes" Vital="yes" />
+    </Chain>
+  </Bundle>
+</Wix>

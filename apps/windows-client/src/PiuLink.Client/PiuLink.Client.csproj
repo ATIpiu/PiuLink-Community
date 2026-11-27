@@ -10,7 +10,7 @@
     <RootNamespace>PiuLink.Client</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\..\..\windows-host\src\PiuLink.Host\Assets\PiuLink.ico</ApplicationIcon>
-    <Version>0.2.31</Version>
+    <Version>0.2.36</Version>
     <Authors>Ryan</Authors>
     <Company>ATIPiu Labs</Company>
     <Product>PiuLink Client</Product>
@@ -48,4 +48,5 @@
              Link="licenses/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <Import Project="../../../../packages/direct-tunnel/WindowsTransport.targets" />
+  <Import Project="../../../../packages/diagnostics/Diagnostics.targets" />
 </Project>

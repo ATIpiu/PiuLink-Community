@@ -70,12 +70,15 @@ func testSignalRetry(t *testing.T, mode string) {
 // Two separate private subnets. Each NAT accepts incoming UDP only after its
 // own endpoint has sent to that exact remote IP and port.
 func TestPunchAcrossPortRestrictedNATs(t *testing.T) {
-	testNATPair(t, vnet.EndpointIndependent, true)
+	testNATPair(t, vnet.EndpointIndependent, true, 0)
+}
+func TestPhysicalPunchAfterSlowVPNSignaling(t *testing.T) {
+	testNATPair(t, vnet.EndpointIndependent, true, 10*time.Second)
 }
 func TestTwoSymmetricNATsFailWithoutRelay(t *testing.T) {
-	testNATPair(t, vnet.EndpointAddrPortDependent, false)
+	testNATPair(t, vnet.EndpointAddrPortDependent, false, 0)
 }
-func testNATPair(t *testing.T, mapping vnet.EndpointDependencyType, reachable bool) {
+func testNATPair(t *testing.T, mapping vnet.EndpointDependencyType, reachable bool, signalingDelay time.Duration) {
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -127,6 +130,7 @@ func testNATPair(t *testing.T, mapping vnet.EndpointDependencyType, reachable bo
 
 	var mu sync.Mutex
 	descriptions := map[string]description{}
+	offerReady := time.Now().Add(signalingDelay)
 	signaling := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var msg struct{ Info description }
 		if json.NewDecoder(r.Body).Decode(&msg) != nil {
@@ -141,7 +145,7 @@ func testNATPair(t *testing.T, mapping vnet.EndpointDependencyType, reachable bo
 		mu.Lock()
 		defer mu.Unlock()
 		descriptions[side] = msg.Info
-		if peer, ok := descriptions[other]; ok {
+		if peer, ok := descriptions[other]; ok && !time.Now().Before(offerReady) {
 			json.NewEncoder(w).Encode(peer)
 		} else {
 			w.WriteHeader(204)
@@ -156,6 +160,9 @@ func testNATPair(t *testing.T, mapping vnet.EndpointDependencyType, reachable bo
 	uri, err := stun.ParseURI("stun:198.51.100.9:3478")
 	must(err)
 	deadline := 8 * time.Second
+	if signalingDelay > 0 {
+		deadline += signalingDelay
+	}
 	if !reachable {
 		deadline = 3 * time.Second
 	}
@@ -168,8 +175,18 @@ func testNATPair(t *testing.T, mapping vnet.EndpointDependencyType, reachable bo
 	run := func(role Role, nic *vnet.Net, identity *ephemeralCertificate, done chan<- outcome) {
 		network := directICEConfig(uri)
 		network.Net = nic
-		cfg := Config{Role: role, Lease: Lease{LeaseID: "test", Ticket: string(role), TransportKey: encodeBase64URL(secret)}}
-		path, e := rendezvousOn(ctx, cfg, identity, network, signaling.URL)
+		cfg := Config{Role: role, ClientID: string(role), Lease: Lease{LeaseID: "test", Ticket: string(role),
+			SourceClientID: string(RoleSource), HostClientID: string(RoleHost), TransportKey: encodeBase64URL(secret)}}
+		if signalingDelay > 0 && role == RoleSource {
+			cfg.ICENetwork, cfg.ICEInterface = nic, "eth0"
+		}
+		if err := cfg.normalize(); err != nil {
+			done <- outcome{nil, err}
+			return
+		}
+		startup, stop := context.WithTimeout(ctx, cfg.StartupTimeout)
+		defer stop()
+		path, e := rendezvousOn(startup, cfg, identity, network, signaling.URL)
 		done <- outcome{path, e}
 	}
 	src, host := make(chan outcome, 1), make(chan outcome, 1)

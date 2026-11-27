@@ -10,20 +10,21 @@ PiuLink 让你从手机、平板、电视或另一台电脑连接自己的电脑
 
 | 使用设备 | 安装包 |
 | --- | --- |
-| 让其他设备连接这台 Windows x64 电脑 | [下载 Windows Host 0.2.131 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/host-0.2.131/PiuLink-Host-0.2.131-win-x64-preview.msi) |
-| 在 Windows x64 电脑上控制另一台主机 | [下载 Windows Client 0.2.31 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/client-preview-2026.11.25/PiuLink-Client-0.2.31-win-x64.msi) |
+| Windows x64（默认下载） | [下载 Windows 整合版 0.2.135 · EXE](https://github.com/ATIpiu/PiuLink-Community/releases/download/windows-0.2.135/PiuLink-Windows-0.2.135-win-x64.exe)，一次离线安装控制端和被控端。 |
+| 仅让其他设备连接这台电脑 | [下载 Windows Host 0.2.135 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/windows-0.2.135/PiuLink-Host-0.2.135-win-x64-preview.msi) |
+| 仅用这台电脑控制另一台主机 | [下载 Windows Client 0.2.36 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/windows-0.2.135/PiuLink-Client-0.2.36-win-x64.msi) |
 | 在 Android 手机、平板或电视上控制主机 | [通用版（推荐）· 57.78 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.206/PiuLink-Android-0.3.206-nonRoot-universal-release.apk) · [ARM64 专用版 · 17.57 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.206/PiuLink-Android-0.3.206-nonRoot-arm64-v8a-release.apk) |
 
-两份 Windows MSI 均为未签名预览版。Host 内置串流引擎，这版省去了虚拟麦克风驱动，系统分享扩展可在已信任其签名的设备上按需注册。两个控制端都可连接已配置好的 PiuLink Host 或兼容 Sunshine 的电脑。[Host 版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/host-0.2.131) · [控制端版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/client-preview-2026.11.25) · [自建 Linux 邀请服务](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)
+Windows 安装包均为未签名公开预览版。Host 内置串流引擎，系统分享扩展可在已信任其签名的设备上按需注册。[版本说明和校验文件](https://github.com/ATIpiu/PiuLink-Community/releases/tag/windows-0.2.135) · [自建 Linux 邀请服务](https://github.com/ATIpiu/PiuLink-Community/releases/tag/source-preview-2026.11.24)
 
-1. 在要被控制的电脑上安装 **Host**，在操作设备上安装 **Client**。Android 手机、平板与电视默认选通用版。确认系统支持 `arm64-v8a` 时可选更小的 ARM64 专用版，两版功能相同。
+1. Windows 默认安装整合版。想让其他设备连接这台电脑时，打开 PiuLink Host。想用这台电脑控制其他主机时，打开 PiuLink Client。Android 手机、平板和电视默认选择通用版。
 2. 第一次连接建议让两台设备使用同一局域网。在客户端发现或手动添加电脑，按提示在 Host 确认配对。
 3. 选择「桌面」或已配置的游戏、应用开始串流。Windows Host 与各客户端均可直接启动，局域网使用无需 PiuLink 账号。
 4. 异地使用可手动添加可达地址、使用自己配置的 Tailscale，或在支持的版本上使用 Host 生成的私有邀请。邀请服务用于发现地址和协商直连，目前属实验功能。PiuLink 不提供音视频中转。
 
 在 Android 客户端的「设置 → 触控 → 触控板鼠标速度」可选 0.5× 至 4×。串流中也可从菜单直接调速，选择后立即生效。此设置作用于触控板模式下的单指移动与拖动。
 
-全新 Windows 电脑安装 Host 0.2.131 后，麦克风回传还需要适用的 PiuLink 虚拟麦克风驱动。已有 PiuLink 录音设备的电脑可以在 Android 串流菜单点「开启远端麦克风」、授予录音权限，并在远端会议或录音应用中选择相应的输入。[虚拟麦克风驱动与打包说明](apps/windows-host/audio-driver/README.md)
+全新 Windows 电脑安装 Host 后，麦克风回传还需要适用的 PiuLink 虚拟麦克风驱动。已有 PiuLink 录音设备的电脑可以在 Android 串流菜单点「开启远端麦克风」、授予录音权限，并在远端会议或录音应用中选择相应的输入。[虚拟麦克风驱动与打包说明](apps/windows-host/audio-driver/README.md)
 
 ## 各平台能做什么
 
@@ -44,7 +45,7 @@ Windows 主链路和 Android 已有真机串流验证。直连邀请在部分家
 
 | 入口 | 内容 |
 | --- | --- |
-| [Windows Host](apps/windows-host/README.md) · [串流引擎](apps/stream-engine/README.md) | 主机源码、引擎固定版本及补丁、安装器和验证脚本 |
+| [Windows 整合版](apps/windows-suite/README.md) · [Windows Host](apps/windows-host/README.md) · [串流引擎](apps/stream-engine/README.md) | 主机源码、引擎固定版本及补丁、安装器和验证脚本 |
 | [Windows Client](apps/windows-client/README.md) · [命令行](docs/CLI.md) | Windows 客户端、Qt 引擎集成、配对与串流命令 |
 | [Android](apps/android/README.md) | 随仓库提供的 Android 源码、原生依赖和签名构建入口 |
 | [Linux Host](apps/linux-host/README.md) · [Linux Client](apps/linux-client/README.md) · [macOS](apps/macos-client/README.md) · [iPhone](apps/ios-client/README.md) | 平台要求、实现及打包入口 |

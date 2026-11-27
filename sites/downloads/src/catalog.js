@@ -2,8 +2,8 @@ export const repository = "https://github.com/ATIpiu/PiuLink-Community";
 const appleTestNote =
   "博主的钱包还没解锁苹果全家桶，Mac、iPhone 和 iPad 都没做过真机实测。";
 export const edition = {
-  date: "2026-11-26",
-  displayDate: "2026.11.26",
+  date: "2026-11-27",
+  displayDate: "2026.11.27",
   channel: "公开预览版",
 };
 
@@ -20,17 +20,28 @@ export const platforms = [
     name: "Windows",
     packages: [
       {
+        id: "win-suite",
+        title: "Windows 整合版（推荐）",
+        role: "windows",
+        description: "一次离线安装控制端和被控端。这台电脑既能远控，也能被连接。",
+        version: "0.2.135",
+        arch: "x64",
+        format: "EXE",
+        bytes: 189187814,
+        url: published("windows-0.2.135", "PiuLink-Windows-0.2.135-win-x64.exe"),
+      },
+      {
         id: "win-client",
         title: "控制端",
         role: "client",
         description: "用这台电脑连接远端桌面。",
-        version: "0.2.31",
+        version: "0.2.36",
         arch: "x64",
         format: "MSI",
-        bytes: 89326124,
+        bytes: 89317932,
         url: published(
-          "client-preview-2026.11.25",
-          "PiuLink-Client-0.2.31-win-x64.msi",
+          "windows-0.2.135",
+          "PiuLink-Client-0.2.36-win-x64.msi",
         ),
       },
       {
@@ -38,13 +49,13 @@ export const platforms = [
         title: "被控端",
         role: "host",
         description: "让其他设备连到这台电脑。",
-        version: "0.2.131",
+        version: "0.2.135",
         arch: "x64",
         format: "MSI",
-        bytes: 156131293,
+        bytes: 99717067,
         url: published(
-          "host-0.2.131",
-          "PiuLink-Host-0.2.131-win-x64-preview.msi",
+          "windows-0.2.135",
+          "PiuLink-Host-0.2.135-win-x64-preview.msi",
         ),
       },
     ],

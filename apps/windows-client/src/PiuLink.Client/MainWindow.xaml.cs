@@ -22,6 +22,8 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _launchCancellation;
     private CancellationTokenSource? _automaticReconnectCancellation;
     private IStreamSession? _activeStream;
+    private sealed record LiveDesktopSession(HostEndpoint Endpoint, string Id, CancellationToken Token);
+    private LiveDesktopSession? _liveDesktop;
     private PiuLinkEngineChannel? _activeEngineChannel;
     private PiuLinkEngineTelemetry? _lastEngineTelemetry;
     private HostProfile? _activeHost;
@@ -251,7 +253,9 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException("主机列表尚未成功读取，暂时不能保存，以免覆盖原记录。请修复读取错误后重新打开客户端。");
             var input = HostAddressInput.Text.Trim();
             var invite = PiuLink.Rendezvous.HostInvite.Parse(input);
-            var endpoint = await HostEndpoint.ResolveAsync(input);
+            HostEndpoint endpoint;
+            try { endpoint = await HostEndpoint.ResolveAsync(input); }
+            catch (Exception error) { PiuLink.Diagnostics.DiagnosticUpload.ConnectionFailure("resolve", error); throw; }
             var address = endpoint.MoonlightTarget;
             var existing = Hosts.FirstOrDefault(h => string.Equals(h.InviteLink, invite?.Link, StringComparison.Ordinal) && invite != null)
                 ?? Hosts.FirstOrDefault(h => string.Equals(h.Address, address, StringComparison.OrdinalIgnoreCase) && (invite == null || h.InviteLink == null));
@@ -459,6 +463,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            PiuLink.Diagnostics.DiagnosticUpload.ConnectionFailure("host", exception);
             await ClientLog.WriteAsync($"Host refresh failed for {host.Name}: {exception}");
             if (cancellationToken.IsCancellationRequested || _closed) return;
             ReachabilityDot.Fill = (Brush)FindResource("ErrorBrush");
@@ -494,6 +499,7 @@ public partial class MainWindow : Window
             await ClientLog.WriteAsync($"Qt Moonlight manual pairing started for {host.Name} at {endpoint.MoonlightTarget}");
             using var pairingCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(70));
             var result = await _qtMoonlight.PairAsync(endpoint, pin, TimeSpan.FromSeconds(65), pairingCancellation.Token);
+            if (result.ExitCode != 0) PiuLink.Diagnostics.DiagnosticUpload.ConnectionFailure("pair", value:result.ExitCode);
             await ClientLog.WriteAsync($"Pairing finished for {host.Name} with exit code {result.ExitCode}: {result.StandardError.Trim()}");
             if (!_closed && SelectedHost?.Id == host.Id) {
                 PairingPanel.Visibility = Visibility.Collapsed;
@@ -504,6 +510,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            PiuLink.Diagnostics.DiagnosticUpload.ConnectionFailure("pair", exception);
             await ClientLog.WriteAsync($"Pairing failed for {host.Name}: {exception}");
             if (!_closed) MessageBox.Show(this, exception.Message, "无法开始配对", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -655,7 +662,8 @@ public partial class MainWindow : Window
             token.ThrowIfCancellationRequested();
             var display = HostCompanionClient.ResolveStreamDisplay(inventory, selectedDisplayId, profile);
             ScreenStatusText.Text = "正在准备 Host 屏幕…";
-            try { await _companion.PrepareAsync(endpoint, display, profile, token); }
+            string sessionId;
+            try { sessionId = await _companion.PrepareAsync(endpoint, display, profile, token); }
             catch (RetainedDisplayRouteException) when (manualSettingsChange && !token.IsCancellationRequested)
             {
                 if (_closed || SelectedHost?.Id != host.Id) return;
@@ -670,7 +678,7 @@ public partial class MainWindow : Window
                 token.ThrowIfCancellationRequested();
                 var quit = await _qtMoonlight.QuitAsync(endpoint, TimeSpan.FromSeconds(35), token);
                 if (!quit.IsSuccess) throw new IOException("Host 未确认结束原应用，已停止切换屏幕。");
-                await _companion.PrepareAsync(endpoint, display, profile, token);
+                sessionId = await _companion.PrepareAsync(endpoint, display, profile, token);
             }
             token.ThrowIfCancellationRequested();
             if (_closed || SelectedHost?.Id != host.Id) return;
@@ -692,10 +700,13 @@ public partial class MainWindow : Window
                 _ = ReadEngineTelemetryAsync(qtSession.Channel, launchProfile.BitrateKbps, token);
             }
             _activeStream = launched; _activeHost = host; _activeApp = appName;
+            if (display?.IsVirtual == true && inventory.SupportsVirtualDesktopResize)
+                _liveDesktop = new(endpoint, sessionId, token);
             ToggleVirtualGamepadButton.IsEnabled = _activeEngineChannel?.IsConnected == true;
             UpdateVirtualGamepadOverlay();
             CancelPreparationButton.Visibility = Visibility.Collapsed;
-            ScreenStatusText.Text = "已打开 Qt Moonlight 串流窗口。修改参数后可点“应用并重连”。";
+            ScreenStatusText.Text = _liveDesktop == null ? "已打开 Qt Moonlight 串流窗口。"
+                : "串流中可在这里实时调整虚拟桌面的分辨率。";
             UpdateStreamAction();
             await _hostMutation.WaitAsync();
             try
@@ -727,6 +738,7 @@ public partial class MainWindow : Window
             finally { _hostMutation.Release(); }
             await launched.WaitForExitAsync();
             await ClientLog.WriteAsync($"Qt Moonlight stream exited for {host.Name} with code {launched.ExitCode}");
+            if (launched.ExitCode != 0 && !_userRequestedDisconnect) PiuLink.Diagnostics.DiagnosticUpload.ConnectionFailure("ended", value:launched.ExitCode);
             scheduleReconnect = StreamReconnectPolicy.ShouldReconnect(
                 launched.ExitCode, _closed || _restarting || _userRequestedDisconnect || token.IsCancellationRequested, reconnectAttempt);
             if (!_closed && SelectedHost?.Id == host.Id)
@@ -745,6 +757,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            PiuLink.Diagnostics.DiagnosticUpload.ConnectionFailure("stream", exception);
             await ClientLog.WriteAsync($"Stream failed for {host.Name}, app {appName}: {exception}");
             if (!_closed && SelectedHost?.Id == host.Id) ScreenStatusText.Text = "连接失败：" + exception.Message;
         }
@@ -762,6 +775,7 @@ public partial class MainWindow : Window
             await ResetVirtualGamepadAsync();
             StreamSurface.SetInputCapture(false);
             if (ReferenceEquals(_activeStream, launched)) { _activeStream = null; _activeHost = null; _activeApp = null; _activeEngineChannel = null; }
+            _liveDesktop = null;
             if (ReferenceEquals(_launchCancellation, launchCancellation)) _launchCancellation = null;
             if (launched is not null) await launched.DisposeAsync();
             try { if (sessionEndpoint != null) await _companion.AbortAsync(sessionEndpoint); }
@@ -941,6 +955,35 @@ public partial class MainWindow : Window
         } finally { _restoringProfile = false; }
     }
 
+    private async void ResizeDesktop_Click(object sender, RoutedEventArgs e) {
+        if (_liveDesktop is not { } session || _activeHost?.Id != SelectedHost?.Id) return;
+        ResizeDesktopButton.IsEnabled = false;
+        try {
+            var desktop = await _companion.RequestVirtualDesktopAsync(session.Endpoint, session.Id, session.Token);
+            if (_liveDesktop != session || _closed || _activeHost?.Id != SelectedHost?.Id) return;
+            var menu = new ContextMenu { PlacementTarget = ResizeDesktopButton,
+                Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+            foreach (var mode in desktop.Modes) {
+                var item = new MenuItem { Header = $"{mode.Width} × {mode.Height}", IsChecked = mode == desktop.Current };
+                item.Click += async (_, _) => {
+                    if (_liveDesktop != session || _closed || _activeHost?.Id != SelectedHost?.Id || item.IsChecked) return;
+                    ResizeDesktopButton.IsEnabled = false;
+                    try {
+                        var applied = await _companion.RequestVirtualDesktopAsync(session.Endpoint, session.Id, session.Token, desktop.Key, mode);
+                        if (_liveDesktop == session && _activeHost?.Id == SelectedHost?.Id)
+                            ScreenStatusText.Text = $"虚拟桌面已切换为 {applied.Current.Width} × {applied.Current.Height}（{applied.Current.Fps} Hz）。";
+                    } catch (Exception error) {
+                        if (!_closed && _liveDesktop == session && _activeHost?.Id == SelectedHost?.Id) ScreenStatusText.Text = error.Message;
+                    } finally { ResizeDesktopButton.IsEnabled = true; }
+                };
+                menu.Items.Add(item);
+            }
+            menu.IsOpen = true;
+        } catch (Exception error) {
+            if (!_closed && _liveDesktop == session && _activeHost?.Id == SelectedHost?.Id) ScreenStatusText.Text = error.Message;
+        } finally { ResizeDesktopButton.IsEnabled = true; }
+    }
+
     private async void ApplyAndReconnect_Click(object sender, RoutedEventArgs e) {
         if (_restarting) return;
         CancelAutomaticReconnect();
@@ -1043,6 +1086,7 @@ public partial class MainWindow : Window
         var canApplyToCurrentStream = _activeHost?.Id == SelectedHost?.Id && _activeStream is not null;
         ApplySettingsButton.Content = "应用并重连";
         ApplySettingsButton.Visibility = canApplyToCurrentStream ? Visibility.Visible : Visibility.Collapsed;
+        ResizeDesktopButton.Visibility = canApplyToCurrentStream && _liveDesktop != null ? Visibility.Visible : Visibility.Collapsed;
         if (!_saveFailed && !SettingsSaveStatus.Text.StartsWith("正在保存", StringComparison.Ordinal))
         {
             SettingsSaveStatus.Text = canApplyToCurrentStream
@@ -1253,12 +1297,15 @@ public partial class MainWindow : Window
         if (send) SendVirtualGamepadState();
     }
 
-    private void DisconnectStream_Click(object sender, RoutedEventArgs e)
+    private async void DisconnectStream_Click(object sender, RoutedEventArgs e)
     {
+        var link = _activeHost?.InviteLink;
         _userRequestedDisconnect = true;
         CancelAutomaticReconnect();
         _launchCancellation?.Cancel();
         _activeStream?.Stop();
+        try { await HostEndpoint.DisconnectInviteAsync(link); }
+        catch (Exception ex) { StreamFrameText.Text = ex.Message; }
     }
 
     private async Task UpdateEmbeddedStreamStatusAsync(PiuLinkStreamSession session, StreamProfile profile, CancellationToken token)

@@ -313,6 +313,7 @@
                     <TextBlock x:Name="ScreenStatusText" Text="刷新电脑以读取真实显示器和支持的模式。" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource MutedBrush}" />
                   </Border>
                   <Button x:Name="ApplySettingsButton" Content="应用并重连" Style="{StaticResource PrimaryButtonStyle}" Click="ApplyAndReconnect_Click" Visibility="Collapsed" Margin="0,10,0,0" />
+                  <Button x:Name="ResizeDesktopButton" Content="实时调整虚拟屏分辨率" Click="ResizeDesktop_Click" Visibility="Collapsed" Margin="0,6,0,0" />
                   <Button x:Name="CancelPreparationButton" Content="取消连接" Click="CancelPreparation_Click" Visibility="Collapsed" Margin="0,10,0,0" />
 
                   <Expander Header="高级串流设置" Margin="0,14,0,0" Style="{StaticResource SettingsExpander}">
