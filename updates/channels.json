@@ -1,35 +1,35 @@
 {
   "win-suite": {
-    "version": "0.2.140",
-    "tag": "windows-0.2.140",
-    "name": "PiuLink-Windows-0.2.140-win-x64.exe",
-    "bytes": 125464733,
-    "sha256": "1d4df022493b5691d064fa4860e7e216299c8ef17b4823591616393b519d9d23",
-    "mapSha256": "18d43249bb022bb7b080abec9cd10bb3e8a397c2ef8db7951c281e4477964aab"
+    "version": "0.2.141",
+    "tag": "rust-2026.11.28",
+    "name": "PiuLink-Windows-0.2.141-win-x64.exe",
+    "bytes": 134219825,
+    "sha256": "056da0290b40c1291117a6fbca84982bf15a9b19e0ecfa7b14a30b67f93a5dc5",
+    "mapSha256": "5eb3dcf11e54f9a915eab251ea8dd358781955d6251dd34c0bd5fecefd22e2a9"
   },
   "win-client": {
-    "version": "0.2.37",
-    "tag": "updates-preview-2026.11.27",
-    "name": "PiuLink-Client-0.2.37-win-x64.msi",
-    "bytes": 89444908,
-    "sha256": "4ab0b0e1673641469396ff4533a118438d780c3c3d9d41b1e3458b1ab8d15e99",
-    "mapSha256": "a99afee640a3682e733c404b48c224dffbfc1e45abd968f356c67a56d87141e2"
+    "version": "0.2.41",
+    "tag": "rust-2026.11.28",
+    "name": "PiuLink-Client-0.2.41-win-x64.msi",
+    "bytes": 89530860,
+    "sha256": "77808c1ff99084bee8866bc6fdd40c6f2a7f4517f3223c95b0398d3496336d14",
+    "mapSha256": "ef5fb9e4840cb04cfc364d9bec5b0ca7569ffae07a97d1231211150d957bd084"
   },
   "win-host": {
-    "version": "0.2.136",
-    "tag": "updates-preview-2026.11.27",
-    "name": "PiuLink-Host-0.2.136-win-x64-preview.msi",
-    "bytes": 99835851,
-    "sha256": "295722b4da0e477fc0405f752ba880d1a5251e5a0a6d97f80242fa051e917b48",
-    "mapSha256": "b95bf41a5e5ebd8bf619d2d5b3dc52573e319a50c6aa866bc021619cd62c3e0d"
+    "version": "0.2.138",
+    "tag": "rust-2026.11.28",
+    "name": "PiuLink-Host-0.2.138-win-x64-preview.msi",
+    "bytes": 105287346,
+    "sha256": "973e659c15ad9de6f041cda81dfce3c9675433f7fb297257b224a4217a4383a6",
+    "mapSha256": "f842c679ac3d86eb331f9d8c64ab48f224a79362d99e70b40ab3d83e1cb42ea7"
   },
   "android-client": {
-    "version": "0.3.225",
-    "tag": "android-0.3.225",
-    "name": "PiuLink-Android-0.3.225-nonRoot-universal-release.apk",
-    "bytes": 58122234,
-    "sha256": "e7a7f02d12d900bb7dd54e4000ec941bf96f3e9371d179a0ef84a5db9a499dcf",
-    "mapSha256": "61dccef8d5535b71c2b8c9f550d22543fa587e1dfb73fe6bce7c2d3af6f417de"
+    "version": "0.3.260",
+    "tag": "rust-2026.11.28",
+    "name": "PiuLink-Android-0.3.260-nonRoot-universal-release.apk",
+    "bytes": 59775946,
+    "sha256": "77e773511a5e3b0fe6e1614da4d43730f5f817e599ee5f9d13d1bfff768df5cf",
+    "mapSha256": "390b97537f754d364479da7df4b743422e0d3932ae355b407fba01bb7db7371f"
   },
   "android-arm64": {
     "version": "0.3.225",
@@ -136,11 +136,11 @@
     "mapSha256": "ddf7f11ded006222aee806d49da2c8b5daf83c515b82332a51cc43baf5021666"
   },
   "linux-suite": {
-    "version": "0.1.0",
-    "tag": "linux-suite-0.1.0",
-    "name": "piulink-suite_0.1.0-1_amd64.deb",
-    "bytes": 36868336,
-    "sha256": "4101cc0dbd8973aeea72a22a54648d34887069bf5e66ef4fe42aea894ceaf7e5",
-    "mapSha256": "fbc4aa895f72b7cd380bbb0b82ea34d3a43cd30f82b3a99828e65385db69518d"
+    "version": "0.1.1",
+    "tag": "rust-2026.11.28",
+    "name": "piulink-suite_0.1.1-1_amd64.deb",
+    "bytes": 42049592,
+    "sha256": "625859923a62fd973bd3106585da0e4b9b3dc71485e589908f64780a3a032e23",
+    "mapSha256": "7be25da610219c8b2b4c3cbbd13bce21ef59450d2ad81ddbffd850f547c1b355"
   }
 }
