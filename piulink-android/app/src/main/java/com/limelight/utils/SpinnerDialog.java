@@ -9,7 +9,7 @@ import android.content.DialogInterface;
 import android.content.DialogInterface.OnCancelListener;
 
 public class SpinnerDialog implements Runnable,OnCancelListener {
-    private final String title;
+    private final int title;
     private final String message;
     private final Activity activity;
     private ProgressDialog progress;
@@ -17,7 +17,7 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
 
     private static final ArrayList<SpinnerDialog> rundownDialogs = new ArrayList<>();
 
-    private SpinnerDialog(Activity activity, String title, String message, boolean finish)
+    private SpinnerDialog(Activity activity, int title, String message, boolean finish)
     {
         this.activity = activity;
         this.title = title;
@@ -26,7 +26,7 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
         this.finish = finish;
     }
 
-    public static SpinnerDialog displayDialog(Activity activity, String title, String message, boolean finish)
+    public static SpinnerDialog displayDialog(Activity activity, int title, String message, boolean finish)
     {
         SpinnerDialog spinner = new SpinnerDialog(activity, title, message, finish);
         activity.runOnUiThread(spinner);
@@ -60,7 +60,7 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
         activity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                progress.setMessage(message);
+                if (progress != null && progress.isShowing()) progress.setMessage(message);
             }
         });
     }
@@ -84,11 +84,11 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
 
             progress.setCancelable(true);
             progress.setCanceledOnTouchOutside(false);
-            TouchDialog.prepareHeader(progress, title);
+
 
             synchronized (rundownDialogs) {
-                rundownDialogs.add(this);
-                progress.show();
+                if (ReminderPreferences.showProgress(activity, progress, activity.getText(title), title))
+                    rundownDialogs.add(this);
             }
         }
         else

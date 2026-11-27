@@ -149,8 +149,8 @@ public class AddComputerManually extends Activity {
         progress.setCanceledOnTouchOutside(false);
         progress.setButton(ProgressDialog.BUTTON_NEGATIVE, getText(android.R.string.cancel), (d, w) -> cancelAdd());
         progress.setOnCancelListener(d -> cancelAdd());
-        com.limelight.utils.TouchDialog.prepareHeader(progress, getText(R.string.title_add_pc));
-        progress.show();
+        com.limelight.utils.ReminderPreferences.showProgress(this, progress,
+                getText(R.string.title_add_pc), R.string.title_add_pc);
         startPendingAdd();
     }
 

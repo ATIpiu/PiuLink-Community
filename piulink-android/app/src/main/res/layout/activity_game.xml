@@ -88,6 +88,24 @@
         android:textStyle="bold"
         android:visibility="gone" />
 
+    <HorizontalScrollView
+        android:id="@+id/bottomShortcutBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:background="@drawable/bg_shortcut_rail"
+        android:elevation="8dp"
+        android:focusable="false"
+        android:scrollbars="horizontal"
+        android:visibility="gone">
+        <LinearLayout
+            android:id="@+id/bottomShortcutKeys"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="4dp" />
+    </HorizontalScrollView>
+
     <View
         android:id="@+id/streamOverlayScrim"
         android:layout_width="match_parent"

@@ -116,10 +116,9 @@ public final class ComputerSsh {
 
     public static void openSsh(Activity activity, ComputerDetails computer, boolean configure) {
         if (configure) {
-            new TouchDialog(activity).setTitle(R.string.ssh_title)
-                    .setMessage(R.string.ssh_computer_setup_hint)
-                    .setPositiveButton(R.string.ssh_connect, (d, w) -> fetchDefaults(activity, computer))
-                    .setNegativeButton(android.R.string.cancel, null).show();
+            com.limelight.utils.ReminderPreferences.confirm(activity, R.string.ssh_computer_setup_hint,
+                    activity.getText(R.string.ssh_title), activity.getText(R.string.ssh_computer_setup_hint),
+                    R.string.ssh_connect, android.R.string.cancel, () -> fetchDefaults(activity, computer), null);
         } else { fetchDefaults(activity, computer); }
     }
     private static void fetchDefaults(Activity activity, ComputerDetails computer) {
@@ -130,7 +129,8 @@ public final class ComputerSsh {
         String address = computer.activeAddress.address;
         AlertDialog loading = new TouchDialog(activity).setTitle(R.string.ssh_title)
                 .setMessage(R.string.ssh_reading_host).setNegativeButton(android.R.string.cancel, null).create();
-        loading.show();
+        boolean shown = com.limelight.utils.ReminderPreferences.showProgress(activity, loading,
+                activity.getText(R.string.ssh_title), R.string.ssh_reading_host);
         new Thread(() -> {
             SshProfile result = null;
             boolean windows = false;
@@ -153,7 +153,7 @@ public final class ComputerSsh {
             } finally { if (connection != null) connection.disconnect(); }
             SshProfile profile = result; boolean isWindows = windows;
             activity.runOnUiThread(() -> {
-                if (!loading.isShowing()) return;
+                if (shown && !loading.isShowing()) return;
                 loading.dismiss();
                 if (activity.isFinishing() || activity.isDestroyed()) return;
                 if (profile == null) {

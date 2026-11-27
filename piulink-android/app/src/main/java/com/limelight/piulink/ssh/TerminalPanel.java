@@ -87,12 +87,11 @@ public final class TerminalPanel extends LinearLayout {
             edit.setOnClickListener(v -> editProfile(p.host, p));
             actions.addView(edit, new LinearLayout.LayoutParams(0, -2, 1));
             Button remove = new Button(activity); remove.setText(R.string.ssh_forget);
-            remove.setOnClickListener(v -> new TouchDialog(activity).setMessage(R.string.ssh_forget_detail)
-                .setPositiveButton(R.string.ssh_forget, (d, w) -> {
+            remove.setOnClickListener(v -> com.limelight.utils.ReminderPreferences.confirm(activity, R.string.ssh_forget, null,
+                    activity.getText(R.string.ssh_forget_detail), R.string.ssh_forget, android.R.string.cancel, () -> {
                     try { p.remove(activity); render(); }
                     catch (IllegalStateException e) { Toast.makeText(activity, R.string.ssh_storage_error, Toast.LENGTH_LONG).show(); }
-                })
-                .setNegativeButton(android.R.string.cancel, null).show());
+                }, null));
             actions.addView(remove, new LinearLayout.LayoutParams(0, -2, 1));
             row.addView(actions); list.addView(row);
         }

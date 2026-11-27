@@ -156,14 +156,17 @@ unsafe fn recover(
         let index = missing[0] as usize;
         let row = rows[0] as usize;
         let dst = *shards.add(index);
-        ptr::copy_nonoverlapping(*shards.add(n + row), dst, len);
+        // Distribute the inverse over the parity equation. The first pass
+        // scales the parity into the destination; no final rescale is needed.
+        let inverse = INV[coefficient(index, row, p) as usize];
+        let weights = &MUL[inverse as usize];
+        combine::<false>(dst, *shards.add(n + row), len, inverse);
         for i in 0..n {
             if i != index {
-                combine::<true>(dst, *shards.add(i), len, coefficient(i, row, p));
+                let weight = weights[coefficient(i, row, p) as usize];
+                combine::<true>(dst, *shards.add(i), len, weight);
             }
         }
-        let inv = INV[coefficient(index, row, p) as usize];
-        combine::<false>(dst, dst, len, inv);
         return 1;
     }
     // At most 127 missing data shards can be recovered from a 255-shard block.

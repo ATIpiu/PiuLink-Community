@@ -218,59 +218,12 @@ public class UiHelper {
     }
 
     public static void displayQuitConfirmationDialog(Activity parent, final Runnable onYes, final Runnable onNo) {
-        DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                switch (which){
-                    case DialogInterface.BUTTON_POSITIVE:
-                        if (onYes != null) {
-                            onYes.run();
-                        }
-                        break;
-
-                    case DialogInterface.BUTTON_NEGATIVE:
-                        if (onNo != null) {
-                            onNo.run();
-                        }
-                        break;
-                }
-            }
-        };
-
-        AlertDialog.Builder builder = new TouchDialog(parent);
-        builder.setMessage(parent.getResources().getString(R.string.applist_quit_confirmation))
-                .setPositiveButton(parent.getResources().getString(R.string.yes), dialogClickListener)
-                .setOnCancelListener(d -> { if (onNo != null) onNo.run(); })
-                .setNegativeButton(parent.getResources().getString(R.string.no), dialogClickListener)
-                .show();
+        ReminderPreferences.confirm(parent, R.string.applist_quit_confirmation, null,
+                parent.getText(R.string.applist_quit_confirmation), R.string.yes, R.string.no, onYes, onNo);
     }
 
-    public static void displayDeletePcConfirmationDialog(Activity parent, ComputerDetails computer, final Runnable onYes, final Runnable onNo) {
-        DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                switch (which){
-                    case DialogInterface.BUTTON_POSITIVE:
-                        if (onYes != null) {
-                            onYes.run();
-                        }
-                        break;
-
-                    case DialogInterface.BUTTON_NEGATIVE:
-                        if (onNo != null) {
-                            onNo.run();
-                        }
-                        break;
-                }
-            }
-        };
-
-        AlertDialog.Builder builder = new TouchDialog(parent);
-        builder.setMessage(parent.getResources().getString(R.string.delete_pc_msg))
-                .setTitle(computer.name)
-                .setPositiveButton(parent.getResources().getString(R.string.yes), dialogClickListener)
-                .setOnCancelListener(d -> { if (onNo != null) onNo.run(); })
-                .setNegativeButton(parent.getResources().getString(R.string.no), dialogClickListener)
-                .show();
+    public static void displayDeletePcConfirmationDialog(Activity parent, ComputerDetails computer, Runnable onYes, Runnable onNo) {
+        ReminderPreferences.confirm(parent, R.string.delete_pc_msg, computer.name, parent.getText(R.string.delete_pc_msg),
+                R.string.yes, R.string.no, onYes, onNo);
     }
 }

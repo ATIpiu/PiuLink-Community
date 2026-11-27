@@ -180,6 +180,13 @@
             android:title="@string/auto_input_title"
             android:summary="@string/auto_input_summary"
             android:defaultValue="true" />
+        <com.limelight.preferences.TvListPreference
+            android:key="bottom_shortcut_mode"
+            android:title="@string/bottom_shortcut_bar"
+            android:summary="%s"
+            android:entries="@array/bottom_shortcut_modes"
+            android:entryValues="@array/bottom_shortcut_mode_values"
+            android:defaultValue="auto" />
         <CheckBoxPreference
             android:key="checkbox_shortcut_rail"
             android:title="@string/title_checkbox_shortcut_rail"
@@ -297,8 +304,7 @@
         <Preference
             android:key="manage_reminders"
             android:title="@string/manage_reminders"
-            android:summary="@string/manage_reminders_summary"
-            android:dependency="show_reminder_dialogs" />
+            android:summary="@string/manage_reminders_summary" />
         <com.limelight.preferences.LanguagePreference
             android:key="list_languages"
             android:title="@string/title_language_list"

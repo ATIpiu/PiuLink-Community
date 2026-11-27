@@ -14,7 +14,12 @@ public final class ReminderPreferences {
             R.string.conn_error_title, R.string.conn_terminated_title, R.string.title_native_res_dialog,
             R.string.title_native_fps_dialog, R.string.title_decoding_error, R.string.title_decoding_reset,
             R.string.reminder_screen, R.string.reminder_ssh, R.string.reminder_microphone,
-            R.string.invite_vpn_choice_title
+            R.string.invite_vpn_choice_title, R.string.conn_establishing_title, R.string.screen_connecting,
+            R.string.applist_refresh_title, R.string.nettest_title_waiting, R.string.nettest_title_done,
+            R.string.ssh_reading_host, R.string.ssh_computer_setup_hint,
+            R.string.tv_leave_title, R.string.applist_quit_confirmation, R.string.delete_pc_msg,
+            R.string.title_add_pc, R.string.tv_connection_lost, R.string.logs_clear, R.string.ssh_forget, R.string.route_remove, R.string.monitor_end_and_switch,
+            R.string.monitor_unavailable, R.string.monitor_prepare_failed_title, R.string.screen_use_desktop
     };
 
     private ReminderPreferences() {}
@@ -64,6 +69,59 @@ public final class ReminderPreferences {
                 .setNegativeButton(android.R.string.cancel, null).create();
         dialog.setOnDismissListener(d -> remember(a, topic, choice));
         dialog.show();
+    }
+
+    public static void retryNotice(Activity a, int topic, int title, String message, int retryLabel,
+            Runnable retry, Runnable cancel) {
+        if (!shouldShow(a, topic)) {
+            android.widget.Toast.makeText(a, message, android.widget.Toast.LENGTH_LONG).show();
+            cancel.run();
+            return;
+        }
+        TouchDialog builder = new TouchDialog(a).setTitle(title);
+        CheckBox choice = addCheckbox(a, builder);
+        android.app.AlertDialog dialog = builder.setMessage(message)
+                .setPositiveButton(retryLabel, (d, w) -> retry.run())
+                .setNegativeButton(android.R.string.cancel, (d, w) -> cancel.run())
+                .setOnCancelListener(d -> cancel.run()).create();
+        dialog.setOnDismissListener(d -> remember(a, topic, choice));
+        dialog.show();
+    }
+
+    /** Clicking a progress checkbox changes future presentations only. The current job keeps its cancel action. */
+    public static boolean showProgress(Activity a, android.app.AlertDialog dialog, CharSequence title, int topic) {
+        if (!shouldShow(a, topic)) return false;
+        android.widget.LinearLayout header = new android.widget.LinearLayout(dialog.getContext());
+        header.setOrientation(android.widget.LinearLayout.VERTICAL);
+        header.setPadding(TouchDialog.dp(a, 16), TouchDialog.dp(a, 8), 0, 0);
+        android.widget.TextView label = new android.widget.TextView(dialog.getContext());
+        label.setText(title);
+        label.setTextSize(18);
+        header.addView(label);
+        CheckBox choice = new CheckBox(dialog.getContext());
+        choice.setText(R.string.dialog_dont_show_again);
+        choice.setOnCheckedChangeListener((v, checked) ->
+                prefs(a).edit().putBoolean(key(a, topic), !checked).apply());
+        header.addView(choice);
+        TouchDialog.prepareProgressHeader(dialog, header);
+        dialog.show();
+        return true;
+    }
+
+    /** Only an affirmative answer to this specific confirmation can bypass it on a later action. */
+    public static android.app.AlertDialog confirm(Activity a, int topic, CharSequence title, CharSequence message,
+            int yes, int no, Runnable onYes, Runnable onNo) {
+        if (!enabled(a, topic)) {
+            onYes.run();
+            return null;
+        }
+        TouchDialog builder = new TouchDialog(a).setTitle(title);
+        CheckBox choice = addCheckbox(a, builder);
+        return builder.setMessage(message).setPositiveButton(yes, (d, w) -> {
+            remember(a, topic, choice);
+            onYes.run();
+        }).setNegativeButton(no, (d, w) -> { if (onNo != null) onNo.run(); })
+          .setOnCancelListener(d -> { if (onNo != null) onNo.run(); }).show();
     }
 
     public static void manage(Activity a) {

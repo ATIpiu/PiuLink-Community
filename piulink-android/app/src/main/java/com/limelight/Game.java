@@ -227,6 +227,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private TextView notificationOverlayView;
     private int requestedNotificationOverlayVisibility = View.GONE;
     private TextView performanceOverlayView;
+    private View bottomShortcutBar;
+    private String bottomShortcutMode;
+    private boolean physicalKeyboard;
+    private InputManager.InputDeviceListener shortcutDeviceListener;
     private ScrollView shortcutRail;
     private GridLayout shortcutRailItems;
     private View shortcutRailHandle;
@@ -436,7 +440,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         setContentView(R.layout.activity_game);
 
         // Start the spinner
-        spinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
+        spinner = SpinnerDialog.displayDialog(this, R.string.conn_establishing_title,
                 getResources().getString(R.string.conn_establishing_msg), true);
 
         // Read the stream preferences
@@ -484,6 +488,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // focus, so keep implicit soft-input display disabled until the user asks for it.
         streamView.setTextInputEnabled(false);
 
+        setupBottomShortcuts();
         setupShortcutRail();
         setupStreamMenu();
         getWindow().getDecorView().post(this::applyResponsiveStreamOverlayLayout);
@@ -969,6 +974,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 UiHelper.notifyStreamExitingPiP(this);
             }
         }
+        refreshShortcutKeyboard();
     }
 
     @TargetApi(Build.VERSION_CODES.O)
@@ -1428,6 +1434,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         autoBitrateHandler.removeCallbacks(contentAdaptiveControlRetry);
         reconnectHandler.removeCallbacksAndMessages(null);
 
+        if (shortcutDeviceListener != null) {
+            ((InputManager)getSystemService(INPUT_SERVICE)).unregisterInputDeviceListener(shortcutDeviceListener);
+        }
         if (keyboardLayoutRoot != null && keyboardLayoutListener != null) {
             keyboardLayoutRoot.getViewTreeObserver()
                     .removeOnGlobalLayoutListener(keyboardLayoutListener);
@@ -1476,6 +1485,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onResume() {
         super.onResume();
+        refreshShortcutKeyboard();
         activityResumed = true;
         updateInputHints();
         startGrantedMicrophone();
@@ -2267,14 +2277,20 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (inputHints != null) inputHints.setRunning(connected && activityResumed && !leavingStream && !isInPictureInPictureMode());
     }
     private boolean canAutoShowKeyboard() {
-        if (!prefConfig.autoTextKeyboard || !canSendRemoteText() || softwareKeyboardVisible) return false;
+        return prefConfig.autoTextKeyboard && canSendRemoteText() && !softwareKeyboardVisible && !hasPhysicalKeyboard();
+    }
+
+    private boolean hasPhysicalKeyboard() {
+        Configuration config = getResources().getConfiguration();
+        if (config.keyboard == Configuration.KEYBOARD_QWERTY &&
+                config.hardKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO) return true;
         for (int id : InputDevice.getDeviceIds()) {
             InputDevice device = InputDevice.getDevice(id);
             if (device != null && !device.isVirtual() && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC &&
                     device.supportsSource(InputDevice.SOURCE_KEYBOARD) &&
-                    (Build.VERSION.SDK_INT < 29 || device.isExternal())) return false;
+                    (Build.VERSION.SDK_INT < 29 || device.isExternal())) return true;
         }
-        return true;
+        return false;
     }
 
     @Override
@@ -2324,6 +2340,77 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }, 100);
     }
 
+    private void setupBottomShortcuts() {
+        if (television || !UiHelper.isTouchscreenClient(this)) return;
+        bottomShortcutBar = findViewById(R.id.bottomShortcutBar);
+        if (bottomShortcutBar == null) return;
+        LinearLayout keys = findViewById(R.id.bottomShortcutKeys);
+        addBottomShortcut(keys, "Ctrl+C", ShortcutRailConfiguration.COPY);
+        addBottomShortcut(keys, "Ctrl+V", ShortcutRailConfiguration.PASTE);
+        addBottomShortcut(keys, "Alt+Tab", ShortcutRailConfiguration.WINDOW_NEXT);
+        addBottomShortcut(keys, "Ctrl+Tab", "next_tab");
+        addBottomShortcut(keys, "Alt+F4", ShortcutRailConfiguration.CLOSE_WINDOW);
+        addBottomShortcut(keys, "Ctrl+Z", ShortcutRailConfiguration.UNDO);
+        addBottomShortcut(keys, "Ctrl+A", "select_all");
+        addBottomShortcut(keys, "Ctrl+X", "cut");
+        addBottomShortcut(keys, "Ctrl+F", "find");
+        addBottomShortcut(keys, "Ctrl+S", "save");
+        addBottomShortcut(keys, "Esc", ShortcutRailConfiguration.ESCAPE);
+        shortcutDeviceListener = new InputManager.InputDeviceListener() {
+            public void onInputDeviceAdded(int id) { refreshShortcutKeyboard(); }
+            public void onInputDeviceChanged(int id) { refreshShortcutKeyboard(); }
+            public void onInputDeviceRemoved(int id) { refreshShortcutKeyboard(); }
+        };
+        ((InputManager)getSystemService(INPUT_SERVICE)).registerInputDeviceListener(shortcutDeviceListener, null);
+        refreshShortcutKeyboard();
+    }
+
+    private void addBottomShortcut(LinearLayout keys, String label, String action) {
+        android.widget.Button key = new android.widget.Button(this);
+        key.setAllCaps(false);
+        key.setText(label);
+        key.setTextSize(14);
+        key.setTextColor(android.graphics.Color.WHITE);
+        key.setSingleLine(true);
+        key.setMinWidth(dpToPixels(52));
+        key.setMinimumWidth(dpToPixels(52));
+        key.setPadding(dpToPixels(9), 0, dpToPixels(9), 0);
+        key.setFocusable(false); // Keep the stream's IME input connection across taps.
+        key.setBackgroundResource(R.drawable.bg_shortcut_rail_button);
+        key.setOnClickListener(v -> {
+            if (!canSendRemoteText() || keyboardTranslator == null) return;
+            ShortcutChord chord = ShortcutChord.forAction(action);
+            short translated = keyboardTranslator.translate(chord.getKeyCode(), -1);
+            if (translated == 0 || forwardedKeys.isPressed(translated)) return;
+            byte held = getModifierState();
+            byte extra = (byte)(chord.getModifiers() & ~held);
+            byte combined = (byte)(chord.getModifiers() | held);
+            sendShortcutModifiers(extra, true);
+            sendTrackedKeyboardInput(translated, KeyboardPacket.KEY_DOWN, combined, (byte)0);
+            sendTrackedKeyboardInput(translated, KeyboardPacket.KEY_UP, combined, (byte)0);
+            sendShortcutModifiers(extra, false);
+        });
+        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-2, dpToPixels(48));
+        size.setMargins(dpToPixels(2), 0, dpToPixels(2), 0);
+        keys.addView(key, size);
+    }
+
+    private void refreshShortcutKeyboard() {
+        if (bottomShortcutBar == null) return;
+        physicalKeyboard = hasPhysicalKeyboard();
+        bottomShortcutMode = android.preference.PreferenceManager.getDefaultSharedPreferences(this)
+                .getString("bottom_shortcut_mode", "auto");
+        updateBottomShortcutVisibility();
+    }
+
+    private void updateBottomShortcutVisibility() {
+        if (bottomShortcutBar == null) return;
+        boolean enabled = "always".equals(bottomShortcutMode) ||
+                ("auto".equals(bottomShortcutMode) && !physicalKeyboard);
+        bottomShortcutBar.setVisibility(enabled && connected && !leavingStream && !isHidingOverlays &&
+                !streamMenuOpen && !shortcutRailOpen ? View.VISIBLE : View.GONE);
+    }
+
     private void setupSoftwareKeyboardTracking() {
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING |
                 WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
@@ -2366,9 +2453,21 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         View parent = (View)streamView.getParent();
         int[] origin = new int[2];
         parent.getLocationOnScreen(origin);
+        if (bottomShortcutBar != null) {
+            int covered = Math.max(0, origin[1] + parent.getHeight() - visibleFrame.bottom);
+            android.widget.FrameLayout.LayoutParams layout =
+                    (android.widget.FrameLayout.LayoutParams)bottomShortcutBar.getLayoutParams();
+            if (layout.bottomMargin != covered) {
+                layout.bottomMargin = covered;
+                bottomShortcutBar.setLayoutParams(layout);
+            }
+        }
         int left = -streamView.getLeft(), top = -streamView.getTop();
         int bottom = parent.getHeight() + top;
-        if (nowVisible) bottom = Math.min(bottom, visibleFrame.bottom - origin[1] + top);
+        if (nowVisible) {
+            bottom = Math.min(bottom, visibleFrame.bottom - origin[1] + top);
+            if (bottomShortcutBar != null && bottomShortcutBar.isShown()) bottom -= bottomShortcutBar.getHeight();
+        }
         viewport.layout(streamView.getWidth(), streamView.getHeight(), left, top,
                 parent.getWidth() + left, bottom, nowVisible);
         applyViewport();
@@ -3075,24 +3174,25 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setPositiveButton(R.string.screen_retry_connection, null)
                 .setOnCancelListener(d -> cancelTvReconnect()).create();
         tvReconnectDialog = dialog;
-        dialog.show();
-        View retry = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-        retry.setVisibility(View.GONE);
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
-        retry.setOnClickListener(v -> {
+        boolean shown = com.limelight.utils.ReminderPreferences.showProgress(this, dialog,
+                getText(R.string.tv_connection_lost), R.string.tv_connection_lost);
+        if (shown) {
+            View retry = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
             retry.setVisibility(View.GONE);
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
-            waitForTvNetwork(dialog, SystemClock.elapsedRealtime());
-        });
+            retry.setOnClickListener(v -> {
+                retry.setVisibility(View.GONE);
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
+                waitForTvNetwork(dialog, SystemClock.elapsedRealtime());
+            });
+        }
         stopConnection(() -> {
             if (tvReconnectDialog != dialog || isFinishing() || isDestroyed()) return;
             if (automatic) {
                 long started = SystemClock.elapsedRealtime();
                 reconnectHandler.postDelayed(() -> waitForTvNetwork(dialog, started), P2P_RECONNECT_DELAY_MS);
             } else {
-                dialog.setMessage(getString(retryMessage));
-                retry.setVisibility(View.VISIBLE);
-                retry.requestFocus();
+                offerTvRetry(dialog, retryMessage);
             }
         });
     }
@@ -3111,12 +3211,21 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 reconnectHandler.postDelayed(() -> waitForTvNetwork(dialog, started), 500);
                 break;
             case OFFER_RETRY:
-                dialog.setMessage(getString(R.string.tv_network_timeout));
-                View retry = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-                retry.setVisibility(View.VISIBLE);
-                retry.requestFocus();
+                offerTvRetry(dialog, R.string.tv_network_timeout);
                 break;
         }
+    }
+
+    private void offerTvRetry(AlertDialog dialog, int message) {
+        if (!dialog.isShowing()) {
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+            cancelTvReconnect();
+            return;
+        }
+        dialog.setMessage(getString(message));
+        View retry = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        retry.setVisibility(View.VISIBLE);
+        retry.requestFocus();
     }
 
     private void dismissTvReconnect() {
@@ -3281,13 +3390,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void confirmTvLeave() {
-        AlertDialog dialog = new TouchDialog(this).setTitle(R.string.tv_leave_title)
-                .setMessage(R.string.tv_leave_message)
-                .setNegativeButton(R.string.tv_continue_stream, null)
-                .setPositiveButton(R.string.stream_disconnect, (d, which) -> disconnectFromStreamMenu())
-                .create();
-        dialog.show();
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
+        AlertDialog dialog = com.limelight.utils.ReminderPreferences.confirm(this, R.string.tv_leave_title,
+                getText(R.string.tv_leave_title), getText(R.string.tv_leave_message), R.string.stream_disconnect,
+                R.string.tv_continue_stream, this::disconnectFromStreamMenu, null);
+        if (dialog != null) dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
     }
 
     public static void disconnectBackgroundStream(String session) {
@@ -3752,6 +3858,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void updateStreamOverlayScrim() {
+        updateBottomShortcutVisibility();
         updateMicControls();
         if (streamOverlayScrim != null) {
             streamOverlayScrim.setVisibility(streamMenuOpen || shortcutRailOpen
@@ -4685,7 +4792,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             releaseForwardedKeys();
             if (streamView != null) streamView.invalidateInputSession();
             connecting = connected = false;
-            runOnUiThread(() -> { syncKeyboardOwner(); updateInputHints(); });
+            runOnUiThread(() -> { syncKeyboardOwner(); updateInputHints(); updateBottomShortcutVisibility(); });
             autoBitrateHandler.removeCallbacks(contentAdaptiveControlRetry);
             updatePipAutoEnter();
 
@@ -4939,6 +5046,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     return;
                 }
                 connected = true; syncKeyboardOwner();
+                updateBottomShortcutVisibility();
                 if (television) TvLastSession.connected(Game.this, getIntent());
                 updateInputHints();
                 updateMicControls();

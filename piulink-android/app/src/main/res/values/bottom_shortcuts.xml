@@ -1,0 +1,9 @@
+<resources>
+    <string name="bottom_shortcut_bar">Bottom shortcut bar</string>
+    <string-array name="bottom_shortcut_modes">
+        <item>Automatic (hide with a physical keyboard)</item>
+        <item>Always show</item>
+        <item>Off</item>
+    </string-array>
+    <string-array name="bottom_shortcut_mode_values" translatable="false"><item>auto</item><item>always</item><item>off</item></string-array>
+</resources>

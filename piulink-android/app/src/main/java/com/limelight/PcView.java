@@ -343,8 +343,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             routeProgress = new android.app.ProgressDialog(this);
             routeProgress.setMessage(getString(R.string.route_connecting, pc.name));
             routeProgress.setOnCancelListener(dialog -> cancelRouteRequest());
-            TouchDialog.prepareHeader(routeProgress, getText(R.string.connection_methods));
-            routeProgress.show();
+            com.limelight.utils.ReminderPreferences.showProgress(this, routeProgress,
+                    getText(R.string.connection_methods), R.string.conn_establishing_title);
         }, 300);
     }
 

@@ -256,7 +256,7 @@
     <string name="summary_checkbox_enable_pip">按主页键或切换应用时进入画中画并保留会话；关闭后离开应用会断开。B/返回键始终主动退出串流。</string>
     <string name="title_checkbox_local_cursor">低延迟本地光标</string>
     <string name="summary_checkbox_local_cursor">由手机立即绘制光标，并使用桌面绝对定位。适合远程桌面；部分游戏仍需相对鼠标模式。</string>
-    <string name="dialog_dont_show_again">下次不再提醒</string>
+    <string name="dialog_dont_show_again">下次不再提示</string>
     <string name="title_reset_suppressed_dialogs">全部恢复</string>
     <string name="summary_reset_suppressed_dialogs">重新显示勾选过“不再提示”的消息</string>
     <string name="suppressed_dialogs_reset">已恢复所有提示</string>

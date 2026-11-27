@@ -255,7 +255,7 @@ public class ShortcutTrampoline extends Activity {
                 Service.BIND_AUTO_CREATE);
         if (!serviceBound) { finishWithError(R.string.error_manager_not_running); return; }
 
-        blockingLoadSpinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
+        blockingLoadSpinner = SpinnerDialog.displayDialog(this, R.string.conn_establishing_title,
                 getResources().getString(R.string.applist_connect_msg), true);
     }
 

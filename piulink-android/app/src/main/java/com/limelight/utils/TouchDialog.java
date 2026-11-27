@@ -57,6 +57,18 @@ public final class TouchDialog extends AlertDialog.Builder {
         fitOnShow(dialog);
     }
 
+    static void prepareProgressHeader(AlertDialog dialog, View content) {
+        Context context = dialog.getContext();
+        if (!UiHelper.isTouchscreenClient(context)) {
+            dialog.setCustomTitle(content);
+            return;
+        }
+        ImageButton close = closeButton(context);
+        close.setOnClickListener(v -> dialog.cancel());
+        dialog.setCustomTitle(header(context, null, content, close));
+        fitOnShow(dialog);
+    }
+
     public static void preferenceHeader(AlertDialog.Builder builder, android.preference.DialogPreference pref) {
         Context context = builder.getContext();
         if (!UiHelper.isTouchscreenClient(context)) return;

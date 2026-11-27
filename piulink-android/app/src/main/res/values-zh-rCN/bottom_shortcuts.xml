@@ -1,0 +1,8 @@
+<resources>
+    <string name="bottom_shortcut_bar">底部快捷键栏</string>
+    <string-array name="bottom_shortcut_modes">
+        <item>自动（连接实体键盘时隐藏）</item>
+        <item>始终显示</item>
+        <item>关闭</item>
+    </string-array>
+</resources>

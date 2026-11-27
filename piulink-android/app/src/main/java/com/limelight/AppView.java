@@ -830,7 +830,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     }
 
     private void loadAppsBlocking() {
-        blockingLoadSpinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.applist_refresh_title),
+        blockingLoadSpinner = SpinnerDialog.displayDialog(this, R.string.applist_refresh_title,
                 getResources().getString(R.string.applist_refresh_msg), true);
     }
 

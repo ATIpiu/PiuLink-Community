@@ -158,11 +158,11 @@ public final class ConnectionRoutePicker {
             return true;
         });
         menu.getMenu().add(R.string.route_remove).setOnMenuItemClickListener(item -> {
-            new TouchDialog(activity).setMessage(activity.getString(R.string.route_remove_prompt, title))
-                    .setNegativeButton(android.R.string.cancel,null).setPositiveButton(R.string.route_remove,(d,w)->{
+            com.limelight.utils.ReminderPreferences.confirm(activity, R.string.route_remove, null,
+                    activity.getString(R.string.route_remove_prompt, title), R.string.route_remove, android.R.string.cancel, () -> {
                         manager.removeRoute(host.uuid,route.value);
                         render();
-                    }).show();
+                    }, null);
             return true;
         });
         menu.show();

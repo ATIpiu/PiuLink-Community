@@ -367,6 +367,16 @@ function Downloads({ selected, setSystem }) {
 
 const updates = [
   {
+    title: "Android 0.3.264 · 串流底部快捷键栏",
+    tag: "android-0.3.264",
+    date: "2026-11-28",
+    changes: [
+      "在串流画面底部轻点即可复制、粘贴、切换窗口或发送 Esc。打开软键盘后也能使用快捷键。",
+      "快捷键栏可设为自动、始终显示或关闭。自动模式会在连接实体键盘时隐藏，断开后恢复。",
+      "通用版与 ARM64 精简版均可在应用设置中检查更新。",
+    ],
+  },
+  {
   "title": "PiuLink Rust · 全新主线",
   "tag": "rust-2026.11.28",
   "date": "2026-11-28",

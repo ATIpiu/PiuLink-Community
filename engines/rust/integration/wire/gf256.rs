@@ -157,7 +157,9 @@ pub(super) unsafe fn combine<const ACCUMULATE: bool>(
 fn scalar_equivalence_for_all_factors_and_unaligned_tails() {
     let input: Vec<_> = (0..1450).map(|i| (i * 37) as u8).collect();
     for k in 0..=255u8 {
-        for len in [1, 15, 16, 17, 31, 32, 33, 255, 256, 269, 511, 512, 513, 1408, 1439] {
+        for len in [
+            1, 15, 16, 17, 31, 32, 33, 255, 256, 269, 511, 512, 513, 1408, 1439,
+        ] {
             let mut dst = vec![0xa5; len + 7];
             unsafe {
                 combine::<true>(dst.as_mut_ptr().add(3), input.as_ptr().add(1), len, k);

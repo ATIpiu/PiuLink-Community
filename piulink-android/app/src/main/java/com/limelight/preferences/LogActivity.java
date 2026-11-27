@@ -79,10 +79,8 @@ public final class LogActivity extends Activity {
         copy.setOnClickListener(v -> copyLogs());
         clear = new Button(this);
         clear.setText(R.string.logs_clear);
-        clear.setOnClickListener(v -> new TouchDialog(this)
-                .setMessage(R.string.logs_clear_prompt)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.logs_clear, (dialog, which) -> clearLogs()).show());
+        clear.setOnClickListener(v -> com.limelight.utils.ReminderPreferences.confirm(this, R.string.logs_clear,
+                null, getText(R.string.logs_clear_prompt), R.string.logs_clear, android.R.string.cancel, this::clearLogs, null));
         for (Button action : new Button[]{refresh, copy, clear}) {
             action.setMinWidth(0);
             action.setTextSize(14);

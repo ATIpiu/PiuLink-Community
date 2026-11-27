@@ -19,7 +19,7 @@ PiuLink Rust 是完全全新的开发版本。自本次发布起，后续优化�
 | Windows 整合版 | [0.2.141 · EXE](https://github.com/ATIpiu/PiuLink-Community/releases/download/rust-2026.11.28/PiuLink-Windows-0.2.141-win-x64.exe) |
 | Windows 控制端 | [0.2.41 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/rust-2026.11.28/PiuLink-Client-0.2.41-win-x64.msi) |
 | Windows 被控端 | [0.2.138 · MSI](https://github.com/ATIpiu/PiuLink-Community/releases/download/rust-2026.11.28/PiuLink-Host-0.2.138-win-x64-preview.msi) |
-| Android 通用版 | [0.3.260 · APK](https://github.com/ATIpiu/PiuLink-Community/releases/download/rust-2026.11.28/PiuLink-Android-0.3.260-nonRoot-universal-release.apk) |
+| Android | [0.3.264 · 通用 APK](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.264/PiuLink-Android-0.3.264-nonRoot-universal-release.apk) · [ARM64 精简 APK](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.264/PiuLink-Android-0.3.264-nonRoot-arm64-v8a-release.apk) |
 | Linux 整合版 | [0.1.1 · DEB](https://github.com/ATIpiu/PiuLink-Community/releases/download/rust-2026.11.28/piulink-suite_0.1.1-1_amd64.deb) |
 | 鸿蒙模拟器 | [0.1.7 · API 24 未签名 HAP](https://github.com/ATIpiu/PiuLink-Community/releases/download/rust-2026.11.28/PiuLink-Harmony-0.1.7-API24-emulator-unsigned.hap) |
 

@@ -10,6 +10,9 @@ public final class RemoteKeyboardState {
         if (down) { pressed.put(key, flags); return true; }
         return pressed.remove(key) != null;
     }
+    public synchronized boolean isPressed(short key) {
+        return pressed.containsKey(key);
+    }
     public synchronized Map<Short, Byte> releaseAll() {
         Map<Short, Byte> released = new LinkedHashMap<>(pressed);
         pressed.clear();

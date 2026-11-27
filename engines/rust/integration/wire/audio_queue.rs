@@ -450,7 +450,11 @@ mod tests {
         for start in 0..TOTAL {
             let mut q = Queue::new(false);
             for index in start..TOTAL {
-                let expected = if start == 0 && index < DATA { DIRECT } else { 0 };
+                let expected = if start == 0 && index < DATA {
+                    DIRECT
+                } else {
+                    0
+                };
                 assert_eq!(q.add(&first[index], 5, index as u64 * 5), expected);
                 assert_eq!(q.add(&first[index], 5, index as u64 * 5), 0);
             }

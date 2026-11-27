@@ -1,5 +1,6 @@
 package com.limelight.piulink;
 
+import com.limelight.utils.ReminderPreferences;
 import com.limelight.utils.TouchDialog;
 
 import android.app.Activity;
@@ -126,7 +127,8 @@ public final class MonitorSelection {
         AlertDialog loading = connectionDialog(activity, true)
                 .setTitle(R.string.screen_connecting).setMessage(R.string.monitor_loading).create();
         ((GuardedSelection) selected).progress = loading;
-        loading.show();
+        boolean shown = ReminderPreferences.showProgress(activity, loading, activity.getText(R.string.screen_connecting),
+                R.string.screen_connecting);
         new Thread(() -> {
             long inventoryStarted = android.os.SystemClock.elapsedRealtime();
             DisplayInventoryClient.Inventory inventory;
@@ -137,18 +139,18 @@ public final class MonitorSelection {
             }
             catch (Exception error) {
                 activity.runOnUiThread(() -> {
-                    if (!loading.isShowing()) return;
+                    if (shown && !loading.isShowing()) return;
                     loading.dismiss();
                     if (!activity.isFinishing() && !activity.isDestroyed() && isCurrent(activity, selected)) {
-                        connectionDialog(activity, true).setMessage(R.string.monitor_unavailable)
-                                .setPositiveButton(R.string.monitor_refresh,
-                                        (d, w) -> connectDefaultRequest(activity, host, address, virtualApp, selected)).show();
+                        ReminderPreferences.retryNotice(activity, R.string.monitor_unavailable, R.string.screen_connecting,
+                                activity.getString(R.string.monitor_unavailable), R.string.monitor_refresh,
+                                () -> connectDefaultRequest(activity, host, address, virtualApp, selected), () -> cancelReconnect(activity));
                     }
                 });
                 return;
             }
             activity.runOnUiThread(() -> {
-                if (!loading.isShowing()) return;
+                if (shown && !loading.isShowing()) return;
                 if (activity.isFinishing() || activity.isDestroyed() || !isCurrent(activity, selected)) { loading.dismiss(); return; }
                 String saved = preferences(activity).getString(key(host) + DEVICE_SUFFIX, "");
                 DisplayInventoryClient.Display target = DisplayInventoryClient.defaultDisplay(inventory, saved, virtualApp);
@@ -168,8 +170,9 @@ public final class MonitorSelection {
                                     mode.width, mode.height, mode.fps, 0);
                         };
                         if (isVirtualSelected(activity, host) || usesPhysicalDisplayExclusively(activity, host)) {
-                            connectionDialog(activity, true).setMessage(activity.getString(R.string.screen_missing_saved, current.name))
-                                .setPositiveButton(R.string.screen_use_desktop, (d, w) -> useDesktop.run()).show();
+                            ReminderPreferences.confirm(activity, R.string.screen_use_desktop, null,
+                                    activity.getString(R.string.screen_missing_saved, current.name), R.string.screen_use_desktop,
+                                    android.R.string.cancel, useDesktop, () -> cancelReconnect(activity));
                         } else useDesktop.run();
                         return;
                     }
@@ -275,7 +278,8 @@ public final class MonitorSelection {
                 .setTitle(quick ? R.string.quick_switch_screen : R.string.monitor_select_title)
                 .setMessage(R.string.monitor_loading)
                 .create();
-        if (!quick) loading.show();
+        boolean shown = !quick && ReminderPreferences.showProgress(activity, loading,
+                activity.getText(R.string.monitor_select_title), R.string.screen_connecting);
         new Thread(() -> {
             DisplayInventoryClient.Inventory inventory = null;
             try {
@@ -289,7 +293,7 @@ public final class MonitorSelection {
             }
             DisplayInventoryClient.Inventory result = inventory;
             activity.runOnUiThread(() -> {
-                if (!quick && !loading.isShowing()) return;
+                if (shown && !loading.isShowing()) return;
                 if (!quick) loading.dismiss();
                 if (activity.isFinishing() || activity.isDestroyed() || !isCurrent(activity, selected)) return;
                 if (quick && (result == null || result.displays.isEmpty())) {
@@ -770,12 +774,10 @@ public final class MonitorSelection {
 
     private static void showUnavailable(Activity activity, String hostId, String hostAddress,
                                         boolean beforeConnection, Selected selected) {
-        AlertDialog.Builder builder = connectionDialog(activity, beforeConnection)
-                .setTitle(R.string.monitor_select_title)
-                .setMessage(R.string.monitor_unavailable)
-                .setPositiveButton(R.string.monitor_refresh,
-                        (dialog, which) -> chooseRequest(activity, hostId, hostAddress, beforeConnection, selected));
-        builder.show();
+        ReminderPreferences.retryNotice(activity, R.string.monitor_unavailable, R.string.monitor_select_title,
+                activity.getString(R.string.monitor_unavailable), R.string.monitor_refresh,
+                () -> chooseRequest(activity, hostId, hostAddress, beforeConnection, selected),
+                () -> { if (beforeConnection) cancelReconnect(activity); });
     }
 
     private static void prepareAndAccept(Activity activity, String hostId, String hostAddress,
@@ -811,7 +813,8 @@ public final class MonitorSelection {
                     .setMessage(R.string.monitor_preparing)
                     .setNegativeButton(android.R.string.cancel, (d, w) -> cancelReconnect(activity)).create();
             preparing.setOnCancelListener(d -> cancelReconnect(activity));
-            preparing.show();
+            ReminderPreferences.showProgress(activity, preparing, activity.getText(R.string.screen_connecting),
+                    R.string.screen_connecting);
         }
         guarded.progress = null;
         new Thread(() -> {
@@ -877,11 +880,10 @@ public final class MonitorSelection {
                             width, height, fps, scalePercent);
                 } else {
                     LimeLog.warning("Unable to prepare display: " + result.getMessage());
-                    connectionDialog(activity, true)
-                            .setTitle(R.string.monitor_prepare_failed_title)
-                            .setMessage(preparationError(activity, result))
-                            .setPositiveButton(result instanceof DisplayInventoryClient.StreamActiveException ?
-                                            R.string.screen_retry_connection : R.string.monitor_refresh, (dialog, which) -> {
+                    ReminderPreferences.retryNotice(activity, R.string.monitor_prepare_failed_title,
+                            R.string.monitor_prepare_failed_title, preparationError(activity, result),
+                            result instanceof DisplayInventoryClient.StreamActiveException ?
+                                    R.string.screen_retry_connection : R.string.monitor_refresh, () -> {
                                 DisplayInventoryClient.invalidate(hostAddress);
                                 if (result instanceof DisplayInventoryClient.StreamActiveException) {
                                     prepareAndAccept(activity, hostId, hostAddress, selected, display, exclusive,
@@ -889,8 +891,7 @@ public final class MonitorSelection {
                                 } else {
                                     chooseRequest(activity, hostId, hostAddress, true, selected);
                                 }
-                            })
-                            .show();
+                            }, () -> cancelReconnect(activity));
                 }
             });
         }, "PiuLink display preparation").start();
@@ -974,9 +975,9 @@ public final class MonitorSelection {
                 });
             };
             if (routeChanged) {
-                new TouchDialog(activity).setMessage(R.string.monitor_confirm_end_application)
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .setPositiveButton(R.string.monitor_end_and_switch, (d, w) -> change.run()).show();
+                ReminderPreferences.confirm(activity, R.string.monitor_end_and_switch, null,
+                        activity.getText(R.string.monitor_confirm_end_application), R.string.monitor_end_and_switch,
+                        android.R.string.cancel, change, null);
             } else change.run();
             return;
         }

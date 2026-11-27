@@ -40,6 +40,16 @@ public final class ShortcutChord {
             case ShortcutRailConfiguration.TASK_MANAGER:
                 return new ShortcutChord(KeyEvent.KEYCODE_ESCAPE,
                         (byte)(KeyboardPacket.MODIFIER_CTRL | KeyboardPacket.MODIFIER_SHIFT));
+            case "next_tab":
+                return new ShortcutChord(KeyEvent.KEYCODE_TAB, KeyboardPacket.MODIFIER_CTRL);
+            case "cut":
+                return new ShortcutChord(KeyEvent.KEYCODE_X, KeyboardPacket.MODIFIER_CTRL);
+            case "select_all":
+                return new ShortcutChord(KeyEvent.KEYCODE_A, KeyboardPacket.MODIFIER_CTRL);
+            case "find":
+                return new ShortcutChord(KeyEvent.KEYCODE_F, KeyboardPacket.MODIFIER_CTRL);
+            case "save":
+                return new ShortcutChord(KeyEvent.KEYCODE_S, KeyboardPacket.MODIFIER_CTRL);
             case ShortcutRailConfiguration.COPY:
                 return new ShortcutChord(KeyEvent.KEYCODE_C, KeyboardPacket.MODIFIER_CTRL);
             case ShortcutRailConfiguration.PASTE:

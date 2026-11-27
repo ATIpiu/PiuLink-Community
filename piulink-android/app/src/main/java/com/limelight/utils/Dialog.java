@@ -71,6 +71,10 @@ public class Dialog implements Runnable {
         activity.runOnUiThread(new Dialog(activity, title, message, () -> { }, 0, false));
     }
 
+    public static void displayTip(Activity activity, int title, String message) {
+        activity.runOnUiThread(new Dialog(activity, activity.getString(title), message, () -> {}, title, false));
+    }
+
     public static void displayTip(Activity activity, int title, int message, Runnable onDismiss) {
         displayTip(activity, title, title, message, onDismiss);
     }

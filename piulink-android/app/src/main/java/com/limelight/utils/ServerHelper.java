@@ -124,7 +124,7 @@ public class ServerHelper {
             @Override
             public void run() {
                 SpinnerDialog spinnerDialog = SpinnerDialog.displayDialog(parent,
-                        parent.getResources().getString(R.string.nettest_title_waiting),
+                        R.string.nettest_title_waiting,
                         parent.getResources().getString(R.string.nettest_text_waiting),
                         false);
 
@@ -143,7 +143,7 @@ public class ServerHelper {
                     dialogSummary += MoonBridge.stringifyPortFlags(ret, "\n");
                 }
 
-                Dialog.displayResult(parent, parent.getString(R.string.nettest_title_done), dialogSummary);
+                Dialog.displayTip(parent, R.string.nettest_title_done, dialogSummary);
             }
         }).start();
     }
