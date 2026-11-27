@@ -279,3 +279,14 @@ index e686ec1..ab6bae6 100644
  				PRODUCT_NAME = "$(TARGET_NAME)";
  				PROVISIONING_PROFILE = "";
  				SKIP_INSTALL = NO;
+diff --git a/Limelight/UIAppView.m b/Limelight/UIAppView.m
+--- a/Limelight/UIAppView.m
++++ b/Limelight/UIAppView.m
+@@ -25,5 +25,7 @@
+ - (id) initWithApp:(TemporaryApp*)app cache:(NSCache*)cache andCallback:(id<AppCallback>)callback {
+     self = [super init];
+     _app = app;
++    self.isAccessibilityElement = YES;
++    self.accessibilityLabel = app.name;
+     _callback = callback;
+     _artCache = cache;

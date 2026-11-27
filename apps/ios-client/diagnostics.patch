@@ -1,0 +1,163 @@
+--- a/Limelight/AppDelegate.m
++++ b/Limelight/AppDelegate.m
+@@ -7,6 +7,9 @@
+ //
+ 
+ #import "AppDelegate.h"
++#if !TARGET_OS_TV
++#import "PLDiagnostics.h"
++#endif
+ 
+ @implementation AppDelegate
+ 
+@@ -24,6 +27,7 @@
+ 
+ - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+ #if !TARGET_OS_TV
++    PLStartDiagnostics();
+     UIApplicationShortcutItem* shortcut = [launchOptions valueForKey:UIApplicationLaunchOptionsShortcutItemKey];
+     if (shortcut != nil) {
+         _pcUuidToLoad = (NSString*)[shortcut.userInfo objectForKey:@"UUID"];
+--- a/Limelight/ViewControllers/MainFrameViewController.m
++++ b/Limelight/ViewControllers/MainFrameViewController.m
+@@ -8,6 +8,9 @@
+ @import ImageIO;
+ 
+ #import "MainFrameViewController.h"
++#if !TARGET_OS_TV
++#import "../PLDiagnostics.h"
++#endif
+ #import "CryptoManager.h"
+ #import "HttpManager.h"
+ #import "Connection.h"
+@@ -93,6 +96,9 @@
+ }
+ 
+ - (void)pairFailed:(NSString *)message {
++#if !TARGET_OS_TV
++    PLConnectionFailed(@"pair", 0);
++#endif
+     dispatch_async(dispatch_get_main_queue(), ^{
+         if (self->_pairAlert != nil) {
+             [self->_pairAlert dismissViewControllerAnimated:YES completion:^{
+@@ -581,6 +587,9 @@
+                         // This is a direct host connection. An unrelated internet probe can delay
+                         // the actual host error, especially on private networks.
+                         dispatch_async(dispatch_get_main_queue(), ^{
++#if !TARGET_OS_TV
++                            PLConnectionFailed(@"host", 0);
++#endif
+                             UIAlertController* hostNotFoundAlert = [UIAlertController alertControllerWithTitle:@"Couldn’t reach the host" message:error preferredStyle:UIAlertControllerStyleAlert];
+                             [hostNotFoundAlert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+                             [self hideLoadingFrame:^{
+@@ -920,6 +929,10 @@
+     [self adjustScrollViewForSafeArea:self->hostScrollView];
+ }
+ 
++#if !TARGET_OS_TV
++- (void)uploadDiagnosticReport { PLConfirmDiagnosticUpload(self); }
++#endif
++
+ - (void)viewDidLoad
+ {
+     [super viewDidLoad];
+@@ -928,6 +941,9 @@
+     // Set the side bar button action. When it's tapped, it'll show the sidebar.
+     [_settingsButton setTarget:self.revealViewController];
+     [_settingsButton setAction:@selector(revealToggle:)];
++    UIBarButtonItem *logs = [[UIBarButtonItem alloc] initWithTitle:@"日志" style:UIBarButtonItemStylePlain
++        target:self action:@selector(uploadDiagnosticReport)];
++    self.navigationItem.leftBarButtonItems = @[_settingsButton, logs];
+     
+     // Set the host name button action. When it's tapped, it'll show the host selection view.
+     [_upButton setTarget:self];
+--- a/Limelight/Stream/Connection.m
++++ b/Limelight/Stream/Connection.m
+@@ -7,6 +7,9 @@
+ //
+ 
+ #import "Connection.h"
++#if !TARGET_OS_TV
++#import "../PLDiagnostics.h"
++#endif
+ #import "Utils.h"
+ 
+ #import <VideoToolbox/VideoToolbox.h>
+@@ -319,6 +322,15 @@
+ 
+ void ClStageFailed(int stage, int errorCode)
+ {
++#if !TARGET_OS_TV
++    NSString *name = [[NSString stringWithUTF8String:LiGetStageName(stage)] lowercaseString];
++    NSString *category = @"stream";
++    for (NSString *known in @[@"rtsp", @"audio", @"video", @"control", @"input"]) {
++        if ([name containsString:known]) { category = known; break; }
++    }
++    if ([name containsString:@"resolution"]) category = @"resolve";
++    PLConnectionFailed(category, errorCode);
++#endif
+     [_callbacks stageFailed:LiGetStageName(stage) withError:errorCode portTestFlags:LiGetPortFlagsFromStage(stage)];
+ }
+ 
+@@ -329,6 +341,9 @@
+ 
+ void ClConnectionTerminated(int errorCode)
+ {
++#if !TARGET_OS_TV
++    if (errorCode != 0) PLConnectionFailed(@"ended", errorCode);
++#endif
+     [_callbacks connectionTerminated: errorCode];
+ }
+ 
+--- a/Moonlight.xcodeproj/project.pbxproj
++++ b/Moonlight.xcodeproj/project.pbxproj
+@@ -97,6 +97,7 @@
+ 		FB290CFE19B2C406004C83CF /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = FB290CFC19B2C406004C83CF /* InfoPlist.strings */; };
+ 		FB290D0019B2C406004C83CF /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = FB290CFF19B2C406004C83CF /* main.m */; };
+ 		FB290D0419B2C406004C83CF /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = FB290D0319B2C406004C83CF /* AppDelegate.m */; };
++		504C44494147000000000001 /* PLDiagnostics.m in Sources */ = {isa = PBXBuildFile; fileRef = 504C44494147000000000002 /* PLDiagnostics.m */; };
+ 		FB290D0719B2C406004C83CF /* Limelight.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = FB290D0519B2C406004C83CF /* Limelight.xcdatamodeld */; };
+ 		FB290D0919B2C406004C83CF /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FB290D0819B2C406004C83CF /* Images.xcassets */; };
+ 		FB290E7919B37D81004C83CF /* iPad.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = FB290E7819B37D81004C83CF /* iPad.storyboard */; };
+@@ -241,6 +242,7 @@
+ 		FB290D0119B2C406004C83CF /* Limelight-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Limelight-Prefix.pch"; sourceTree = "<group>"; };
+ 		FB290D0219B2C406004C83CF /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+ 		FB290D0319B2C406004C83CF /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
++		504C44494147000000000002 /* PLDiagnostics.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PLDiagnostics.m; sourceTree = "<group>"; };
+ 		FB290D0619B2C406004C83CF /* Limelight.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = Limelight.xcdatamodel; sourceTree = "<group>"; };
+ 		FB290D0819B2C406004C83CF /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+ 		FB290E7819B37D81004C83CF /* iPad.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = iPad.storyboard; sourceTree = SOURCE_ROOT; };
+@@ -460,6 +462,7 @@
+ 				FB290CFA19B2C406004C83CF /* Supporting Files */,
+ 				FB290D0219B2C406004C83CF /* AppDelegate.h */,
+ 				FB290D0319B2C406004C83CF /* AppDelegate.m */,
++				504C44494147000000000002 /* PLDiagnostics.m */,
+ 				FBDE86DE19F7A837001C18A8 /* UIComputerView.h */,
+ 				FBDE86DF19F7A837001C18A8 /* UIComputerView.m */,
+ 				FBDE86E419F82297001C18A8 /* UIAppView.h */,
+@@ -895,6 +898,7 @@
+ 				FB1A674D2131E65900507771 /* KeyboardSupport.m in Sources */,
+ 				FB89463219F646E200339C8A /* VideoDecoderRenderer.m in Sources */,
+ 				FB290D0419B2C406004C83CF /* AppDelegate.m in Sources */,
++				504C44494147000000000001 /* PLDiagnostics.m in Sources */,
+ 				FB9AFD401A7E127D00872C98 /* AppListResponse.m in Sources */,
+ 				FB89463419F646E200339C8A /* Utils.m in Sources */,
+ 				FBDE86E619F82297001C18A8 /* UIAppView.m in Sources */,
+@@ -1239,7 +1243,7 @@
+ 					"$(PROJECT_DIR)/libs/SDL2/lib/iOS-Sim",
+ 					"$(PROJECT_DIR)/libs/FFmpeg/lib/iOS-Sim",
+ 				);
+-				MARKETING_VERSION = 0.1.1;
++				MARKETING_VERSION = 0.1.2;
+ 				PRODUCT_BUNDLE_IDENTIFIER = labs.atipiu.piulink.ios;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				PROVISIONING_PROFILE = "";
+@@ -1289,7 +1293,7 @@
+ 					"$(PROJECT_DIR)/libs/SDL2/lib/iOS-Sim",
+ 					"$(PROJECT_DIR)/libs/FFmpeg/lib/iOS-Sim",
+ 				);
+-				MARKETING_VERSION = 0.1.1;
++				MARKETING_VERSION = 0.1.2;
+ 				PRODUCT_BUNDLE_IDENTIFIER = labs.atipiu.piulink.ios;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				PROVISIONING_PROFILE = "";
