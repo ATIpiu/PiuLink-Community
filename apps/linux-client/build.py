@@ -30,6 +30,8 @@ def main():
                 if item.is_file():
                     info = bundle.gettarinfo(str(item), str(item.relative_to(payload.parent)).replace("\\", "/"))
                     info.mode = 0o755 if item.name in ("PiuLink.Linux", "piulink-direct") else 0o644
+                    info.mtime = info.uid = info.gid = 0
+                    info.uname = info.gname = ""
                     with item.open("rb") as source:
                         bundle.addfile(info, source)
         staging_archive.rename(archive)

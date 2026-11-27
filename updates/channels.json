@@ -126,5 +126,13 @@
     "bytes": 86671103,
     "sha256": "81cceed1c485f015cb524ec5eae974057c0a7f4a154cd4a13217b9a09e96bdb0",
     "mapSha256": "7ab05f5b7f159942c6467861e0b8e5121fc0f4f34d2df28472221388a2b251b4"
+  },
+  "harmony-client": {
+    "version": "0.1.2",
+    "tag": "mobile-preview-2026.11.27",
+    "name": "PiuLink-HarmonyOS-0.1.2-unsigned.hap",
+    "bytes": 36578160,
+    "sha256": "e82d0e3418341f03292d819da27841b193f6675c23a409c65df919aadb2cb97e",
+    "mapSha256": "61eddf55c35d3eba4bfb2aa173b1ca0c8fb0c41e2e87ff03faca4612ea9e8b77"
   }
 }

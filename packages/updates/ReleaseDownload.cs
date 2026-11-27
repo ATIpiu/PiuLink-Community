@@ -76,6 +76,11 @@ internal static class ReleaseDownload
                 seed = original;
             else if (File.Exists(downloads))
                 seed = downloads;
+            else if (OperatingSystem.IsLinux() && oldName.EndsWith(".deb", StringComparison.Ordinal))
+            {
+                string aptArchive = Path.Combine("/var/cache/apt/archives", oldName);
+                if (File.Exists(aptArchive)) seed = aptArchive;
+            }
         }
         return JsonSerializer.Deserialize<DownloadResult>(await RunAsync("prepare", channel.Id, channel.Installed, cache, seed))
             ?? throw new IOException("更新包未就绪。");
