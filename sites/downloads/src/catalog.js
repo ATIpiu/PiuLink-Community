@@ -11,7 +11,7 @@ function published(tag, file) {
   return `${repository}/releases/download/${tag}/${file}`;
 }
 export function unixDownload(file) {
-  return published("unix-preview-2026.11.25", file);
+  return published("desktop-updates-2026.11.27", file);
 }
 
 export const platforms = [

@@ -6,8 +6,9 @@ const universal = {
     id: "linux-universal",
     arch: "双架构",
     format: "TAR.GZ",
-    version: "0.1.7",
-    url: unixDownload("PiuLink-Client-0.1.7-linux-universal.tar.gz"),
+    version: "0.1.11",
+    bytes: 86671103,
+    url: unixDownload("PiuLink-Client-0.1.11-linux-universal.tar.gz"),
   },
 };
 const platformNames = {

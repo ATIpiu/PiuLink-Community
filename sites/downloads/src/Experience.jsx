@@ -81,8 +81,8 @@ function Hero({ selected, setSystem, playFilm }) {
   }, []);
   const [paused, setPaused] = useState(false);
   const downloadLabel = device.id === "windows" ? "下载 Windows 整合版"
-    : device.id === "ios" ? "下载未签名 IPA" : "下载当前设备版";
-  const roleLabel = device.id === "windows" ? "整合版" : "控制端";
+    : device.id === "android" ? "下载 Android 通用版" : device.id === "ios" ? "下载未签名 IPA" : `下载 ${device.name} 版`;
+
   const [reduced, setReduced] = useState(
     () => matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
@@ -142,11 +142,8 @@ function Hero({ selected, setSystem, playFilm }) {
               </a>
             )}
             <span className="device-match" aria-live="polite">
-              <strong>
-                {device.name}
-                {device.file && ` ${roleLabel}`}
-              </strong>
-              <small>{device.detail}</small>
+              <strong>{device.file ? `v${device.file.version}` : device.name}</strong>
+              <small>{device.detail}{device.file?.bytes && ` · ${(device.file.bytes / 1048576).toFixed(1)} MiB`}</small>
             </span>
           </div>
           <a className="watch-link" href="#film" onClick={playFilm}>
@@ -215,59 +212,45 @@ function PackageRow({ item, platform }) {
       ? (item.bytes / 1048576).toFixed(1) + " MiB"
       : Math.round(item.bytes / 1024) + " KiB";
   return (
-    <li className="package-row">
+    <li className={"package-row" + (["win-suite", "android-client"].includes(item.id) ? " recommended" : "")}>
+      <span className="package-icon" aria-hidden="true"><Icon name={item.role} size={22} /></span>
       <div className="package-info">
         <div className="package-title">
-          <Icon name={item.role} size={17} />
           <h3>{item.title}</h3>
           <span className="arch">{item.arch}</span>
         </div>
         <p>{item.description}</p>
+        <small className="package-meta">v{item.version} · {size}</small>
       </div>
-      <a
-        href={item.url}
-        download
-        className="file-link"
-        aria-label={`下载 ${platform} ${item.title} ${item.arch} ${item.format}`}
-      >
-        <span className="file-arrow">
-          <Icon name="download" size={15} />
-        </span>
-        <span>下载 {item.format}</span>
-      </a>
-      <small className="package-meta">
-        v{item.version} <span>·</span> {size}
-      </small>
-      {item.portable && (
+      <div className="package-actions">
         <a
-          className="portable-link"
-          href={item.portable.url}
+          href={item.url}
           download
-          aria-label={`下载 ${platform} ${item.title} ${item.arch} 便携压缩包`}
+          className="file-link"
+          aria-label={`下载 ${platform} ${item.title} ${item.arch} ${item.format}`}
         >
-          便携压缩包 · {item.portable.format}
+          <span className="file-arrow">
+            <Icon name="download" size={15} />
+          </span>
+          <span>下载 {item.format}</span>
         </a>
-      )}
+        {item.portable && (
+          <a
+            className="portable-link"
+            href={item.portable.url}
+            download
+            aria-label={`下载 ${platform} ${item.title} ${item.arch} 便携压缩包`}
+          >
+            便携压缩包 · {item.portable.format}
+          </a>
+        )}
+      </div>
     </li>
   );
 }
 
 function Downloads({ selected, setSystem }) {
   const content = useRef(null);
-  const rail = useRef(null);
-  useLayoutEffect(() => {
-    const list = rail.current;
-    const active = list.querySelector('[aria-selected="true"]');
-    function placeMarker() {
-      list.style.setProperty("--marker-x", active.offsetLeft + "px");
-      list.style.setProperty("--marker-width", active.offsetWidth + "px");
-    }
-    placeMarker();
-    const observer = new ResizeObserver(placeMarker);
-    observer.observe(list);
-    for (const tab of list.querySelectorAll("button")) observer.observe(tab);
-    return () => observer.disconnect();
-  }, [selected]);
   usePackageMotion(content, selected);
   useLayoutEffect(() => {
     const deck = content.current;
@@ -314,12 +297,11 @@ function Downloads({ selected, setSystem }) {
       </div>
       <div className="platform-picker">
         <div
-          ref={rail}
           className="platform-rail"
           role="tablist"
           aria-label="下载平台"
         >
-          <span className="selection-track" aria-hidden="true" />
+          
           {platforms.map((p, i) => (
             <button
               key={p.id}
@@ -383,6 +365,16 @@ function Downloads({ selected, setSystem }) {
 }
 
 const updates = [
+  {
+    title: "Windows 0.2.139 · 应用内升级实测",
+    tag: "windows-0.2.139",
+    date: "2026-11-27",
+    changes: [
+      "从 0.2.138 点击「检查更新」，有可复用旧包时从 GitHub 下载 19.93 MiB，复用 99.62 MiB。旧包不在该版本可识别的位置时，实测下载完整的 119.54 MiB。",
+      "0.2.139 开始会自动查找 Windows 记录的原安装包位置。本次升级保留了 14 个配对。安装器关闭 Host 后未自动重启，平板首次回连失败。在开始菜单重新打开 PiuLink Host 后，从原电脑卡片连续三次进入桌面，均无需重新配对。",
+      "此版本通过软件内更新提供。官网首次安装的默认下载仍为 0.2.138 整合版。",
+    ],
+  },
   {
     title: "Windows 默认下载升级至 0.2.138",
     tag: "desktop-updates-2026.11.27",
@@ -476,25 +468,35 @@ const updates = [
   },
 ];
 
+function ReleaseNote({ entry }) {
+  return (
+    <details className="release-entry">
+      <summary>
+        <time dateTime={entry.date}>{entry.date.replaceAll("-", ".")}</time>
+        <span>{entry.title}</span>
+        <i aria-hidden="true" />
+      </summary>
+      <div className="release-body">
+        <ul>{entry.changes.map((change) => <li key={change}>{change}</li>)}</ul>
+        <a href={repository + "/releases/tag/" + entry.tag}>在 GitHub 查看此版本 <Icon name="external" size={13} /></a>
+      </div>
+    </details>
+  );
+}
+
 function Changelog() {
   return (
     <section id="changelog" className="wrap changelog" aria-labelledby="changelog-title">
       <div className="changelog-heading">
         <h2 id="changelog-title">更新记录</h2>
-        <a href={repository + "/releases"}>所有平台的发布记录 <Icon name="external" size={13} /></a>
+        <a href={repository + "/releases"}>GitHub Releases <Icon name="external" size={14} /></a>
       </div>
       <div className="changelog-list">
-        {updates.map(({ title, tag, date, changes }) => (
-          <article key={tag}>
-            <time dateTime={date}>{date.replaceAll("-", ".")}</time>
-            <h3>
-              <a href={repository + "/releases/tag/" + tag}>
-                {title} <Icon name="external" size={13} />
-              </a>
-            </h3>
-            <ul>{changes.map((change) => <li key={change}>{change}</li>)}</ul>
-          </article>
-        ))}
+        {updates.slice(0, 3).map((entry) => <ReleaseNote key={entry.tag} entry={entry} />)}
+        <details className="older-notes">
+          <summary>更早的版本（{updates.length - 3}）</summary>
+          {updates.slice(3).map((entry) => <ReleaseNote key={entry.tag} entry={entry} />)}
+        </details>
       </div>
     </section>
   );
@@ -547,8 +549,8 @@ export function Experience() {
       <main>
         <Hero selected={selected} setSystem={setSystem} playFilm={playFilm} />
         <Downloads selected={selected} setSystem={setSystem} />
-        <Changelog />
         <ProductFilm player={player} />
+        <Changelog />
       </main>
       <footer className="wrap footer">
         <span>© {edition.date.slice(0, 4)} ATIPiu Labs</span>
