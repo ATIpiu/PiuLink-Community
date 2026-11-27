@@ -37,6 +37,7 @@ def main():
         git("apply", str(sources / "rendezvous.patch"))
         git("apply", str(sources / "p2p.patch"))
         git("apply", str(sources / "diagnostics.patch"))
+        git("-C", "moonlight-common/moonlight-common-c", "apply", str(sources / "receiver.patch"))
         for name in ("PLDiagnostics.h", "PLDiagnostics.m"):
             shutil.copyfile(sources / name, checkout / "Limelight" / name)
         if not args.sources_only:
