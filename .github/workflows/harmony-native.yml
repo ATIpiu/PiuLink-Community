@@ -1,7 +1,7 @@
 name: Build PiuLink native HarmonyOS client
 on:
   push:
-    branches: [main, codex/harmony-native, codex/harmony-emulator-qa, codex/native-delta-all-20261127]
+    branches: [main, codex/harmony-native, codex/harmony-emulator-qa]
     paths: ['apps/harmony-client/**', '.github/workflows/harmony-native.yml']
 permissions:
   contents: read

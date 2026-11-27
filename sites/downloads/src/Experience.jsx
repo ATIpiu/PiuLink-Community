@@ -366,6 +366,16 @@ function Downloads({ selected, setSystem }) {
 
 const updates = [
   {
+    title: "鸿蒙、Linux 和 macOS 增量更新",
+    tag: "unix-harmony-updates-2026.11.27",
+    date: "2026-11-27",
+    changes: [
+      "鸿蒙 0.1.5 可在「设置 → 关于 → 检查更新」下载并保存 HAP。手机模拟器从 0.1.4 升级时下载 6.60 MiB，复用 28.34 MiB。0.1.2 及更早版本需先手动安装一次。",
+      "Linux 控制端 0.1.12 的 x64 和 ARM64 DEB 从 0.1.11 升级时分别下载 10.17 和 9.06 MiB。WSL2 被控端从 0.1.8 升至 0.1.9，下载 92,282 字节。",
+      "macOS 控制端 0.1.12 的 Apple 芯片、Intel 和通用安装包都通过了 GitHub 分段下载与完整文件校验。macOS 和 iOS 未做苹果真机验证。",
+    ],
+  },
+  {
     title: "iOS 0.1.4 和鸿蒙原生 0.1.2",
     tag: "mobile-preview-2026.11.27",
     date: "2026-11-27",
