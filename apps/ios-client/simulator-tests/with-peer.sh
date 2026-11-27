@@ -12,6 +12,7 @@ binary=$(find "$scratch/volume" -path '*/Contents/MacOS/*' -type f -iname sunshi
 test -x "$binary"
 export PIULINK_TEST_PASSWORD=$(openssl rand -hex 20)
 cat > "$scratch/state/sunshine.conf" <<EOF
+min_log_level = 1
 sunshine_name = PiuLink Simulator Host
 origin_web_ui_allowed = pc
 upnp = disabled
@@ -76,4 +77,17 @@ if ! python3 tones.py check "$scratch/output.raw" "$scratch/format.txt"; then te
 # Limit simulator diagnostics to sound events without any launch request parameters.
 xcrun simctl spawn booted log show --style compact --last 4m --predicate 'process == "Moonlight" AND (eventMessage CONTAINS[c] "audio" OR eventMessage CONTAINS[c] "Opus")' | grep -Eiv 'https?://|rikey|token|secret|credential' | tail -40 || true
 grep -Ei 'display|screen recording|capture|encoder|permission|microphone|audio sample|audio device|audio sink|client connected|streaming session' "$scratch/host.log" | tail -80 || true
+# Summarize channel destination ports only. Omit the session ping payload.
+python3 - "$scratch/host.log" <<'PY'
+from pathlib import Path
+import re
+import sys
+from collections import defaultdict
+destinations = defaultdict(set)
+for line in Path(sys.argv[1]).read_text(errors="replace").splitlines():
+    match = re.search(r"RAISE: .*:(\d+) :: (AUDIO|VIDEO)", line)
+    if match:
+        destinations[match[2]].add(int(match[1]))
+print("Host UDP channel endpoint ports", dict(destinations))
+PY
 exit "$test_rc"
