@@ -115,12 +115,16 @@ final class ClientChecks: XCTestCase {
         let desktop = app.buttons["Desktop"].firstMatch
         XCTAssertTrue(desktop.waitForExistence(timeout: 30), app.debugDescription)
         desktop.tap()
-        sleep(7)
-        let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = "Desktop stream attempt"
-        shot.lifetime = .keepAlways
-        add(shot)
+        sleep(6)
+        for frame in 1...3 {
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "Desktop stream sample " + String(frame)
+            shot.lifetime = .keepAlways
+            add(shot)
+            if frame == 2 {
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+            Thread.sleep(forTimeInterval: 1.2)
+        }
     }
 }
-
-

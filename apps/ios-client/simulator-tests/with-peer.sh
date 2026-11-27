@@ -33,6 +33,14 @@ python3 "$GITHUB_WORKSPACE/apps/ios-client/simulator-tests/pin_helper.py" &
 helper_pid=$!
 trap 'kill "$host_pid" "$helper_pid" 2>/dev/null || true' EXIT
 cd "$test_dir"
+swiftc DesktopProbe.swift -o "$scratch/probe"
+"$scratch/probe" "$scratch/input-received" &
+probe_pid=$!
+trap 'kill "$host_pid" "$helper_pid" "$probe_pid" 2>/dev/null || true' EXIT
+set +e
 "$@"
-
-
+test_rc=$?
+set -e
+if [[ -f "$scratch/input-received" ]]; then echo "Desktop test window received pointer input"; fi
+grep -Ei 'display|screen recording|capture|encoder|permission|microphone|audio device|audio sink|client connected|streaming session' "$scratch/host.log" | tail -80 || true
+exit "$test_rc"
