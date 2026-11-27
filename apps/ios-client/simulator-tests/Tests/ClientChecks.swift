@@ -125,7 +125,7 @@ final class ClientChecks: XCTestCase {
             started.fulfill()
         }.resume()
         wait(for: [started], timeout: 10)
-        for frame in 1...6 {
+        for frame in 1...10 {
             let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             shot.name = "Desktop stream sample " + String(frame)
             shot.lifetime = .keepAlways
