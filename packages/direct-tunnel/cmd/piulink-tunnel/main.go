@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/atipiu/piulink/packages/tunnel"
+	"github.com/atipiu/piulink/packages/tunnel/updates"
 )
 
 type inputConfig struct {
@@ -38,6 +39,24 @@ func main() {
 }
 
 func run() error {
+	if len(os.Args) > 1 && os.Args[1] == "update" {
+		args := os.Args[2:]
+		if len(args) == 3 && args[0] == "check" {
+			r, e := updates.Check(args[1], args[2])
+			if e != nil {
+				return e
+			}
+			return json.NewEncoder(os.Stdout).Encode(r)
+		}
+		if len(args) == 5 && args[0] == "prepare" {
+			r, e := updates.Prepare(args[1], args[2], args[3], args[4])
+			if e != nil {
+				return e
+			}
+			return json.NewEncoder(os.Stdout).Encode(r)
+		}
+		return errors.New("usage: update check CHANNEL VERSION | update prepare CHANNEL VERSION CACHE BASE")
+	}
 	decoder := json.NewDecoder(io.LimitReader(os.Stdin, 64<<10))
 	decoder.DisallowUnknownFields()
 	var input inputConfig

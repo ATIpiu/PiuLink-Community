@@ -36,6 +36,9 @@ def main():
         git("apply", str(sources / "piulink-ios.patch"))
         git("apply", str(sources / "rendezvous.patch"))
         git("apply", str(sources / "p2p.patch"))
+        git("apply", str(sources / "updates.patch"))
+        for name in ("PLUpdate.h", "PLUpdate.m"):
+            shutil.copyfile(sources / name, checkout / "Limelight" / name)
         if not args.sources_only:
             if sys.platform != "darwin":
                 parser.error("Building the iOS transport requires Xcode. Use --sources-only to inspect the sources.")
