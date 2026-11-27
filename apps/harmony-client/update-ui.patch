@@ -1,0 +1,44 @@
+diff --git a/entry/src/main/ets/common/PageParams.ets b/entry/src/main/ets/common/PageParams.ets
+index 1c7a5b1..3c509a7 100644
+--- a/entry/src/main/ets/common/PageParams.ets
++++ b/entry/src/main/ets/common/PageParams.ets
+@@ -27,6 +27,7 @@ export type RouteName =
+   | 'HostWebUiPage'
+   | 'AddPcPageV2'
+   | 'SettingsPageV2'
++  | 'UpdatePage'
+   | 'ControllerTestPage';
+ 
+ /** AppListPageV2（应用列表） */
+diff --git a/entry/src/main/ets/pages/SettingsPageV2.ets b/entry/src/main/ets/pages/SettingsPageV2.ets
+index c862529..3439c8a 100644
+--- a/entry/src/main/ets/pages/SettingsPageV2.ets
++++ b/entry/src/main/ets/pages/SettingsPageV2.ets
+@@ -2624,6 +2624,12 @@ struct SettingsPageV2 {
+                   this.showToast(`已复制版本号: ${this.appVersion}`);
+                 }
+               },
++              {
++                title: '检查更新',
++                subtitle: '从 GitHub 下载增量更新',
++                type: 'action',
++                action: () => { AppNav.push('UpdatePage'); }
++              },
+               {
+                 title: '上次串流诊断',
+                 subtitle: '复制最近一次串流的帧率与 PTS 调度数据',
+diff --git a/entry/src/main/resources/base/profile/route_map.json b/entry/src/main/resources/base/profile/route_map.json
+index a5c8661..dc37808 100644
+--- a/entry/src/main/resources/base/profile/route_map.json
++++ b/entry/src/main/resources/base/profile/route_map.json
+@@ -1,5 +1,10 @@
+ {
+   "routerMap": [
++    {
++      "name": "UpdatePage",
++      "pageSourceFile": "src/main/ets/pages/UpdatePage.ets",
++      "buildFunction": "UpdatePageBuilder"
++    },
+     {
+       "name": "PcListPageV2",
+       "pageSourceFile": "src/main/ets/pages/PcListPageV2.ets",

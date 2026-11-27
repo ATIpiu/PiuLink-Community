@@ -1,7 +1,7 @@
 name: Build PiuLink native HarmonyOS client
 on:
   push:
-    branches: [main, codex/harmony-native, codex/harmony-emulator-qa]
+    branches: [main, codex/harmony-native, codex/harmony-emulator-qa, codex/native-delta-all-20261127]
     paths: ['apps/harmony-client/**', '.github/workflows/harmony-native.yml']
 permissions:
   contents: read
@@ -38,7 +38,7 @@ jobs:
         persist-credentials: false
         path: native
     - name: Apply PiuLink port
-      run: git apply ../piulink/apps/harmony-client/piulink.patch
+      run: bash ../piulink/apps/harmony-client/prepare.sh
     - name: Setup Node.js 22
       uses: actions/setup-node@v4
       with:

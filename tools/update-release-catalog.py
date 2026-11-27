@@ -16,6 +16,7 @@ FORMATS = {
     "win-client": rf"PiuLink-Client-{VERSION}-win-x64\.msi",
     "android-client": rf"PiuLink-Android-{VERSION}-nonRoot-universal-release\.apk",
     "android-arm64": rf"PiuLink-Android-{VERSION}-nonRoot-arm64-v8a-release\.apk",
+    "harmony-client": rf"PiuLink-HarmonyOS-{VERSION}-unsigned\.hap",
     "ios-client": rf"PiuLink-iOS-{VERSION}-arm64-unsigned\.ipa",
     "mac-universal": rf"PiuLink-Mac-{VERSION}-universal-unsigned\.zip",
     "linux-universal": rf"PiuLink-Client-{VERSION}-linux-universal\.tar\.gz",
