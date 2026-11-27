@@ -37,5 +37,5 @@ PY
   configure
 fi
 cmake --build build -j "$(sysctl -n hw.ncpu)"
-cpack -G DragNDrop --config build/CPackConfig.cmake
+SHOULD_SIGN=false cpack -G DragNDrop --config build/CPackConfig.cmake
 cp build/cpack_artifacts/Sunshine.dmg "$HOME/piulink-qa-peer.dmg"
