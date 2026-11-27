@@ -157,6 +157,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                     if (connectedBinder != localBinder || isFinishing() || isDestroyed()) return;
                     computer = saved;
                     checkFileAccess();
+                    if (appGridAdapter != null) appGridAdapter.close();
                     appGridAdapter = new AppGridAdapter(AppView.this, PreferenceConfiguration.readPreferences(AppView.this),
                             saved, localBinder.getUniqueId(), showHiddenApps);
                     appGridAdapter.updateHiddenApps(hiddenAppIds, true);
@@ -835,6 +836,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
     @Override
     protected void onDestroy() {
+        if (appGridAdapter != null) appGridAdapter.close();
         if (Build.VERSION.SDK_INT >= 33 && searchBack != null) getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(searchBack);
         super.onDestroy();
 

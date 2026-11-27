@@ -32,7 +32,7 @@ public class MemoryAssetLoader {
         return tuple.computer.uuid+"-"+tuple.app.getAppId();
     }
 
-    public ScaledBitmap loadBitmapFromCache(CachedAppAssetLoader.LoaderTuple tuple) {
+    public static synchronized ScaledBitmap loadBitmapFromCache(CachedAppAssetLoader.LoaderTuple tuple) {
         final String key = constructKey(tuple);
 
         ScaledBitmap bmp = memoryCache.get(key);
@@ -62,11 +62,11 @@ public class MemoryAssetLoader {
         return null;
     }
 
-    public void populateCache(CachedAppAssetLoader.LoaderTuple tuple, ScaledBitmap bitmap) {
+    public static synchronized void populateCache(CachedAppAssetLoader.LoaderTuple tuple, ScaledBitmap bitmap) {
         memoryCache.put(constructKey(tuple), bitmap);
     }
 
-    public void clearCache() {
+    public static synchronized void clearCache() {
         // We must evict first because that will push all items into the eviction cache
         memoryCache.evictAll();
         evictionCache.clear();

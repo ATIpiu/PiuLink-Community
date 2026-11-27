@@ -12,7 +12,6 @@ import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.grid.assets.CachedAppAssetLoader;
 import com.limelight.grid.assets.DiskAssetLoader;
-import com.limelight.grid.assets.MemoryAssetLoader;
 import com.limelight.grid.assets.NetworkAssetLoader;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -202,18 +201,20 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
         LimeLog.info("Art scaling divisor: " + scalingDivisor);
 
         if (loader != null) {
-            // Cancel operations on the old loader
-            cancelQueuedOperations();
+            loader.close();
         }
 
         this.loader = new CachedAppAssetLoader(computer, scalingDivisor,
                 new NetworkAssetLoader(context, uniqueId),
-                new MemoryAssetLoader(),
                 new DiskAssetLoader(context),
                 BitmapFactory.decodeResource(context.getResources(), R.drawable.no_app_image));
 
         // This will trigger the view to reload with the new layout
         setLayoutId(getLayoutIdForPreferences(prefs));
+    }
+
+    public void close() {
+        loader.close();
     }
 
     public void cancelQueuedOperations() {

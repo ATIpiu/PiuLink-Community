@@ -49,54 +49,51 @@ public class CachedAppAssetLoader {
             new LinkedBlockingQueue<Runnable>(MAX_PENDING_NETWORK_LOADS),
             new ThreadPoolExecutor.DiscardOldestPolicy());
 
+    private volatile boolean closed;
     private final ComputerDetails computer;
     private final double scalingDivider;
     private final NetworkAssetLoader networkLoader;
-    private final MemoryAssetLoader memoryLoader;
     private final DiskAssetLoader diskLoader;
     private final Bitmap placeholderBitmap;
     private final Bitmap noAppImageBitmap;
 
     public CachedAppAssetLoader(ComputerDetails computer, double scalingDivider,
-                                NetworkAssetLoader networkLoader, MemoryAssetLoader memoryLoader,
+                                NetworkAssetLoader networkLoader,
                                 DiskAssetLoader diskLoader, Bitmap noAppImageBitmap) {
         this.computer = computer;
         this.scalingDivider = scalingDivider;
         this.networkLoader = networkLoader;
-        this.memoryLoader = memoryLoader;
         this.diskLoader = diskLoader;
         this.noAppImageBitmap = noAppImageBitmap;
         this.placeholderBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
     }
 
+    public void close() {
+        closed = true;
+        cacheExecutor.shutdownNow();
+        foregroundExecutor.shutdownNow();
+        networkExecutor.shutdownNow();
+        freeCacheMemory();
+    }
+
     public void cancelBackgroundLoads() {
-        Runnable r;
-        while ((r = cacheExecutor.getQueue().poll()) != null) {
-            cacheExecutor.remove(r);
-        }
+        cacheExecutor.getQueue().clear();
     }
 
     public void cancelForegroundLoads() {
-        Runnable r;
-
-        while ((r = foregroundExecutor.getQueue().poll()) != null) {
-            foregroundExecutor.remove(r);
-        }
-
-        while ((r = networkExecutor.getQueue().poll()) != null) {
-            networkExecutor.remove(r);
-        }
+        foregroundExecutor.getQueue().clear();
+        networkExecutor.getQueue().clear();
     }
 
     public void freeCacheMemory() {
-        memoryLoader.clearCache();
+        MemoryAssetLoader.clearCache();
     }
 
     private ScaledBitmap doNetworkAssetLoad(LoaderTuple tuple, LoaderTask task) {
         // Try 3 times
         for (int i = 0; i < 3; i++) {
             // Check again whether we've been cancelled or the image view is gone
-            if (task != null && (task.isCancelled() || task.imageViewRef.get() == null)) {
+            if (closed || (task != null && (task.isCancelled() || task.imageViewRef.get() == null))) {
                 return null;
             }
 
@@ -160,7 +157,7 @@ public class CachedAppAssetLoader {
             tuple = params[0];
 
             // Check whether it has been cancelled or the views are gone
-            if (isCancelled() || imageViewRef.get() == null || textViewRef.get() == null) {
+            if (closed || isCancelled() || imageViewRef.get() == null || textViewRef.get() == null) {
                 return null;
             }
 
@@ -178,7 +175,7 @@ public class CachedAppAssetLoader {
 
             // Cache the bitmap
             if (bmp != null) {
-                memoryLoader.populateCache(tuple, bmp);
+                MemoryAssetLoader.populateCache(tuple, bmp);
             }
 
             return bmp;
@@ -187,14 +184,14 @@ public class CachedAppAssetLoader {
         @Override
         protected void onProgressUpdate(Void... nothing) {
             // Do nothing if cancelled
-            if (isCancelled()) {
+            if (closed || isCancelled()) {
                 return;
             }
 
             // If the current loader task for this view isn't us, do nothing
             final ImageView imageView = imageViewRef.get();
             final TextView textView = textViewRef.get();
-            if (getLoaderTask(imageView) == this) {
+            if (textView != null && getLoaderTask(imageView) == this) {
                 // Set off another loader task on the network executor. This time our AsyncDrawable
                 // will use the app image placeholder bitmap, rather than an empty bitmap.
                 LoaderTask task = new LoaderTask(imageView, textView, false);
@@ -210,13 +207,13 @@ public class CachedAppAssetLoader {
         @Override
         protected void onPostExecute(final ScaledBitmap bitmap) {
             // Do nothing if cancelled
-            if (isCancelled()) {
+            if (closed || isCancelled()) {
                 return;
             }
 
             final ImageView imageView = imageViewRef.get();
             final TextView textView = textViewRef.get();
-            if (getLoaderTask(imageView) == this) {
+            if (textView != null && getLoaderTask(imageView) == this) {
                 // Fade in the box art
                 if (bitmap != null) {
                     // PiuLink keeps the app name visible below the poster for wayfinding.
@@ -231,7 +228,7 @@ public class CachedAppAssetLoader {
 
                             @Override
                             public void onAnimationEnd(Animation animation) {
-                                if (isCancelled() || getLoaderTask(imageView) != LoaderTask.this) return;
+                                if (closed || isCancelled() || getLoaderTask(imageView) != LoaderTask.this) return;
                                 // Fade in the new box art
                                 imageView.setImageBitmap(bitmap.bitmap);
                                 imageView.startAnimation(AnimationUtils.loadAnimation(imageView.getContext(), R.anim.boxart_fadein));
@@ -304,10 +301,11 @@ public class CachedAppAssetLoader {
     }
 
     public void queueCacheLoad(NvApp app) {
+        if (closed) return;
         if (app.getAppId() == com.limelight.piulink.ssh.ComputerSsh.APP_ID) return;
         final LoaderTuple tuple = new LoaderTuple(computer, app);
 
-        if (memoryLoader.loadBitmapFromCache(tuple) != null) {
+        if (MemoryAssetLoader.loadBitmapFromCache(tuple) != null) {
             // It's in memory which means it must also be on disk
             return;
         }
@@ -328,6 +326,7 @@ public class CachedAppAssetLoader {
     }
 
     public boolean populateImageView(NvApp app, ImageView imgView, TextView textView) {
+        if (closed) return false;
         if (app.getAppId() == com.limelight.piulink.ssh.ComputerSsh.APP_ID) {
             cancelPendingLoad(null, imgView);
             imgView.setVisibility(android.view.View.VISIBLE);
@@ -349,7 +348,7 @@ public class CachedAppAssetLoader {
         textView.setText(app.getAppName());
 
         // First, try the memory cache in the current context
-        ScaledBitmap bmp = memoryLoader.loadBitmapFromCache(tuple);
+        ScaledBitmap bmp = MemoryAssetLoader.loadBitmapFromCache(tuple);
         if (bmp != null) {
             // Show the bitmap immediately
             imgView.setVisibility(View.VISIBLE);

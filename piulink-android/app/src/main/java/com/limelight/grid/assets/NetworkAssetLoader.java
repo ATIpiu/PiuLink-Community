@@ -16,7 +16,7 @@ public class NetworkAssetLoader {
     private final String uniqueId;
 
     public NetworkAssetLoader(Context context, String uniqueId) {
-        this.context = context;
+        this.context = context.getApplicationContext();
         this.uniqueId = uniqueId;
     }
 
