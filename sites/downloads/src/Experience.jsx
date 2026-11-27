@@ -384,6 +384,15 @@ function Downloads({ selected, setSystem }) {
 
 const updates = [
   {
+    title: "Windows 与 Linux 增量更新优化",
+    tag: "desktop-updates-2026.11.27",
+    date: "2026-11-27",
+    changes: [
+      "Windows 整合预览版 0.2.138 把运行库与应用分开压缩，Linux 客户端 0.1.11 和被控端 0.1.8 的 DEB 按文件分块。旧布局首次升级可能接近完整下载。",
+      "以两个真实版本的内容采用新布局进行本地对照：Windows 下载 38.25 / 119.45 MiB，Linux x64 DEB 下载 13.44 / 35.06 MiB。Mac 和 Linux 客户端也可以选择其他文件夹中的旧安装包。",
+    ],
+  },
+  {
     title: "跨平台增量更新预览",
     tag: "updates-preview-2026.11.27",
     date: "2026-11-27",
