@@ -21,7 +21,7 @@ export const platforms = [
     packages: [
       {
         id: "win-suite",
-        title: "Windows 整合版（推荐）",
+        title: "整合版（推荐）",
         role: "windows",
         description: "一次离线安装控制端和被控端。这台电脑既能远控，也能被连接。",
         version: "0.2.135",
