@@ -86,8 +86,12 @@ public sealed class MainWindow : Window
                     offeredUpdate = null;
                     previousInstaller = null;
                     status.Text = $"已校验安装包，下载 {prepared.Downloaded / 1048576.0:F1} MiB，复用 {prepared.Reused / 1048576.0:F1} MiB。文件位于 {prepared.Path}";
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
-                        System.IO.Path.GetDirectoryName(prepared.Path)!) { UseShellExecute = true });
+                    try {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                            System.IO.Path.GetDirectoryName(prepared.Path)!) { UseShellExecute = true });
+                    } catch (Exception launchError) when (launchError is System.ComponentModel.Win32Exception or InvalidOperationException) {
+                        status.Text += " 请手动打开上述路径。";
+                    }
                 }
             } catch (Exception error) { status.Text = "更新未完成：" + error.Message; }
             finally {

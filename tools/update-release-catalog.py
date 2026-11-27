@@ -21,6 +21,7 @@ FORMATS = {
     "ios-client": rf"PiuLink-iOS-{VERSION}-arm64-unsigned\.ipa",
     "mac-universal": rf"PiuLink-Mac-{VERSION}-universal-unsigned\.zip",
     "linux-universal": rf"PiuLink-Client-{VERSION}-linux-universal\.tar\.gz",
+    "linux-suite": rf"piulink-suite_{VERSION}-1_amd64\.deb",
     "linux-host": rf"piulink-host_{VERSION}-1_amd64\.deb",
     "linux-host-portable": rf"PiuLink-Host-{VERSION}-ubuntu26\.04-x64\.tar\.gz",
 }

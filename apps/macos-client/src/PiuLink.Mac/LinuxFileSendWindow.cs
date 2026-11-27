@@ -10,7 +10,14 @@ namespace PiuLink.Mac;
 
 internal sealed class LinuxFileSendWindow : Window
 {
-    internal static readonly string HostTool = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/bin/piulink-host");
+    internal static string HostTool
+    {
+        get
+        {
+            const string packaged = "/usr/bin/piulink-host";
+            return File.Exists(packaged) ? packaged : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/bin/piulink-host");
+        }
+    }
     private sealed record Recipient(string Name, string Fingerprint, bool TransferReady = true)
     {
         internal string Label { get; set; } = Name;

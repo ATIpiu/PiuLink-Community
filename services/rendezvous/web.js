@@ -7,14 +7,14 @@
   const bytes = hex => Uint8Array.from(hex.match(/../g), x => parseInt(x, 16));
   const hex = data => Array.from(new Uint8Array(data), x => x.toString(16).padStart(2, "0")).join("");
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-  let pc, channel, stopped = false, frame, sequence = 0;
+  let pc, channel, stopped = false, frame, pendingImage = null, decoding = false;
   const screen = el("screen");
   function send(data) {
     if (channel?.readyState === "open" && channel.bufferedAmount < 65536) channel.send(JSON.stringify(data));
   }
   function end(message) {
     if (stopped) return;
-    send({type:"release"}); stopped = true; pc?.close(); frame = null;
+    send({type:"release"}); stopped = true; pc?.close(); frame = null; pendingImage = null;
     screen.width = 1; el("session").hidden = true; el("lobby").hidden = false;
     el("code").textContent = ""; status(message);
   }
@@ -30,14 +30,22 @@
     if (frame.received > frame.size) throw Error("画面数据无效。");
     frame.parts.push(event.data);
     if (frame.received !== frame.size) return;
-    const blob = new Blob(frame.parts, {type:"image/jpeg"}); frame = null;
-    const number = ++sequence, image = await createImageBitmap(blob);
+    pendingImage = new Blob(frame.parts, {type:"image/jpeg"}); frame = null;
+    if (decoding) return;
+    decoding = true;
     try {
-      if (stopped || number !== sequence) return;
-      if (screen.width !== image.width || screen.height !== image.height) { screen.width=image.width; screen.height=image.height; }
-      screen.getContext("2d").drawImage(image, 0, 0);
-      if (el("session").hidden) { el("lobby").hidden=true; el("session").hidden=false; screen.focus(); }
-    } finally { image.close(); }
+      while (!stopped && pendingImage) {
+        const next = pendingImage;
+        pendingImage = null;
+        const image = await createImageBitmap(next);
+        try {
+          if (stopped) return;
+          if (screen.width !== image.width || screen.height !== image.height) { screen.width=image.width; screen.height=image.height; }
+          screen.getContext("2d").drawImage(image, 0, 0);
+          if (el("session").hidden) { el("lobby").hidden=true; el("session").hidden=false; screen.focus(); }
+        } finally { image.close(); }
+      }
+    } finally { decoding = false; }
   }
   async function connect() {
     el("connect").disabled = true;

@@ -24,7 +24,8 @@ internal static class DesktopPlatform
             foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
                 if (Path.IsPathFullyQualified(dir) && File.Exists(Path.Combine(dir, "moonlight")))
                     return Path.Combine(dir, "moonlight");
-            return "/usr/bin/moonlight";
+            string bundled = Path.Combine(Xdg("XDG_DATA_HOME", ".local/share"), "piulink-linux/runtime/moonlight-6.2.0/AppRun");
+            return File.Exists(bundled) ? bundled : "/usr/bin/moonlight";
         }
         const string bundle = "Moonlight.app/Contents/MacOS/Moonlight";
         var local = Path.Combine(Home, "Applications", bundle);

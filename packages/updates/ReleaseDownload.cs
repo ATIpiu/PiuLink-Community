@@ -52,6 +52,13 @@ internal static class ReleaseDownload
         string channel = host ? "linux-host" : $"linux-{arch}";
         string packaged = host ? "/usr/lib/piulink-host/" : "/usr/lib/piulink-client/";
         if (!AppContext.BaseDirectory.StartsWith(packaged, StringComparison.Ordinal)) channel += "-portable";
+        else if (File.Exists("/usr/share/piulink-suite/version"))
+        {
+            string suite = File.ReadAllText("/usr/share/piulink-suite/version").Trim();
+            if (!Version.TryParse(suite, out var parsed) || parsed.Build < 0 || parsed.Revision >= 0)
+                throw new InvalidDataException("整合版版本信息损坏，请修复安装。");
+            return new("linux-suite", suite);
+        }
         return new(channel, version);
     }
 

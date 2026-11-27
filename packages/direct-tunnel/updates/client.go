@@ -109,9 +109,9 @@ func Check(channel, installed string) (*Release, error) {
 
 type section struct{ start, end int64 }
 
-func missing(blocks []Block, local map[Block]int64) ([]section, int64) {
+func missing(blocks []Block, local map[Block]int64) []section {
 	var spans []section
-	var pos, bytes int64
+	var pos int64
 	for _, b := range blocks {
 		end := pos + int64(b.Size)
 		if _, ok := local[b]; !ok {
@@ -134,10 +134,7 @@ func missing(blocks []Block, local map[Block]int64) ([]section, int64) {
 		spans[best].end = spans[best+1].end
 		spans = append(spans[:best+1], spans[best+2:]...)
 	}
-	for _, s := range spans {
-		bytes += s.end - s.start
-	}
-	return spans, bytes
+	return spans
 }
 
 func digestFile(path string) string {
@@ -239,7 +236,9 @@ func prepare(r Release, channel, cache, seed string) (*Result, error) {
 		return nil, e
 	}
 	defer func() { tmp.Close(); os.Remove(tmp.Name()) }()
-	spans, network := missing(blocks, local)
+	spans := missing(blocks, local)
+	var network int64
+	reused := r.Bytes
 	var pos int64
 	for _, b := range blocks {
 		if off, ok := local[b]; ok {
@@ -259,9 +258,12 @@ func prepare(r Release, channel, cache, seed string) (*Result, error) {
 			return nil, err
 		}
 		if full {
-			network = r.Bytes
+			network += r.Bytes
+			reused = 0
 			break
 		}
+		network += s.end - s.start
+		reused -= s.end - s.start
 	}
 	if e = tmp.Close(); e != nil {
 		return nil, e
@@ -272,7 +274,7 @@ func prepare(r Release, channel, cache, seed string) (*Result, error) {
 	if e = os.Rename(tmp.Name(), path); e != nil && digestFile(path) != r.SHA256 {
 		return nil, e
 	}
-	return &Result{path, network, r.Bytes - network}, nil
+	return &Result{path, network, reused}, nil
 }
 func fetchRange(address string, f *os.File, s section, total int64) (bool, error) {
 	req, e := http.NewRequest(http.MethodGet, address, nil)

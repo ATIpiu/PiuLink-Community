@@ -25,6 +25,7 @@ func TestVerifiedRangeUpdate(t *testing.T) {
 	rand.New(rand.NewSource(19)).Read(old)
 	target := append([]byte(nil), old...)
 	copy(target[1<<20:], bytes.Repeat([]byte("new release"), 12000))
+	target[3<<20] ^= 1
 	blocks, e := Map(bytes.NewReader(target))
 	if e != nil {
 		t.Fatal(e)
@@ -41,7 +42,7 @@ func TestVerifiedRangeUpdate(t *testing.T) {
 	cat, _ := json.Marshal(map[string]Release{"client": rel})
 	saved := httpClient
 	t.Cleanup(func() { httpClient = saved })
-	for _, mode := range []string{"range", "no-seed", "identical", "full-response", "bad-map", "bad-range", "truncated", "corrupt"} {
+	for _, mode := range []string{"range", "no-seed", "identical", "full-response", "late-full", "bad-map", "bad-range", "truncated", "corrupt"} {
 		t.Run(mode, func(t *testing.T) {
 			cache := t.TempDir()
 			seed := ""
@@ -80,6 +81,11 @@ func TestVerifiedRangeUpdate(t *testing.T) {
 					case "full-response":
 						status = 200
 						body = target
+					case "late-full":
+						if received > 0 {
+							status = 200
+							body = target
+						}
 					case "bad-range":
 						h.Set("Content-Range", "invalid")
 					case "truncated":
@@ -108,7 +114,10 @@ func TestVerifiedRangeUpdate(t *testing.T) {
 			if err != nil || digestFile(out.Path) != rel.SHA256 {
 				t.Fatalf("update failed: %v", err)
 			}
-			if received != out.Downloaded || out.Downloaded+out.Reused != int64(len(target)) {
+			if mode == "late-full" && (received <= rel.Bytes || out.Reused != 0) {
+				t.Fatal("late full response did not replace partial ranges")
+			}
+			if received != out.Downloaded || (mode != "late-full" && out.Downloaded+out.Reused != rel.Bytes) {
 				t.Fatal("incorrect byte accounting")
 			}
 			if mode == "range" && (received == 0 || received > int64(len(target)/2)) {

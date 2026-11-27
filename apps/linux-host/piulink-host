@@ -26,7 +26,9 @@ dotnet_bin=${PIULINK_DOTNET:-dotnet}
 if [[ -z "${PIULINK_DOTNET:-}" && -x "$base/runtime/dotnet/dotnet" ]]; then dotnet_bin="$base/runtime/dotnet/dotnet"; fi
 sunshine=${PIULINK_SUNSHINE:-sunshine}
 if [[ -z "${PIULINK_SUNSHINE:-}" && -x "$base/runtime/squashfs-root/AppRun" ]]; then sunshine="$base/runtime/squashfs-root/AppRun"; fi
-host=("$dotnet_bin" "${PIULINK_HOST_APP_DIR:-$base/app}/PiuLink.Host.Linux.dll")
+app_dir=${PIULINK_HOST_APP_DIR:-$base/app}
+host=("$dotnet_bin" "$app_dir/PiuLink.Host.Linux.dll")
+if [[ -z "${PIULINK_DOTNET:-}" && -x "$app_dir/PiuLink.Host.Linux" ]]; then host=("$app_dir/PiuLink.Host.Linux"); fi
 
 if [[ "$PIULINK_SESSION_MODE" == headless ]]; then
     export DISPLAY=${PIULINK_HEADLESS_DISPLAY:-:89}
@@ -46,7 +48,7 @@ setup)
     ;;
 run)
     command -v "$sunshine" >/dev/null || { echo 'Sunshine executable is missing.' >&2; exit 1; }
-    command -v "$dotnet_bin" >/dev/null || { echo '.NET 8 runtime is missing.' >&2; exit 1; }
+    command -v "${host[0]}" >/dev/null || { echo '.NET 8 runtime is missing.' >&2; exit 1; }
     mkdir -p "$base/config" "$PIULINK_ENGINE_CONFIG" "$base/logs"
     exec 9>"$base/config/service.lock"
     flock -n 9 || { echo 'PiuLink is already running.' >&2; exit 1; }
