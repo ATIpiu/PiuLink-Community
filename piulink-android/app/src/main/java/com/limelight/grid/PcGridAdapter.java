@@ -139,6 +139,8 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
         View desktop = parentView.findViewById(R.id.pcOpenDesktop);
         boolean available = openDesktop != null && obj.details.state == ComputerDetails.State.ONLINE &&
                 obj.details.pairState == PairingManager.PairState.PAIRED && obj.details.serverCert != null;
+        boolean canTryDesktop = available || (openDesktop != null && obj.details.serverCert != null &&
+                obj.details.state != ComputerDetails.State.ONLINE);
         statusView.setTextColor(getColorCompat(available ? R.color.home_device_online : statusColor));
         if (openDesktop != null) {
             View invite = parentView.findViewById(R.id.pcSavedInvite);
@@ -155,7 +157,7 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
             txtView.setTextColor(getColorCompat(available ? android.R.color.white : R.color.home_ink));
             imgView.setColorFilter(getColorCompat(available ? R.color.home_device_action : R.color.home_muted));
             statusView.setCompoundDrawablesRelativeWithIntrinsicBounds(available ? R.drawable.pc_online_dot : 0, 0, 0, 0);
-            parentView.findViewById(R.id.pcActions).setVisibility(available ? View.VISIBLE : View.GONE);
+            parentView.findViewById(R.id.pcActions).setVisibility(canTryDesktop ? View.VISIBLE : View.GONE);
             View superScreen = parentView.findViewById(R.id.pcSuperScreen);
             boolean superAvailable = available && openSuperScreen != null;
             superScreen.setVisibility(superAvailable ? View.VISIBLE : View.GONE);
@@ -167,9 +169,9 @@ public class PcGridAdapter extends GenericGridAdapter<PcView.ComputerObject> {
             library.setContentDescription(libraryAvailable ? context.getString(R.string.home_apps_named, obj.details.name) : null);
             library.setOnClickListener(libraryAvailable ? v -> openLibrary.accept(obj.details) : null);
         }
-        desktop.setVisibility(available ? View.VISIBLE : View.GONE);
-        desktop.setContentDescription(available ? context.getString(R.string.pc_open_desktop_named, obj.details.name) : null);
-        desktop.setOnClickListener(available ? v -> openDesktop.accept(obj.details) : null);
+        desktop.setVisibility(canTryDesktop ? View.VISIBLE : View.GONE);
+        desktop.setContentDescription(canTryDesktop ? context.getString(R.string.pc_open_desktop_named, obj.details.name) : null);
+        desktop.setOnClickListener(canTryDesktop ? v -> openDesktop.accept(obj.details) : null);
 
         if (obj.details.state == ComputerDetails.State.OFFLINE) {
             overlayView.setImageResource(R.drawable.ic_pc_offline);

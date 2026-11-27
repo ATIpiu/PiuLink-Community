@@ -1,5 +1,7 @@
 package com.limelight;
 
+import com.limelight.utils.TouchDialog;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -293,7 +295,6 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
         pcGridAdapter.notifyDataSetChanged();
         refreshTvContinue();
-        updateSetupStatus();
     }
 
     private void autoOpenDesktop(ComputerDetails pc) {
@@ -311,6 +312,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             Toast.makeText(this, R.string.error_manager_not_running, Toast.LENGTH_SHORT).show();
             return;
         }
+        if (invitationOnly && com.limelight.piulink.InviteVpnChoice.offer(this,
+                () -> openSavedDesktop(pc, true))) return;
         desktopRouteRequest = new Thread(() -> {
             Thread request = Thread.currentThread();
             ComputerDetails peer = null;
@@ -340,6 +343,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             routeProgress = new android.app.ProgressDialog(this);
             routeProgress.setMessage(getString(R.string.route_connecting, pc.name));
             routeProgress.setOnCancelListener(dialog -> cancelRouteRequest());
+            TouchDialog.prepareHeader(routeProgress, getText(R.string.connection_methods));
             routeProgress.show();
         }, 300);
     }
@@ -390,38 +394,6 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
     private void openAddComputer() {
         startActivityForResult(new Intent(this, AddComputerManually.class), REQUEST_DESKTOP_ROUTE);
-    }
-
-    private void updateSetupStatus() {
-        TextView networkStatus = findViewById(R.id.setupPrivateNetworkStatus);
-        View networkDot = findViewById(R.id.setupPrivateNetworkDot);
-        if (networkStatus == null || networkDot == null) {
-            return;
-        }
-
-        if (NetHelper.isActiveNetworkVpn(this)) {
-            setSetupStatus(networkStatus, networkDot,
-                    R.string.setup_private_network_active,
-                    R.color.piulink_success, R.drawable.bg_status_ready);
-        }
-        else if (TailscaleLauncher.isInstalled(this)) {
-            setSetupStatus(networkStatus, networkDot,
-                    R.string.setup_private_network_available,
-                    R.color.piulink_warning, R.drawable.bg_status_attention);
-        }
-        else {
-            setSetupStatus(networkStatus, networkDot,
-                    R.string.setup_private_network_missing,
-                    R.color.piulink_text_secondary, R.drawable.bg_status_neutral);
-        }
-    }
-
-    private void setSetupStatus(TextView label, View dot, int textResource,
-                                int colorResource, int dotResource) {
-        label.setText(textResource);
-        label.setTextColor(android.os.Build.VERSION.SDK_INT >= 23
-                ? getResources().getColor(colorResource, getTheme()) : getResources().getColor(colorResource));
-        dot.setBackgroundResource(dotResource);
     }
 
     @Override
@@ -584,7 +556,6 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         startComputerUpdates();
         if (completeOnCreateCalled) {
             refreshTvContinue();
-            updateSetupStatus();
         }
     }
 
@@ -623,24 +594,40 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         AdapterContextMenuInfo info = (AdapterContextMenuInfo) menuInfo;
         ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(info.position);
 
-        // Add a header with PC status details
-        menu.clearHeader();
-        String headerTitle = computer.details.name + " - ";
-        switch (computer.details.state)
-        {
-            case ONLINE:
-                headerTitle += getResources().getString(R.string.pcview_menu_header_online);
-                break;
-            case OFFLINE:
-                menu.setHeaderIcon(R.drawable.ic_pc_offline);
-                headerTitle += getResources().getString(R.string.pcview_menu_header_offline);
-                break;
-            case UNKNOWN:
-                headerTitle += getResources().getString(R.string.pcview_menu_header_unknown);
-                break;
-        }
+        menu.setHeaderTitle(computerMenuTitle(computer));
+        populateComputerMenu(menu, computer);
+    }
 
-        menu.setHeaderTitle(headerTitle);
+    private String computerMenuTitle(ComputerObject computer) {
+        int state = computer.details.state == ComputerDetails.State.ONLINE ? R.string.pcview_menu_header_online :
+                computer.details.state == ComputerDetails.State.OFFLINE ? R.string.pcview_menu_header_offline : R.string.pcview_menu_header_unknown;
+        return computer.details.name + " · " + getString(state);
+    }
+
+    private void showComputerActions(View anchor, ComputerObject computer) {
+        stopComputerUpdates(false);
+        Menu menu = new android.widget.PopupMenu(this, anchor).getMenu();
+        populateComputerMenu(menu, computer);
+        com.limelight.utils.TouchActions.show(this, computerMenuTitle(computer), menu, this::computerActionIcon,
+                DELETE_ID, this::startComputerUpdates, CONNECTION_METHODS_ID, TERMINAL_ID, TEST_NETWORK_ID,
+                WOL_ID, RESUME_ID);
+    }
+
+    private int computerActionIcon(int id) {
+        switch (id) {
+            case CONNECTION_METHODS_ID: return R.drawable.ic_private_network;
+            case TERMINAL_ID: return R.drawable.ic_terminal;
+            case AUTO_MIC_ID: return R.drawable.ic_stream_mic;
+            case PAIR_ID: return R.drawable.ic_lock;
+            case FULL_APP_LIST_ID: return R.drawable.ic_computer;
+            case DELETE_ID: return android.R.drawable.ic_menu_delete;
+            case VIEW_DETAILS_ID: return android.R.drawable.ic_menu_info_details;
+            case RESUME_ID: case WOL_ID: return R.drawable.ic_play;
+            default: return R.drawable.ic_help;
+        }
+    }
+
+    private void populateComputerMenu(Menu menu, ComputerObject computer) {
         if (computer.details.uuid != null) menu.add(Menu.NONE, CONNECTION_METHODS_ID, 0, R.string.connection_methods);
         menu.add(Menu.NONE, TERMINAL_ID, 0, R.string.ssh_title);
 
@@ -941,7 +928,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
                 dismissPairingPinDialogOnUiThread();
                 pinConnection = request;
-                pairingPinDialog = new android.app.AlertDialog.Builder(PcView.this)
+                pairingPinDialog = new TouchDialog(PcView.this)
                         .setTitle(getResources().getString(R.string.pair_pairing_title))
                         .setMessage(getResources().getString(R.string.pair_pairing_msg) + " " + pin + "\n\n" +
                                 getResources().getString(R.string.pair_pairing_help))
@@ -1232,7 +1219,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 return true;
 
             case VIEW_DETAILS_ID:
-                Dialog.displayDialog(PcView.this, getResources().getString(R.string.title_details), computer.details.toString(), false);
+                Dialog.displayResult(PcView.this, getResources().getString(R.string.title_details), computer.details.toString());
                 return true;
 
             case TEST_NETWORK_ID:
@@ -1389,7 +1376,12 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             }
         });
         UiHelper.applyStatusBarPadding(listView);
-        registerForContextMenu(listView);
+        if (UiHelper.isTouchscreenClient(this)) {
+            listView.setOnItemLongClickListener((parent, view, pos, id) -> {
+                showComputerActions(view, (ComputerObject) pcGridAdapter.getItem(pos));
+                return true;
+            });
+        } else registerForContextMenu(listView);
     }
 
     private void openHost(ComputerDetails computer) {

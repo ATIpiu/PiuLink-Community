@@ -143,10 +143,7 @@ public class ServerHelper {
                     dialogSummary += MoonBridge.stringifyPortFlags(ret, "\n");
                 }
 
-                Dialog.displayDialog(parent,
-                        parent.getResources().getString(R.string.nettest_title_done),
-                        dialogSummary,
-                        false);
+                Dialog.displayResult(parent, parent.getString(R.string.nettest_title_done), dialogSummary);
             }
         }).start();
     }

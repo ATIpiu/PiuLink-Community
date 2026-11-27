@@ -384,6 +384,15 @@ function Downloads({ selected, setSystem }) {
 
 const updates = [
   {
+    title: "Android 0.3.222",
+    tag: "android-0.3.222",
+    date: "2026-11-27",
+    changes: [
+      "电脑列表会同时检查当前地址、上次连接线路和历史记录里属于当前局域网的地址。换网后，一个失效地址不会挡住已经响应的电脑。",
+      "已配对电脑在刷新期间可以直接点「桌面」。连接前仍会校验主机身份，局域网广播发现新电脑后会立即尝试连接。",
+    ],
+  },
+  {
     title: "Windows 整合版 0.2.135",
     tag: "windows-0.2.135",
     date: "2026-11-27",

@@ -1,5 +1,7 @@
 package com.limelight.preferences;
 
+import com.limelight.utils.TouchDialog;
+
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -47,7 +49,19 @@ public final class LogActivity extends Activity {
         title.setText(R.string.view_logs_title);
         title.setTextSize(22);
         title.setTextColor(getResources().getColor(R.color.piulink_text_primary));
-        root.addView(title);
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        android.widget.ImageButton back = new android.widget.ImageButton(this);
+        back.setImageResource(R.drawable.ic_back);
+        back.setImageTintList(android.content.res.ColorStateList.valueOf(getColor(R.color.home_ink)));
+        back.setContentDescription(getString(R.string.navigate_back));
+        back.setBackgroundResource(R.drawable.bg_icon_button);
+        int target = getResources().getDimensionPixelSize(R.dimen.piulink_touch_target);
+        header.addView(back, new LinearLayout.LayoutParams(target, target));
+        back.setOnClickListener(v -> finish());
+        title.setPaddingRelative(pad, 0, 0, 0);
+        header.addView(title);
+        root.addView(header);
 
         TextView summary = new TextView(this);
         summary.setText(R.string.view_logs_summary);
@@ -65,14 +79,20 @@ public final class LogActivity extends Activity {
         copy.setOnClickListener(v -> copyLogs());
         clear = new Button(this);
         clear.setText(R.string.logs_clear);
-        clear.setOnClickListener(v -> clearLogs());
-        actions.addView(refresh);
-        actions.addView(copy);
-        actions.addView(clear);
+        clear.setOnClickListener(v -> new TouchDialog(this)
+                .setMessage(R.string.logs_clear_prompt)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.logs_clear, (dialog, which) -> clearLogs()).show());
+        for (Button action : new Button[]{refresh, copy, clear}) {
+            action.setMinWidth(0);
+            action.setTextSize(14);
+            action.setAllCaps(false);
+            actions.addView(action, new LinearLayout.LayoutParams(0, -2, 1));
+        }
         root.addView(actions);
         Button upload = new Button(this);
         upload.setText(R.string.diag_upload);
-        upload.setOnClickListener(v -> new android.app.AlertDialog.Builder(this)
+        upload.setOnClickListener(v -> new TouchDialog(this)
                 .setTitle(R.string.diag_upload_title)
                 .setMessage(R.string.diag_upload_body)
                 .setNegativeButton(android.R.string.cancel, null)

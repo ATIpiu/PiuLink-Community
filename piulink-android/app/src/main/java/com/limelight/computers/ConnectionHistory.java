@@ -57,6 +57,19 @@ public final class ConnectionHistory {
         return new ConnectionHistory(uuid, name, rows);
     }
 
+    static ComputerDetails.AddressTuple endpoint(String value) {
+        if (value == null || value.contains("://")) return null;
+        try {
+            java.net.URI uri = new java.net.URI("moonlight://" + value);
+            int port = uri.getPort();
+            if (uri.getHost() != null && port > 0 && port <= 65535 && uri.getRawUserInfo() == null
+                    && uri.getRawPath().isEmpty() && uri.getRawQuery() == null && uri.getRawFragment() == null) {
+                return new ComputerDetails.AddressTuple(uri.getHost(), port);
+            }
+        } catch (java.net.URISyntaxException ignored) { }
+        return null;
+    }
+
     ConnectionHistory(String uuid, String name, List<Route> routes) {
         this.uuid = uuid;
         this.name = name == null ? uuid : name;

@@ -1,5 +1,7 @@
 package com.limelight.piulink;
 
+import com.limelight.utils.TouchDialog;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
@@ -152,7 +154,7 @@ public final class MonitorSelection {
                 DisplayInventoryClient.Display target = DisplayInventoryClient.defaultDisplay(inventory, saved, virtualApp);
                 if (target == null && virtualApp) {
                     loading.dismiss();
-                    new AlertDialog.Builder(activity).setMessage(R.string.super_screen_missing)
+                    new TouchDialog(activity).setMessage(R.string.super_screen_missing)
                         .setPositiveButton(android.R.string.ok, null).show();
                     return;
                 }
@@ -214,7 +216,7 @@ public final class MonitorSelection {
     }
 
     private static AlertDialog.Builder connectionDialog(Activity activity, boolean beforeConnection) {
-        return new AlertDialog.Builder(activity)
+        return new TouchDialog(activity)
                 .setNegativeButton(android.R.string.cancel, (dialog, which) -> dialog.cancel())
                 .setOnCancelListener(dialog -> { if (beforeConnection) cancelReconnect(activity); });
     }
@@ -625,7 +627,7 @@ public final class MonitorSelection {
             List<DisplayInventoryClient.Resolution> ignoredSizes, List<Integer> ignoredRates, boolean beforeConnection) {
         List<DisplayInventoryClient.Mode> modes = supportedModes(activity, display);
         if (modes.isEmpty()) {
-            new AlertDialog.Builder(activity).setTitle(R.string.monitor_resolution_title)
+            new TouchDialog(activity).setTitle(R.string.monitor_resolution_title)
                 .setMessage(R.string.monitor_resolution_unavailable).setPositiveButton(android.R.string.ok, null).show();
             return;
         }
@@ -807,7 +809,7 @@ public final class MonitorSelection {
             preparing = guarded.progress;
             preparing.setMessage(activity.getString(R.string.monitor_preparing));
         } else {
-            preparing = new AlertDialog.Builder(activity).setTitle(R.string.screen_connecting)
+            preparing = new TouchDialog(activity).setTitle(R.string.screen_connecting)
                     .setMessage(R.string.monitor_preparing)
                     .setNegativeButton(android.R.string.cancel, (d, w) -> cancelReconnect(activity)).create();
             preparing.setOnCancelListener(d -> cancelReconnect(activity));
@@ -974,7 +976,7 @@ public final class MonitorSelection {
                 });
             };
             if (routeChanged) {
-                new AlertDialog.Builder(activity).setMessage(R.string.monitor_confirm_end_application)
+                new TouchDialog(activity).setMessage(R.string.monitor_confirm_end_application)
                         .setNegativeButton(android.R.string.cancel, null)
                         .setPositiveButton(R.string.monitor_end_and_switch, (d, w) -> change.run()).show();
             } else change.run();

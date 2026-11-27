@@ -40,6 +40,7 @@ public class TvListPreference extends ListPreference {
 
     @Override
     protected void onPrepareDialogBuilder(AlertDialog.Builder builder) {
+        com.limelight.utils.TouchDialog.preferenceHeader(builder, this);
         CharSequence[] entries = getEntries();
         CharSequence[] values = getEntryValues();
         if (entries == null || values == null) {

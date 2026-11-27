@@ -205,4 +205,8 @@ public class SeekBarPreference extends DialogPreference
             }
         });
     }
+    @Override protected void onPrepareDialogBuilder(android.app.AlertDialog.Builder builder) {
+        super.onPrepareDialogBuilder(builder);
+        com.limelight.utils.TouchDialog.preferenceHeader(builder, this);
+    }
 }

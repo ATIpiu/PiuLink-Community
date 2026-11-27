@@ -1,5 +1,7 @@
 package com.limelight.piulink.ssh;
 
+import com.limelight.utils.TouchDialog;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -55,7 +57,7 @@ public final class TerminalPanel extends LinearLayout {
             else {
                 String[] labels = new String[matches.size()];
                 for (int i = 0; i < matches.size(); i++) labels[i] = matches.get(i).label();
-                new AlertDialog.Builder(activity).setTitle(R.string.ssh_choose_account)
+                new TouchDialog(activity).setTitle(R.string.ssh_choose_account)
                 .setItems(labels,
                     (dialog, which) -> open(matches.get(which)))
                 .setNegativeButton(android.R.string.cancel, null).show();
@@ -81,11 +83,11 @@ public final class TerminalPanel extends LinearLayout {
             connect.setAllCaps(false);
             connect.setOnClickListener(v -> open(p)); row.addView(connect, new LinearLayout.LayoutParams(-1, -2));
             LinearLayout actions = new LinearLayout(activity);
-            Button edit = new Button(activity); edit.setText("编辑");
+            Button edit = new Button(activity); edit.setText(R.string.ssh_edit_action);
             edit.setOnClickListener(v -> editProfile(p.host, p));
             actions.addView(edit, new LinearLayout.LayoutParams(0, -2, 1));
             Button remove = new Button(activity); remove.setText(R.string.ssh_forget);
-            remove.setOnClickListener(v -> new AlertDialog.Builder(activity).setMessage(R.string.ssh_forget_detail)
+            remove.setOnClickListener(v -> new TouchDialog(activity).setMessage(R.string.ssh_forget_detail)
                 .setPositiveButton(R.string.ssh_forget, (d, w) -> {
                     try { p.remove(activity); render(); }
                     catch (IllegalStateException e) { Toast.makeText(activity, R.string.ssh_storage_error, Toast.LENGTH_LONG).show(); }
@@ -122,18 +124,18 @@ public final class TerminalPanel extends LinearLayout {
         EditText user = field(form, R.string.ssh_user, previous == null ? "" : previous.user, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         ScrollView scroll = new ScrollView(activity);
         scroll.addView(form);
-        AlertDialog dialog = new AlertDialog.Builder(activity).setTitle(previous == null ? getString(R.string.ssh_add) : "编辑 SSH 连接").setView(scroll)
-            .setPositiveButton(previous == null ? getString(R.string.ssh_connect) : "保存", null).setNegativeButton(android.R.string.cancel, null).create();
+        AlertDialog dialog = new TouchDialog(activity).setTitle(previous == null ? getString(R.string.ssh_add) : getString(R.string.ssh_edit_title)).setView(scroll)
+            .setPositiveButton(previous == null ? getString(R.string.ssh_connect) : getString(R.string.ssh_save_action), null).setNegativeButton(android.R.string.cancel, null).create();
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             host.setError(null); port.setError(null); user.setError(null);
             try { new SshProfile(host.getText().toString(), "validation", 22); }
-            catch (IllegalArgumentException e) { host.setError("请输入有效的主机名或 IP 地址"); host.requestFocus(); return; }
+            catch (IllegalArgumentException e) { host.setError(getString(R.string.ssh_invalid_host_field)); host.requestFocus(); return; }
             int portNumber;
             try { portNumber = Integer.parseInt(port.getText().toString().trim());
                 if (portNumber < 1 || portNumber > 65535) throw new NumberFormatException();
-            } catch (NumberFormatException e) { port.setError("端口应为 1–65535"); port.requestFocus(); return; }
+            } catch (NumberFormatException e) { port.setError(getString(R.string.ssh_invalid_port_field)); port.requestFocus(); return; }
             try { new SshProfile("validation", user.getText().toString(), portNumber); }
-            catch (IllegalArgumentException e) { user.setError("请输入远端 SSH 账户名"); user.requestFocus(); return; }
+            catch (IllegalArgumentException e) { user.setError(getString(R.string.ssh_invalid_user_field)); user.requestFocus(); return; }
             try {
                 SshProfile profile = new SshProfile(host.getText().toString(), user.getText().toString(), portNumber);
                 profile.replace(activity, previous); dialog.dismiss(); render();

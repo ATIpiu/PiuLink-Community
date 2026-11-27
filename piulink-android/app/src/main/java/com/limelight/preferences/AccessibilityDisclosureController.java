@@ -1,5 +1,7 @@
 package com.limelight.preferences;
 
+import com.limelight.utils.TouchDialog;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -56,7 +58,7 @@ public final class AccessibilityDisclosureController {
                 R.layout.dialog_accessibility_disclosure, null, false);
         final boolean[] resolved = {false};
 
-        AlertDialog dialog = new AlertDialog.Builder(activity)
+        AlertDialog dialog = new TouchDialog(activity)
                 .setTitle(R.string.accessibility_disclosure_title)
                 .setView(disclosureView)
                 .setPositiveButton(R.string.accessibility_disclosure_continue, (ignored, which) -> {

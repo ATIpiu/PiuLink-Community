@@ -34,6 +34,13 @@
     <string name="session_resolution">Resolution</string>
     <string name="session_fps">Frame rate</string>
     <string name="route_bound_media">P2P · physical network</string>
-    <string name="route_system_vpn">P2P · system VPN route</string>
+    <string name="route_system_vpn">P2P · VPN route (direct preference off)</string>
     <string name="super_screen_missing">The Host has no virtual display available for Super Screen.</string>
+    <string name="invite_vpn_choice_title">P2P stream route</string>
+    <string name="invite_vpn_choice_help">Prefer Wi-Fi or mobile data for invitation streams when the VPN allows it. The Host can see your direct address. If the VPN requires its own route, you can exclude PiuLink from the VPN in Clash’s per-app settings.</string>
+    <string name="invite_vpn_choose_direct">Prefer direct</string>
+    <string name="invite_vpn_keep_system">Use system route</string>
+    <string name="invite_vpn_next_session">Route saved. Reopen the invitation to apply.</string>
+    <string name="invite_vpn_no_network">P2P · VPN route (no available direct network)</string>
+    <string name="invite_vpn_punch_failed">P2P · VPN route (direct connection failed)</string>
 </resources>

@@ -34,6 +34,13 @@
     <string name="session_resolution">分辨率</string>
     <string name="session_fps">帧率</string>
     <string name="route_bound_media">P2P · 物理网络直连</string>
-    <string name="route_system_vpn">P2P · 系统 VPN 路由</string>
+    <string name="route_system_vpn">P2P · 系统 VPN 路由（优先直连已关）</string>
     <string name="super_screen_missing">这台电脑还没有可供超级屏使用的虚拟显示器。</string>
+    <string name="invite_vpn_choice_title">P2P 串流路线</string>
+    <string name="invite_vpn_choice_help">选择优先直连后，如果 VPN 允许，邀请串流会使用 Wi-Fi 或移动数据，Host 可见直连地址。如果 Clash 限制直连，可在 Clash 的分应用设置里让 PiuLink 不经过 VPN。</string>
+    <string name="invite_vpn_choose_direct">优先直连</string>
+    <string name="invite_vpn_keep_system">使用系统路线</string>
+    <string name="invite_vpn_next_session">已保存，重新打开邀请后生效。</string>
+    <string name="invite_vpn_no_network">P2P · 系统 VPN 路由（无可用直连网络）</string>
+    <string name="invite_vpn_punch_failed">P2P · 系统 VPN 路由（直连建链失败）</string>
 </resources>

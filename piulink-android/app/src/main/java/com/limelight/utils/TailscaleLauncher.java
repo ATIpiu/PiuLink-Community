@@ -38,9 +38,7 @@ public final class TailscaleLauncher {
             context.startActivity(playStoreIntent);
         }
         catch (ActivityNotFoundException ignored) {
-            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(GOOGLE_PLAY_URL));
-            browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(browserIntent);
+            HelpLauncher.launchUrl(context, GOOGLE_PLAY_URL);
         }
     }
 }

@@ -4,14 +4,20 @@ import java.util.ArrayList;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.DialogInterface;
-import android.widget.Button;
+import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import android.widget.Toast;
 import android.widget.CheckBox;
 
 import com.limelight.R;
 
 public class Dialog implements Runnable {
     private static final String SUPPRESSION_PREFERENCES = "piulink_suppressed_dialogs";
+    private final String tipKey;
+    private static String noticeKey(String title, String message) {
+        return "notice/" + UUID.nameUUIDFromBytes((title + "\n" + message).getBytes(StandardCharsets.UTF_8));
+    }
+
     private final String title;
     private final String message;
     private final Activity activity;
@@ -21,8 +27,9 @@ public class Dialog implements Runnable {
 
     private static final ArrayList<Dialog> rundownDialogs = new ArrayList<>();
 
-    private Dialog(Activity activity, String title, String message, Runnable runOnDismiss)
+    private Dialog(Activity activity, String title, String message, Runnable runOnDismiss, String tipKey)
     {
+        this.tipKey = tipKey;
         this.activity = activity;
         this.title = title;
         this.message = message;
@@ -51,78 +58,62 @@ public class Dialog implements Runnable {
                     activity.finish();
                 }
             }
-        }));
+        }, noticeKey(title, message)));
     }
 
     public static void displayDialog(Activity activity, String title, String message, Runnable runOnDismiss)
     {
-        activity.runOnUiThread(new Dialog(activity, title, message, runOnDismiss));
+        activity.runOnUiThread(new Dialog(activity, title, message, runOnDismiss, noticeKey(title, message)));
+    }
+
+    public static void displayResult(Activity activity, String title, String message) {
+        activity.runOnUiThread(new Dialog(activity, title, message, () -> { }, null));
+    }
+
+    public static void displayTip(Activity activity, int title, int message, Runnable onDismiss) {
+        String key = activity.getResources().getResourceEntryName(title);
+        activity.runOnUiThread(new Dialog(activity, activity.getString(title), activity.getString(message),
+                onDismiss, key));
     }
 
     @Override
     public void run() {
-        // If we're dying, don't bother creating a dialog
-        if (activity.isFinishing() || activity.isDestroyed())
-            return;
-
-        final String suppressionKey = "dialog_" + Integer.toHexString(title.hashCode());
-        if (activity.getSharedPreferences(SUPPRESSION_PREFERENCES, Activity.MODE_PRIVATE)
-                .getBoolean(suppressionKey, false)) {
-            runOnDismiss.run();
-            return;
+        if (activity.isFinishing() || activity.isDestroyed()) return;
+        android.content.SharedPreferences prefs = activity.getSharedPreferences(SUPPRESSION_PREFERENCES, Activity.MODE_PRIVATE);
+        if (tipKey != null) {
+            String legacy = "dialog_" + Integer.toHexString(title.hashCode());
+            if (!tipKey.startsWith("notice/") && prefs.getBoolean(legacy, false)) prefs.edit().remove(legacy).putBoolean(tipKey, true).apply();
+            if (prefs.getBoolean(tipKey, false)) {
+                if (tipKey.startsWith("notice/")) Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
+                runOnDismiss.run();
+                return;
+            }
         }
 
-        alert = new AlertDialog.Builder(activity).create();
-
-        alert.setTitle(title);
-        alert.setMessage(message);
-        CheckBox suppressAgain = new CheckBox(activity);
-        suppressAgain.setText(R.string.dialog_dont_show_again);
-        int padding = (int) (20 * activity.getResources().getDisplayMetrics().density);
-        suppressAgain.setPadding(padding, 0, padding, 0);
-        alert.setView(suppressAgain);
-        alert.setCancelable(false);
-        alert.setCanceledOnTouchOutside(false);
- 
-        alert.setButton(AlertDialog.BUTTON_POSITIVE, activity.getResources().getText(android.R.string.ok), new DialogInterface.OnClickListener() {
-              public void onClick(DialogInterface dialog, int which) {
-                  synchronized (rundownDialogs) {
-                      rundownDialogs.remove(Dialog.this);
-                      alert.dismiss();
-                  }
-
-                  if (suppressAgain.isChecked()) {
-                      activity.getSharedPreferences(SUPPRESSION_PREFERENCES, Activity.MODE_PRIVATE)
-                              .edit().putBoolean(suppressionKey, true).apply();
-                  }
-
-                  runOnDismiss.run();
-              }
-        });
-        alert.setButton(AlertDialog.BUTTON_NEUTRAL, activity.getResources().getText(R.string.help), new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int which) {
-                synchronized (rundownDialogs) {
-                    rundownDialogs.remove(Dialog.this);
-                    alert.dismiss();
-                }
-
-                runOnDismiss.run();
-
-                HelpLauncher.launchTroubleshooting(activity);
+        TouchDialog builder = new TouchDialog(activity).setTitle(title);
+        builder.setMessage(message);
+        CheckBox remember = tipKey == null ? null : new CheckBox(activity);
+        if (remember != null) {
+            remember.setText(R.string.dialog_dont_show_again);
+            android.widget.FrameLayout area = new android.widget.FrameLayout(activity);
+            area.setPadding(TouchDialog.dp(activity, 20), 0, TouchDialog.dp(activity, 16), 0);
+            area.addView(remember);
+            builder.setView(area);
+        }
+        Runnable acknowledge = () -> {
+            synchronized (rundownDialogs) {
+                if (!rundownDialogs.remove(this)) return;
             }
+            if (remember != null && remember.isChecked()) prefs.edit().putBoolean(tipKey, true).apply();
+            runOnDismiss.run();
+        };
+        builder.setPositiveButton(android.R.string.ok, (d, which) -> acknowledge.run());
+        if (tipKey == null || tipKey.startsWith("notice/")) builder.setNeutralButton(R.string.help, (d, which) -> {
+            acknowledge.run();
+            HelpLauncher.launchTroubleshooting(activity);
         });
-        alert.setOnShowListener(new DialogInterface.OnShowListener(){
-
-            @Override
-            public void onShow(DialogInterface dialog) {
-                // Set focus to the OK button by default
-                Button button = alert.getButton(AlertDialog.BUTTON_POSITIVE);
-                button.setFocusable(true);
-                button.setFocusableInTouchMode(true);
-                button.requestFocus();
-            }
-        });
-
+        builder.setOnCancelListener(d -> acknowledge.run());
+        alert = builder.create();
         synchronized (rundownDialogs) {
             rundownDialogs.add(this);
             alert.show();

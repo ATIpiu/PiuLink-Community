@@ -30,6 +30,6 @@
 
     <dimen name="home_page_gutter">18dp</dimen>
     <dimen name="home_header_top">16dp</dimen>
-    <dimen name="lunar_home_art_height">204dp</dimen>
+    <dimen name="lunar_home_art_height">148dp</dimen>
     <dimen name="detail_instrument_height">123dp</dimen>
 </resources>

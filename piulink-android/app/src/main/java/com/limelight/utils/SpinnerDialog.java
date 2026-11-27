@@ -82,16 +82,9 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
             progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
             progress.setOnCancelListener(this);
 
-            // If we want to finish the activity when this is killed, make it cancellable
-            if (finish)
-            {
-                progress.setCancelable(true);
-                progress.setCanceledOnTouchOutside(false);
-            }
-            else
-            {
-                progress.setCancelable(false);
-            }
+            progress.setCancelable(true);
+            progress.setCanceledOnTouchOutside(false);
+            TouchDialog.prepareHeader(progress, title);
 
             synchronized (rundownDialogs) {
                 rundownDialogs.add(this);
@@ -114,7 +107,6 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
             rundownDialogs.remove(this);
         }
 
-        // This will only be called if finish was true, so we don't need to check again
-        activity.finish();
+        if (finish) activity.finish();
     }
 }

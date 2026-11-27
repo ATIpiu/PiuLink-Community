@@ -9,11 +9,15 @@ import android.webkit.WebViewClient;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
 
-import com.limelight.utils.SpinnerDialog;
+import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.ProgressBar;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 
 public class HelpActivity extends Activity {
 
-    private SpinnerDialog loadingDialog;
+    private ProgressBar progress;
     private WebView webView;
 
     private boolean backCallbackRegistered;
@@ -37,7 +41,13 @@ public class HelpActivity extends Activity {
         }
 
         webView = new WebView(this);
-        setContentView(webView);
+        FrameLayout page = new FrameLayout(this);
+        page.addView(webView);
+        progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        progress.setIndeterminate(true);
+        page.addView(progress, new FrameLayout.LayoutParams(-1,
+                Math.round(3 * getResources().getDisplayMetrics().density)));
+        setContentView(page);
 
         // These allow the user to zoom the page
         webView.getSettings().setBuiltInZoomControls(true);
@@ -53,23 +63,18 @@ public class HelpActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
-                if (loadingDialog == null) {
-                    loadingDialog = SpinnerDialog.displayDialog(HelpActivity.this,
-                            getResources().getString(R.string.help_loading_title),
-                            getResources().getString(R.string.help_loading_msg), false);
-                }
-
+                progress.setVisibility(View.VISIBLE);
                 refreshBackDispatchState();
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                if (loadingDialog != null) {
-                    loadingDialog.dismiss();
-                    loadingDialog = null;
-                }
-
+                if (url.equals(view.getUrl())) progress.setVisibility(View.GONE);
                 refreshBackDispatchState();
+            }
+
+            @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request.isForMainFrame()) progress.setVisibility(View.GONE);
             }
         });
 

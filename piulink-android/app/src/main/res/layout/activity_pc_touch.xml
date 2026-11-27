@@ -69,18 +69,12 @@
                         android:orientation="vertical"
                         android:gravity="center_horizontal"
                         android:background="@drawable/bg_empty_state">
-                        <ProgressBar
-                            android:id="@+id/pcs_loading"
-                            android:layout_width="36dp"
-                            android:layout_height="36dp"
-                            android:indeterminate="true"
-                            android:indeterminateTint="@color/piulink_blue" />
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
                             android:fontFamily="sans-serif-medium"
-                            android:text="@string/looking_for_host_title"
+                            android:text="@string/empty_no_computer"
                             android:textColor="@color/home_ink"
                             android:textSize="20sp" />
                         <TextView
@@ -88,7 +82,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
                             android:gravity="center"
-                            android:text="@string/searching_pc"
+                            android:text="@string/empty_discover_or_invite"
                             android:textColor="@color/home_muted"
                             android:textSize="14sp" />
                         <include layout="@layout/view_setup_steps" />

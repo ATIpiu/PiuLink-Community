@@ -74,7 +74,7 @@ public class ComputerManagerService extends Service {
     private static final int APPLIST_POLLING_PERIOD_MS = 30000;
     private static final int APPLIST_FAILED_POLLING_RETRY_MS = 2000;
     private static final int MDNS_QUERY_PERIOD_MS = 1000;
-    private static final int MDNS_INITIAL_SETTLE_MS = 600;
+    private static final int MAX_EXTRA_LAN_PROBES = 4;
     private static final int MDNS_MAX_POLL_ATTEMPTS = 4;
     private static final int OFFLINE_POLL_TRIES = 3;
     private static final int INITIAL_POLL_TRIES = 2;
@@ -83,7 +83,7 @@ public class ComputerManagerService extends Service {
     // Give a real Wi-Fi/Ethernet route a bounded chance to answer before an
     // overlay route wins. All candidates are probed concurrently.
     private static final int DIRECT_LAN_PREFERENCE_WINDOW_MS = 750;
-    private static final int ADDRESS_POLL_WAIT_INTERVAL_MS = 20;
+
 
     private final ComputerManagerBinder binder = new ComputerManagerBinder();
 
@@ -325,7 +325,7 @@ public class ComputerManagerService extends Service {
             try {
                 if (directOnly && saved != null && saved.serverCert != null) {
                     // A paired historical invitation needs only the authenticated endpoint probe.
-                    found = verifyInvitation(saved, invite);
+                    found = verifyInvitation(saved, invite, true);
                     if (found == null || !keepVerifiedRoute(found)) return false;
                     rememberAcceptedInvitation(found.uuid, link);
                     return true;
@@ -360,7 +360,7 @@ public class ComputerManagerService extends Service {
             if (saved == null || saved.serverCert == null || HostInvite.parseUri(link) == null) return null;
             HostInvite invite = HostInvite.parse(link);
             if (!uuid.equalsIgnoreCase(invite.uuid)) return null;
-            return verifyInvitation(new ComputerDetails(saved), invite);
+            return verifyInvitation(new ComputerDetails(saved), invite, true);
         }
 
         private boolean finishAddAtAddress(ComputerDetails found) throws InterruptedException {
@@ -392,12 +392,8 @@ public class ComputerManagerService extends Service {
                 if (active != null) addresses.add(active.address);
             }
             for (ConnectionHistory.Route route : history.routes) {
-                if (route.value.startsWith("https://")) continue;
-                try {
-                    java.net.URI address = new java.net.URI("moonlight://" + route.value);
-                    if (address.getHost() != null && address.getPort() > 0)
-                        addresses.add(new ComputerDetails.AddressTuple(address.getHost(), address.getPort()));
-                } catch (java.net.URISyntaxException ignored) { }
+                ComputerDetails.AddressTuple endpoint = ConnectionHistory.endpoint(route.value);
+                if (endpoint != null) addresses.add(endpoint);
             }
 
             // A few stale addresses must not make the P2P invitation wait through TCP timeouts.
@@ -415,12 +411,12 @@ public class ComputerManagerService extends Service {
             addresses.removeAll(queue);
             queue.addAll(addresses);
             return DesktopRouteSelector.firstVerified(queue, preferredLan, address -> verifyDesktopEndpoint(saved, address),
-                    invite == null ? null : () -> verifyInvitation(saved, invite), DIRECT_LAN_PREFERENCE_WINDOW_MS, 40000);
+                    invite == null ? null : () -> verifyInvitation(saved, invite, false), DIRECT_LAN_PREFERENCE_WINDOW_MS, 40000);
         }
 
-        private ComputerDetails verifyInvitation(ComputerDetails saved, HostInvite invite) throws IOException, InterruptedException {
+        private ComputerDetails verifyInvitation(ComputerDetails saved, HostInvite invite, boolean explicit) throws IOException, InterruptedException {
             DirectInviteTunnel.Path active = DirectInviteTunnel.active(ComputerManagerService.this, invite);
-            if (active != null) {
+            if (active != null && !(explicit && active.retryForExplicitInvite(ComputerManagerService.this))) {
                 ComputerDetails peer = verifyDesktopEndpoint(saved, active.address);
                 if (peer != null) return peer;
             }
@@ -751,9 +747,7 @@ public class ComputerManagerService extends Service {
 
         Thread retryThread = new Thread(() -> {
             try {
-                // NsdManager may resolve a host immediately after Wi-Fi becomes available,
-                // before the app's route and any VPN underlay have settled.
-                Thread.sleep(MDNS_INITIAL_SETTLE_MS);
+                // The interface may already be ready. Only delay after a failed first attempt.
                 for (int attempt = 1; attempt <= MDNS_MAX_POLL_ATTEMPTS && pollingActive; attempt++) {
                     ComputerDetails attemptDetails = new ComputerDetails(discoveredDetails);
                     if (addComputerBlocking(attemptDetails)) {
@@ -1043,15 +1037,7 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    private void startParallelPollThread(ParallelPollTuple tuple, HashSet<ComputerDetails.AddressTuple> uniqueAddresses) {
-        // Don't bother starting a polling thread for an address that doesn't exist
-        // or if the address has already been polled with an earlier tuple
-        if (tuple.address == null || !uniqueAddresses.add(tuple.address)) {
-            tuple.complete = true;
-            tuple.returnedDetails = null;
-            return;
-        }
-
+    private void startParallelPollThread(ParallelPollTuple tuple, java.util.concurrent.Semaphore completions) {
         String addressKey = tuple.address.toString();
         boolean activeTunnel = DirectInviteTunnel.isEndpoint(tuple.address.address);
         if (!addressProbeBackoff.shouldProbe(addressKey, activeTunnel)) {
@@ -1065,24 +1051,20 @@ public class ComputerManagerService extends Service {
         tuple.pollingThread = new Thread() {
             @Override
             public void run() {
-                boolean[] unreachable = new boolean[1];
-                ComputerDetails details = tryPollIp(tuple.existingDetails, tuple.address, unreachable);
-
-                // Winning probes interrupt the other address threads. Pure cancellation is not
-                // evidence that an address is unreachable, but an explicit connect/timeout failure is.
-                if (details != null) {
-                    addressProbeBackoff.recordSuccess(addressKey);
-                }
-                else if (!activeTunnel && (unreachable[0] || !isInterrupted())) {
-                    addressProbeBackoff.recordFailure(addressKey);
-                }
-
-                synchronized (tuple) {
-                    tuple.complete = true; // Done
-                    tuple.returnedDetails = details; // Polling result
+                try {
+                    boolean[] unreachable = new boolean[1];
+                    tuple.returnedDetails = tryPollIp(tuple.existingDetails, tuple.address, unreachable);
+                    if (tuple.returnedDetails != null) {
+                        addressProbeBackoff.recordSuccess(addressKey);
+                    } else if (!activeTunnel && (unreachable[0] || !isInterrupted())) {
+                        addressProbeBackoff.recordFailure(addressKey);
+                    }
+                } catch (RuntimeException failure) {
+                    LimeLog.warning("Host address probe failed (" + failure.getClass().getSimpleName() + ")");
+                } finally {
                     tuple.completedAtMs = SystemClock.elapsedRealtime();
-
-                    tuple.notify();
+                    tuple.complete = true;
+                    completions.release();
                 }
             }
         };
@@ -1094,13 +1076,16 @@ public class ComputerManagerService extends Service {
         String id = details.uuid == null ? null : details.uuid.toLowerCase(java.util.Locale.ROOT);
         ComputerDetails.AddressTuple selected = id == null ? null : selectedRoutes.get(id);
         if (selected == null || selected.address.startsWith("127.")) selected = DirectInviteTunnel.preferred(this, details.uuid);
-        if (selected != null) {
-            ComputerDetails connected = pollAddresses(details, java.util.Collections.singletonList(selected));
-            if (connected != null) return connected;
-            if (id != null) selectedRoutes.remove(id, selected);
+        LinkedHashSet<ComputerDetails.AddressTuple> candidates = new LinkedHashSet<>();
+        java.util.Collections.addAll(candidates, selected, details.localAddress, details.activeAddress,
+                details.manualAddress, details.remoteAddress, details.ipv6Address);
+        candidates.remove(null);
+        ComputerDetails result = pollAddresses(details, new ArrayList<>(candidates), Long.MAX_VALUE,
+                id != null && details.state != ComputerDetails.State.ONLINE);
+        if (selected != null && id != null && (result == null || !selected.equals(result.activeAddress))) {
+            selectedRoutes.remove(id, selected);
         }
-        return pollAddresses(details, java.util.Arrays.asList(details.localAddress,
-                details.manualAddress, details.remoteAddress, details.ipv6Address));
+        return result;
     }
 
     private ComputerDetails resolveInvite(ComputerDetails details, HostInvite invite, boolean directOnly) throws IOException, InterruptedException {
@@ -1148,40 +1133,60 @@ public class ComputerManagerService extends Service {
 
     private ComputerDetails pollAddresses(ComputerDetails details, List<ComputerDetails.AddressTuple> addresses,
                                          long deadline) throws InterruptedException {
-        ParallelPollTuple[] candidates = new ParallelPollTuple[addresses.size()];
-        HashSet<ComputerDetails.AddressTuple> uniqueAddresses = new HashSet<>();
-        for (int i = 0; i < candidates.length; i++) {
-            candidates[i] = new ParallelPollTuple(addresses.get(i), details);
-            startParallelPollThread(candidates[i], uniqueAddresses);
-        }
+        return pollAddresses(details, addresses, deadline, false);
+    }
 
+    private ComputerDetails pollAddresses(ComputerDetails details, List<ComputerDetails.AddressTuple> addresses,
+                                         long deadline, boolean includeHistoricalLan) throws InterruptedException {
+        LinkedHashSet<ComputerDetails.AddressTuple> unique = new LinkedHashSet<>(addresses);
+        unique.remove(null);
+        java.util.concurrent.Semaphore completions = new java.util.concurrent.Semaphore(0);
+        List<ParallelPollTuple> candidates = new ArrayList<>();
+        List<ParallelPollTuple> lanCandidates = new ArrayList<>();
         try {
-
-            // Do not trust Sunshine's field name here: Windows can report the
-            // Tailscale TUN adapter as LocalIP. Classify every saved endpoint
-            // from Android's actual Wi-Fi/Ethernet routes instead. This lets one
-            // host retain both a LAN address and a Tailnet/MagicDNS address.
-            ParallelPollTuple directLan = findDirectLanCandidate(candidates);
-            long directLanDeadline = directLan == null ? 0 :
-                    SystemClock.elapsedRealtime() + DIRECT_LAN_PREFERENCE_WINDOW_MS;
+            for (ComputerDetails.AddressTuple address : unique) {
+                ParallelPollTuple candidate = new ParallelPollTuple(address, details);
+                candidates.add(candidate);
+                startParallelPollThread(candidate, completions);
+            }
+            for (ParallelPollTuple candidate : candidates) {
+                if (isNumericLanCandidate(candidate.address)) lanCandidates.add(candidate);
+            }
+            if (includeHistoricalLan) {
+                int added = 0;
+                for (ConnectionHistory.Route route : ConnectionHistory.snapshot(this, details.uuid, details.name).routes) {
+                    ComputerDetails.AddressTuple endpoint = ConnectionHistory.endpoint(route.value);
+                    if (endpoint == null || !unique.add(endpoint) || !isNumericLanCandidate(endpoint)) continue;
+                    ParallelPollTuple candidate = new ParallelPollTuple(endpoint, details);
+                    candidates.add(candidate);
+                    lanCandidates.add(candidate);
+                    startParallelPollThread(candidate, completions);
+                    if (++added == MAX_EXTRA_LAN_PROBES) break;
+                }
+            }
+            long directLanDeadline = SystemClock.elapsedRealtime() + DIRECT_LAN_PREFERENCE_WINDOW_MS;
 
             while (true) {
-                if (directLan != null && directLan.returnedDetails != null) {
-                    return selectPollResult(directLan);
+                boolean awaitingLan = false;
+                for (ParallelPollTuple local : lanCandidates) {
+                    if (local.complete && local.returnedDetails != null) return selectPollResult(local);
+                    if (!local.complete) awaitingLan = true;
                 }
 
-                ParallelPollTuple quickestSuccess = findQuickestSuccessfulCandidate(candidates);
                 boolean allComplete = areAllCandidatesComplete(candidates);
+                ParallelPollTuple quickestSuccess = findQuickestSuccessfulCandidate(candidates);
                 if (quickestSuccess != null &&
-                        (directLan == null || directLan.complete ||
-                                SystemClock.elapsedRealtime() >= directLanDeadline)) {
+                        (!awaitingLan || SystemClock.elapsedRealtime() >= directLanDeadline)) {
                     return selectPollResult(quickestSuccess);
                 }
                 if (allComplete || SystemClock.elapsedRealtime() >= deadline) {
                     return quickestSuccess == null ? null : selectPollResult(quickestSuccess);
                 }
 
-                Thread.sleep(ADDRESS_POLL_WAIT_INTERVAL_MS);
+                long wakeAt = quickestSuccess == null ? deadline : Math.min(directLanDeadline, deadline);
+                if (wakeAt == Long.MAX_VALUE) completions.acquire();
+                else completions.tryAcquire(Math.max(0, wakeAt - SystemClock.elapsedRealtime()),
+                        java.util.concurrent.TimeUnit.MILLISECONDS);
             }
         } finally {
             // Stop any further polling if we've found a working address or we've been
@@ -1191,17 +1196,13 @@ public class ComputerManagerService extends Service {
 
     }
 
-    private ParallelPollTuple findDirectLanCandidate(ParallelPollTuple[] candidates) {
-        for (ParallelPollTuple candidate : candidates) {
-            if (candidate.address != null &&
-                    NetHelper.isAddressOnLocalNetwork(this, candidate.address.address)) {
-                return candidate;
-            }
-        }
-        return null;
+    private boolean isNumericLanCandidate(ComputerDetails.AddressTuple candidate) {
+        // DNS belongs in the individual probe. A stale hostname must not stall all other results.
+        String host = candidate.address;
+        return (host.indexOf(':') >= 0 || host.matches("[0-9.]+")) && NetHelper.isAddressOnLocalNetwork(this, host);
     }
 
-    private static boolean areAllCandidatesComplete(ParallelPollTuple[] candidates) {
+    private static boolean areAllCandidatesComplete(List<ParallelPollTuple> candidates) {
         for (ParallelPollTuple candidate : candidates) {
             if (!candidate.complete) {
                 return false;
@@ -1210,10 +1211,10 @@ public class ComputerManagerService extends Service {
         return true;
     }
 
-    private static ParallelPollTuple findQuickestSuccessfulCandidate(ParallelPollTuple[] candidates) {
+    private static ParallelPollTuple findQuickestSuccessfulCandidate(List<ParallelPollTuple> candidates) {
         ParallelPollTuple quickest = null;
         for (ParallelPollTuple candidate : candidates) {
-            if (candidate.returnedDetails != null &&
+            if (candidate.complete && candidate.returnedDetails != null &&
                     (quickest == null || candidate.completedAtMs < quickest.completedAtMs)) {
                 quickest = candidate;
             }

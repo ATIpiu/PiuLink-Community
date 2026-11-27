@@ -1,6 +1,8 @@
 package com.limelight;
 
 
+import com.limelight.utils.TouchDialog;
+
 import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
@@ -565,8 +567,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         String host = Game.this.getIntent().getStringExtra(EXTRA_HOST);
         if (com.limelight.computers.DirectInviteTunnel.isEndpoint(host) && NetHelper.isActiveNetworkVpn(this)) {
-            inviteRouteStatus = "\n" + getString(com.limelight.computers.DirectInviteTunnel.boundNetwork(host) != null ?
-                    R.string.route_bound_media : R.string.route_system_vpn);
+            inviteRouteStatus = "\n" + getString(com.limelight.computers.DirectInviteTunnel.routeLabel(host));
         }
         prefConfig.preferAv1ForAuto = AutoCodecPolicy.preferAv1(host, prefConfig.width, prefConfig.height,
                 connMgr.isActiveNetworkMetered());
@@ -2843,7 +2844,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             updatePipAutoEnter();
             showMicMessage(R.string.mic_permission);
             if (grants.length > 0 && !shouldShowRequestPermissionRationale(android.Manifest.permission.RECORD_AUDIO)) {
-                new android.app.AlertDialog.Builder(this).setMessage(R.string.mic_permission)
+                new TouchDialog(this).setMessage(R.string.mic_permission)
                         .setNegativeButton(android.R.string.cancel, null)
                         .setPositiveButton(R.string.mic_settings, (dialog, which) -> startActivity(new Intent(
                                 android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -2949,6 +2950,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     view -> showMonitorSelectionFromStream());
             addStreamMenuButton(R.drawable.ic_stream_keyboard, R.string.shortcut_action_keyboard,
                     view -> toggleKeyboard());
+        }
+        String peer = getIntent().getStringExtra(EXTRA_HOST);
+        if (NetHelper.isActiveNetworkVpn(this) && com.limelight.computers.DirectInviteTunnel.isEndpoint(peer)) {
+            addStreamMenuButton(R.drawable.ic_private_network, R.string.invite_vpn_choice_title,
+                    v -> com.limelight.piulink.InviteVpnChoice.choose(this, () ->
+                            Toast.makeText(this, R.string.invite_vpn_next_session, Toast.LENGTH_LONG).show()));
         }
         localCursorMenuButton = addStreamMenuButton(R.drawable.ic_stream_cursor, R.string.title_checkbox_local_cursor, view ->
                 setLocalCursorEnabled(!prefConfig.localCursor));
@@ -3062,7 +3069,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void showTvReconnect(boolean automatic, int retryMessage) {
         if (leavingStream || streamPageStopped || isFinishing() || isDestroyed()) return;
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new TouchDialog(this)
                 .setTitle(R.string.tv_connection_lost)
                 .setMessage(getString(R.string.tv_reconnect_host, getIntent().getStringExtra(EXTRA_PC_NAME)))
                 .setNegativeButton(R.string.tv_return_to_library, (d, which) -> cancelTvReconnect())
@@ -3275,7 +3282,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void confirmTvLeave() {
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle(R.string.tv_leave_title)
+        AlertDialog dialog = new TouchDialog(this).setTitle(R.string.tv_leave_title)
                 .setMessage(R.string.tv_leave_message)
                 .setNegativeButton(R.string.tv_continue_stream, null)
                 .setPositiveButton(R.string.stream_disconnect, (d, which) -> disconnectFromStreamMenu())
@@ -3295,7 +3302,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private void showTouchpadSpeedDialog() {
         String[] values = getResources().getStringArray(R.array.touchpad_pointer_speed_values);
         int current = java.util.Arrays.asList(values).indexOf(Integer.toString(prefConfig.touchpadSpeedPercent));
-        new AlertDialog.Builder(this)
+        new TouchDialog(this)
                 .setTitle(R.string.touchpad_pointer_speed)
                 .setSingleChoiceItems(R.array.touchpad_pointer_speed_labels, current, (dialog, which) -> {
                     prefConfig.touchpadSpeedPercent = Integer.parseInt(values[which]);
@@ -3315,7 +3322,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         catch (NumberFormatException exception) { current = 15; }
         int selected = 1;
         for (int i = 0; i < values.length; i++) if (values[i] == current) selected = i;
-        new AlertDialog.Builder(this)
+        new TouchDialog(this)
                 .setTitle(R.string.background_stream_duration)
                 .setSingleChoiceItems(labels, selected, (dialog, which) -> {
                     preferences.edit().putString("list_background_timeout",
@@ -4512,6 +4519,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 setShortcutRailOpen(!shortcutRailOpen, true);
             } else if (openLeft) {
                 setStreamMenuOpen(!streamMenuOpen, true);
+            } else if (streamMenuOpen && (containsRawPoint(findViewById(R.id.quickStreamDisplay), event.getRawX(), event.getRawY()) ||
+                    containsRawPoint(findViewById(R.id.quickStreamKeyboard), event.getRawX(), event.getRawY()))) {
+                // The visible dock remains actionable even while the opposite menu is open.
+                setStreamMenuOpen(false, false);
+                return super.dispatchTouchEvent(event);
             } else if (shortcutRailOpen && isTouchOutside(event, shortcutRail, shortcutRailHandle)) {
                 releaseActiveShortcutRailChord();
                 setShortcutRailOpen(false, true);

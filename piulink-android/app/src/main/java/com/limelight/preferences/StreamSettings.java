@@ -509,6 +509,11 @@ public class StreamSettings extends Activity {
                 });
             }
 
+            Preference inviteRoute = findPreference(com.limelight.utils.NetHelper.DIRECT_INVITE_NETWORK);
+            if (inviteRoute != null) inviteRoute.setOnPreferenceChangeListener((preference, value) -> {
+                com.limelight.piulink.InviteVpnChoice.noteChoice(preference.getContext());
+                return true;
+            });
             CheckBoxPreference autoBitratePref =
                     (CheckBoxPreference) findPreference(PreferenceConfiguration.AUTO_BITRATE_PREF_STRING);
             Preference manualBitratePref =
@@ -939,10 +944,8 @@ public class StreamSettings extends Activity {
 
                     // If this is native resolution, show the warning dialog
                     if (isNativeRes) {
-                        Dialog.displayDialog(getActivity(),
-                                getResources().getString(R.string.title_native_res_dialog),
-                                getResources().getString(R.string.text_native_res_dialog),
-                                false);
+                        Dialog.displayTip(getActivity(), R.string.title_native_res_dialog,
+                                R.string.text_native_res_dialog, () -> { });
                     }
 
                     // Write the new bitrate value
@@ -961,10 +964,8 @@ public class StreamSettings extends Activity {
                     // If this is native frame rate, show the warning dialog
                     CharSequence[] values = ((ListPreference)preference).getEntryValues();
                     if (nativeFramerateShown && values[values.length - 1].toString().equals(newValue.toString())) {
-                        Dialog.displayDialog(getActivity(),
-                                getResources().getString(R.string.title_native_fps_dialog),
-                                getResources().getString(R.string.text_native_res_dialog),
-                                false);
+                        Dialog.displayTip(getActivity(), R.string.title_native_fps_dialog,
+                                R.string.text_native_res_dialog, () -> { });
                     }
 
                     // Write the new bitrate value

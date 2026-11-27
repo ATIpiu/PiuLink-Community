@@ -1,5 +1,7 @@
 package com.limelight.piulink.ssh;
 
+import com.limelight.utils.TouchDialog;
+
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -196,7 +198,7 @@ public final class TerminalActivity extends Activity {
                     ArrayBlockingQueue<Boolean> answer = new ArrayBlockingQueue<>(1); trustAnswer = answer;
                     if (connection != ssh) answer.offer(false);
                     later(token, () -> {
-                        dialog = new AlertDialog.Builder(this).setTitle(R.string.ssh_trust_title)
+                        dialog = new TouchDialog(this).setTitle(R.string.ssh_trust_title)
                             .setMessage(endpoint + "\n\n" + fingerprint + "\n\n" + getString(R.string.ssh_trust_detail))
                             .setPositiveButton(R.string.ssh_trust, (d, w) -> answer.offer(true))
                             .setNegativeButton(android.R.string.cancel, (d, w) -> answer.offer(false))

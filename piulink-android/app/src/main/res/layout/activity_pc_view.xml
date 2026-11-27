@@ -205,20 +205,13 @@
             tools:ignore="UselessParent">
             <!-- This overlay intentionally shares the fragment container and is toggled by PcView. -->
 
-            <ProgressBar
-                android:id="@+id/pcs_loading"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
-                android:indeterminate="true"
-                android:indeterminateTint="@color/piulink_blue" />
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:fontFamily="sans-serif-medium"
                 android:gravity="center"
-                android:text="@string/looking_for_host_title"
+                android:text="@string/empty_no_computer"
                 android:textColor="@color/piulink_text_primary"
                 android:textSize="20sp" />
 
@@ -228,7 +221,7 @@
                 android:layout_marginTop="7dp"
                 android:gravity="center"
                 android:lineSpacingExtra="2dp"
-                android:text="@string/searching_pc"
+                android:text="@string/empty_discover_or_invite"
                 android:textColor="@color/piulink_text_secondary"
                 android:textSize="14sp" />
 

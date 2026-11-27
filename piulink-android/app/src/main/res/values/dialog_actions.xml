@@ -1,0 +1,7 @@
+<resources>
+    <item name="dialogClose" type="id" />
+    <string name="dialog_more_actions">More actions</string>
+    <string name="dialog_fewer_actions">Fewer actions</string>
+    <string name="dialog_option_on">%1$s · On</string>
+    <string name="dialog_option_off">%1$s · Off</string>
+</resources>

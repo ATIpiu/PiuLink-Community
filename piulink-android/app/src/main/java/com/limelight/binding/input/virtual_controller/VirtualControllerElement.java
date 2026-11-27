@@ -4,6 +4,8 @@
 
 package com.limelight.binding.input.virtual_controller;
 
+import com.limelight.utils.TouchDialog;
+
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -172,7 +174,7 @@ public abstract class VirtualControllerElement extends View {
     }
 
     protected void showConfigurationDialog() {
-        AlertDialog.Builder alertBuilder = new AlertDialog.Builder(getContext());
+        AlertDialog.Builder alertBuilder = new TouchDialog(getContext());
 
         alertBuilder.setTitle("Configuration");
 

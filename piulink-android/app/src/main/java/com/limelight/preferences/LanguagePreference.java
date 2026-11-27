@@ -56,4 +56,8 @@ public class LanguagePreference extends ListPreference {
         // If we don't have native app locale settings, launch the normal dialog
         super.onClick();
     }
+    @Override protected void onPrepareDialogBuilder(android.app.AlertDialog.Builder builder) {
+        super.onPrepareDialogBuilder(builder);
+        com.limelight.utils.TouchDialog.preferenceHeader(builder, this);
+    }
 }

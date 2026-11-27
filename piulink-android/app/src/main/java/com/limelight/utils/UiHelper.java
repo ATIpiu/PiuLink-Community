@@ -195,9 +195,7 @@ public class UiHelper {
             if (crashCount % 3 == 0) {
                 // At 3 consecutive crashes, we'll forcefully reset their settings
                 PreferenceConfiguration.resetStreamingSettings(activity);
-                Dialog.displayDialog(activity,
-                        activity.getResources().getString(R.string.title_decoding_reset),
-                        activity.getResources().getString(R.string.message_decoding_reset),
+                Dialog.displayTip(activity, R.string.title_decoding_reset, R.string.message_decoding_reset,
                         new Runnable() {
                             @Override
                             public void run() {
@@ -207,9 +205,7 @@ public class UiHelper {
                         });
             }
             else {
-                Dialog.displayDialog(activity,
-                        activity.getResources().getString(R.string.title_decoding_error),
-                        activity.getResources().getString(R.string.message_decoding_error),
+                Dialog.displayTip(activity, R.string.title_decoding_error, R.string.message_decoding_error,
                         new Runnable() {
                             @Override
                             public void run() {
@@ -241,9 +237,10 @@ public class UiHelper {
             }
         };
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(parent);
+        AlertDialog.Builder builder = new TouchDialog(parent);
         builder.setMessage(parent.getResources().getString(R.string.applist_quit_confirmation))
                 .setPositiveButton(parent.getResources().getString(R.string.yes), dialogClickListener)
+                .setOnCancelListener(d -> { if (onNo != null) onNo.run(); })
                 .setNegativeButton(parent.getResources().getString(R.string.no), dialogClickListener)
                 .show();
     }
@@ -268,10 +265,11 @@ public class UiHelper {
             }
         };
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(parent);
+        AlertDialog.Builder builder = new TouchDialog(parent);
         builder.setMessage(parent.getResources().getString(R.string.delete_pc_msg))
                 .setTitle(computer.name)
                 .setPositiveButton(parent.getResources().getString(R.string.yes), dialogClickListener)
+                .setOnCancelListener(d -> { if (onNo != null) onNo.run(); })
                 .setNegativeButton(parent.getResources().getString(R.string.no), dialogClickListener)
                 .show();
     }

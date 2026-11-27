@@ -2,9 +2,9 @@
     <string name="setup_progress">连接你的电脑 · %1$d / 3</string>
     <string name="setup_guide_title">连接电脑指南</string>
     <string name="setup_pc_title">先准备好电脑</string>
-    <string name="setup_pc_body">在 Windows 电脑上打开 PiuLink Host，并保持电脑唤醒。手机和电脑连着同一 Wi-Fi 时，现在就可以查找电脑。</string>
+    <string name="setup_pc_body">在 Windows 电脑上打开 PiuLink Host，并保持电脑唤醒。只要两台设备在同一个局域网，就能查找电脑。电脑也可以接网线。</string>
     <string name="setup_pc_ready">设置外网连接</string>
-    <string name="setup_lan_discover">查找同一 Wi-Fi 下的电脑</string>
+    <string name="setup_lan_discover">查找局域网内的电脑</string>
     <string name="setup_ts_title">在外面也能连接</string>
     <string name="setup_ts_body">手机和电脑都需要安装 Tailscale。两端登录同一个账号，或使用已向你授权共享这台电脑的网络。\n\n打开 Tailscale 连接开关，同意 Android 的 VPN 提示，再返回这里继续。如果正在使用其他 VPN，可能需要先切换到 Tailscale。</string>
     <string name="setup_ts_installed">手机已安装 Tailscale。请在 Tailscale 内确认登录和连接状态；已安装不代表电脑已经可以连接。</string>

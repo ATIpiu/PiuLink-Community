@@ -259,7 +259,7 @@
     <string name="summary_seekbar_vibrate_fallback_strength">Amplify or reduce the vibration intensity on your device</string>
     <string name="suffix_seekbar_vibrate_fallback_strength">%</string>
     <string name="title_seekbar_deadzone">Adjust analog stick deadzone</string>
-    <string name="summary_seekbar_deadzone">Note: Some games can enforce a larger deadzone than what Moonlight is configured to use.</string>
+    <string name="summary_seekbar_deadzone">Some games apply their own minimum stick deadzone.</string>
     <string name="suffix_seekbar_deadzone">%</string>
     <string name="title_checkbox_xb1_driver">Xbox 360/One USB gamepad driver</string>
     <string name="summary_checkbox_xb1_driver">Enables a built-in USB driver for devices without native Xbox controller support</string>
@@ -392,7 +392,7 @@
 
     <string name="category_host_settings">Host Settings</string>
     <string name="title_checkbox_enable_sops">Optimize game settings</string>
-    <string name="summary_checkbox_enable_sops">Allow GFE to modify game settings for optimal streaming</string>
+    <string name="summary_checkbox_enable_sops">Allow compatible hosts to adjust game settings for streaming.</string>
     <string name="title_checkbox_host_audio">Play audio on PC</string>
     <string name="summary_checkbox_host_audio">Play audio from the computer and this device</string>
 

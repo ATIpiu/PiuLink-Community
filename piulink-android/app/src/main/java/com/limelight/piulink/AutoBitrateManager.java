@@ -58,7 +58,11 @@ public final class AutoBitrateManager {
                 : manager != null && manager.isActiveNetworkMetered();
         boolean local = !tunnel && (vpn ? lan != null : NetHelper.isPrivateHostAddress(address));
         String route = tunnel ? (metered ? "metered" : "remote") : classifyRoute(address, vpn, metered, local);
-        return new StreamPath(route, caps == null ? 0 : caps.getLinkDownstreamBandwidthKbps(), vpn && lan == null, tunnel);
+        return new StreamPath(route, caps == null ? 0 : caps.getLinkDownstreamBandwidthKbps(), usesVpnTransport(vpn, lan != null || bound != null), tunnel);
+    }
+
+    static boolean usesVpnTransport(boolean vpnActive, boolean physicalNetworkBound) {
+        return vpnActive && !physicalNetworkBound;
     }
 
     static String classifyRoute(String hostAddress, boolean vpnActive, boolean metered, boolean directLocal) {

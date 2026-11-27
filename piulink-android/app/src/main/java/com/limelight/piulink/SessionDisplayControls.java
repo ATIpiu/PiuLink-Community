@@ -1,5 +1,7 @@
 package com.limelight.piulink;
 
+import com.limelight.utils.TouchDialog;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.res.ColorStateList;
@@ -133,7 +135,7 @@ public final class SessionDisplayControls {
         };
         picture.setOnClickListener(switchPage);
         displays.setOnClickListener(switchPage);
-        dialog = new AlertDialog.Builder(activity)
+        dialog = new TouchDialog(activity)
                 .setTitle(R.string.monitor_select_title).setCustomTitle(header).setView(scroll)
                 .setNeutralButton(R.string.monitor_refresh, null).setNegativeButton(R.string.screen_close_panel, null).create();
         dialog.setOnShowListener(d -> {
@@ -332,10 +334,11 @@ public final class SessionDisplayControls {
         }
     }
 
-    private void disableOutputActions() {
-        for (int i = 0; i < content.getChildCount(); i++) {
-            View child = content.getChildAt(i);
-            if (child.isClickable()) child.setEnabled(false);
+    private void disablePictureActions(ViewGroup group) {
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child instanceof Button) child.setEnabled(false);
+            else if (child instanceof ViewGroup) disablePictureActions((ViewGroup) child);
         }
     }
 
@@ -352,7 +355,7 @@ public final class SessionDisplayControls {
             requesting = true;
             status.setText(waiting);
             status.setVisibility(View.VISIBLE);
-            disableOutputActions();
+            disablePictureActions(content);
             setNavigationEnabled(false);
         }
         if (DisplayInventoryClient.lastInventoryWasLegacy(host) || (inventory != null && !inventory.supportsSessionDisplays)) {
@@ -385,7 +388,18 @@ public final class SessionDisplayControls {
                 String reason = error instanceof DisplayInventoryClient.SessionError
                         ? ((DisplayInventoryClient.SessionError) error).reason : "";
                 activity.runOnUiThread(() -> {
-                    if (visible() && number == requestNumber) showError(reason, automatic);
+                    if (visible() && number == requestNumber) {
+                        if (automatic && error instanceof java.io.IOException &&
+                                !(error instanceof DisplayInventoryClient.SessionError) && content.getChildCount() > 0) {
+                            // A failed poll cannot invalidate the last confirmed picture mode.
+                            // Keep it readable and renew it before accepting another change.
+                            renderedState = null;
+                            disablePictureActions(content);
+                            status.setText(R.string.screen_refresh_retry);
+                            status.setVisibility(View.VISIBLE);
+                            schedulePoll();
+                        } else showError(reason, automatic);
+                    }
                 });
             }
         });
@@ -533,7 +547,7 @@ public final class SessionDisplayControls {
         final int checked = selected;
         resize.setOnClickListener(v -> {
             if (requesting) return;
-            new AlertDialog.Builder(activity).setTitle(R.string.screen_virtual_resolution_title)
+            new TouchDialog(activity).setTitle(R.string.screen_virtual_resolution_title)
                     .setSingleChoiceItems(labels.toArray(new String[0]), checked, (picker, which) -> {
                         picker.dismiss();
                         if (which != checked) request("resize-stream", key, -1, activity.getString(R.string.screen_resizing), choices.get(which));

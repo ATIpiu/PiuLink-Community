@@ -15,6 +15,12 @@ public class AutoBitratePolicyTest {
             org.junit.Assert.assertTrue(f.nextEncoderTarget(2708, 2600, 0, 60, 30, 42000) > 2708);
         }
     }
+    @Test public void physicalInviteUsesItsOwnBudgetWhileVpnIsActive() {
+        assertEquals(14000, AutoBitratePolicy.handshakeBudget(14000, AutoBitrateManager.usesVpnTransport(true, true)));
+        assertEquals(4000, AutoBitratePolicy.handshakeBudget(14000, AutoBitrateManager.usesVpnTransport(true, false)));
+        assertEquals(14000, AutoBitratePolicy.handshakeBudget(14000, AutoBitrateManager.usesVpnTransport(false, false)));
+    }
+
     @Test public void onlyVpnInvitesSeparateHandshakeFromBudget() {
         assertEquals(14000, AutoBitratePolicy.handshakeBudget(14000, false));
         assertEquals(4000, AutoBitratePolicy.handshakeBudget(14000, true));

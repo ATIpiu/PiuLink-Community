@@ -1,5 +1,7 @@
 package com.limelight.piulink.ssh;
 
+import com.limelight.utils.TouchDialog;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -114,7 +116,7 @@ public final class ComputerSsh {
 
     public static void openSsh(Activity activity, ComputerDetails computer, boolean configure) {
         if (configure) {
-            new AlertDialog.Builder(activity).setTitle(R.string.ssh_title)
+            new TouchDialog(activity).setTitle(R.string.ssh_title)
                     .setMessage(R.string.ssh_computer_setup_hint)
                     .setPositiveButton(R.string.ssh_connect, (d, w) -> fetchDefaults(activity, computer))
                     .setNegativeButton(android.R.string.cancel, null).show();
@@ -126,7 +128,7 @@ public final class ComputerSsh {
             return;
         }
         String address = computer.activeAddress.address;
-        AlertDialog loading = new AlertDialog.Builder(activity).setTitle(R.string.ssh_title)
+        AlertDialog loading = new TouchDialog(activity).setTitle(R.string.ssh_title)
                 .setMessage(R.string.ssh_reading_host).setNegativeButton(android.R.string.cancel, null).create();
         loading.show();
         new Thread(() -> {
@@ -155,14 +157,14 @@ public final class ComputerSsh {
                 loading.dismiss();
                 if (activity.isFinishing() || activity.isDestroyed()) return;
                 if (profile == null) {
-                    new AlertDialog.Builder(activity).setTitle(R.string.ssh_title).setMessage(R.string.ssh_host_update_needed)
+                    new TouchDialog(activity).setTitle(R.string.ssh_title).setMessage(R.string.ssh_host_update_needed)
                             .setPositiveButton(R.string.monitor_refresh, (d, w) -> fetchDefaults(activity, computer))
                             .setNegativeButton(android.R.string.cancel, null).show();
                     return;
                 }
                 try { profile.replace(activity, null); }
                 catch (IllegalStateException invalidStorage) {
-                    new AlertDialog.Builder(activity).setTitle(R.string.ssh_title)
+                    new TouchDialog(activity).setTitle(R.string.ssh_title)
                             .setMessage(R.string.ssh_storage_error).setPositiveButton(android.R.string.ok, null).show();
                     return;
                 }

@@ -2,9 +2,9 @@
     <string name="setup_progress">Connect your computer · %1$d / 3</string>
     <string name="setup_guide_title">Computer connection guide</string>
     <string name="setup_pc_title">Prepare your computer</string>
-    <string name="setup_pc_body">Open PiuLink Host on your Windows PC and keep it awake. If your phone and PC are on the same Wi-Fi, you can find the PC now.</string>
+    <string name="setup_pc_body">Open PiuLink Host on the Windows computer and keep it awake. You can find it when both devices are on the same local network, including Ethernet.</string>
     <string name="setup_pc_ready">Set up access from another network</string>
-    <string name="setup_lan_discover">Find a PC on this Wi-Fi</string>
+    <string name="setup_lan_discover">Find a computer on this network</string>
     <string name="setup_ts_title">Connect from anywhere</string>
     <string name="setup_ts_body">Install Tailscale on both your phone and computer. Sign in to the same account, or use a network where this computer is shared with you.\n\nTurn on Tailscale and approve its Android VPN request, then return here. If another VPN is active, you may need to switch to Tailscale.</string>
     <string name="setup_ts_installed">Tailscale is installed. Its sign-in and connection status must be checked in Tailscale; installation alone does not mean the computer is reachable.</string>

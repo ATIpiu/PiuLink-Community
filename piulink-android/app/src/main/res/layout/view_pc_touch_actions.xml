@@ -28,10 +28,10 @@
         android:layout_marginTop="6dp"
         android:minHeight="48dp"
         android:focusable="false"
-        android:background="@drawable/bg_home_desktop"
+        android:background="@drawable/bg_home_add"
         android:stateListAnimator="@null"
         android:text="@string/pc_super_screen"
-        android:textColor="@color/home_desktop_text"
+        android:textColor="@color/home_ink"
         android:textSize="15sp"
         android:textAllCaps="false" />
     <Button

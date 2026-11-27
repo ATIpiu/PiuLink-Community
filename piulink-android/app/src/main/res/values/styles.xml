@@ -65,6 +65,10 @@
         <item name="android:buttonBarNeutralButtonStyle">@style/PiuLinkDialogSecondary</item>
         <item name="android:windowAnimationStyle">@style/PiuLinkDialogAnimation</item>
     </style>
+    <style name="PiuLinkTouchDialogTheme" parent="PiuLinkDialogTheme">
+        <item name="android:windowMinWidthMajor">0dp</item>
+        <item name="android:windowMinWidthMinor">0dp</item>
+    </style>
     <style name="PiuLinkDialogSecondary" parent="@android:style/Widget.Material.Button.Borderless">
         <item name="android:textAllCaps">false</item>
         <item name="android:textColor">@color/piulink_blue</item>

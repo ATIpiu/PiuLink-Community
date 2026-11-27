@@ -41,7 +41,7 @@
             android:fontFamily="sans-serif-medium"
             android:maxLines="2"
             android:textColor="@color/home_ink"
-            android:textSize="26sp" />
+            android:textSize="22sp" />
         <TextView
             android:id="@+id/grid_status"
             android:layout_width="match_parent"

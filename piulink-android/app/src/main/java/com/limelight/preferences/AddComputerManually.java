@@ -133,10 +133,12 @@ public class AddComputerManually extends Activity {
         URI parsed = com.limelight.computers.HostInvite.parseUri(raw.trim());
         if (parsed == null && !punch) parsed = parseRawUserInputToUri(raw);
         if (parsed == null) {
-            hostText.setError(getString(raw.trim().isEmpty() ? R.string.addpc_enter_ip : R.string.addpc_invalid_address));
+            hostText.setError(getString(raw.trim().isEmpty() ? R.string.connect_input_empty : R.string.connect_input_invalid));
             hostText.requestFocus();
             return;
         }
+        if ("https".equals(parsed.getScheme()) && com.limelight.piulink.InviteVpnChoice.offer(this,
+                () -> submitAddress(raw, punch, expectedHostId))) return;
         hostText.setError(null);
         pendingAddress = parsed;
         pendingHostId = expectedHostId;
@@ -147,6 +149,7 @@ public class AddComputerManually extends Activity {
         progress.setCanceledOnTouchOutside(false);
         progress.setButton(ProgressDialog.BUTTON_NEGATIVE, getText(android.R.string.cancel), (d, w) -> cancelAdd());
         progress.setOnCancelListener(d -> cancelAdd());
+        com.limelight.utils.TouchDialog.prepareHeader(progress, getText(R.string.title_add_pc));
         progress.show();
         startPendingAdd();
     }
@@ -184,7 +187,10 @@ public class AddComputerManually extends Activity {
                 dismissProgress();
                 if (message == R.string.addpc_success) {
                     if (expectedHostId != null) setResult(RESULT_OK, new Intent().putExtra(EXTRA_ROUTE_HOST, expectedHostId));
-                    else Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                    else {
+                        setResult(RESULT_OK);
+                        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                    }
                     finish();
                 } else if (expectedHostId != null && getIntent().hasExtra(EXTRA_ROUTE_HOST)) {
                     Dialog.displayDialog(this, getString(R.string.conn_error_title), getString(message), () -> {
@@ -303,7 +309,16 @@ public class AddComputerManually extends Activity {
             }
         });
         findViewById(R.id.historyButton).setOnClickListener(view -> showHistory());
-        findViewById(R.id.punchButton).setOnClickListener(view -> submitAddress(hostText.getText().toString(), true));
+        View punch = findViewById(R.id.punchButton);
+        punch.setOnClickListener(view -> submitAddress(hostText.getText().toString(), true));
+        hostText.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void afterTextChanged(android.text.Editable s) {}
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                updateInviteAction(punch);
+            }
+        });
+        updateInviteAction(punch);
         findViewById(R.id.addPcBackButton).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -320,6 +335,11 @@ public class AddComputerManually extends Activity {
         // Bind to the ComputerManager service
         serviceBound = bindService(new Intent(AddComputerManually.this,
                     ComputerManagerService.class), serviceConnection, Service.BIND_AUTO_CREATE);
+    }
+
+    private void updateInviteAction(View punch) {
+        boolean invitation = com.limelight.computers.HostInvite.parseUri(hostText.getText().toString().trim()) != null;
+        punch.setVisibility(invitation ? View.VISIBLE : View.GONE);
     }
 
     private void startSavedRoute() {

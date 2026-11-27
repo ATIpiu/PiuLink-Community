@@ -55,14 +55,6 @@
                 android:textColor="@color/piulink_text_primary"
                 android:textSize="18sp" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="@string/add_pc_page_subtitle"
-                android:textColor="@color/piulink_text_secondary"
-                android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -73,7 +65,8 @@
         android:clipToPadding="false"
         android:fillViewport="true">
 
-        <LinearLayout
+        <com.limelight.piulink.FormColumn
+            android:layout_gravity="center_horizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_horizontal"
@@ -96,7 +89,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:fontFamily="sans-serif-medium"
-                    android:text="@string/add_pc_card_title"
+                    android:text="@string/connect_input_title"
                     android:textColor="@color/piulink_text_primary"
                     android:textSize="21sp" />
 
@@ -105,18 +98,10 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="7dp"
                     android:lineSpacingExtra="2dp"
-                    android:text="@string/add_pc_card_description"
+                    android:text="@string/connect_input_help"
                     android:textColor="@color/piulink_text_secondary"
                     android:textSize="14sp" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="22dp"
-                    android:fontFamily="sans-serif-medium"
-                    android:text="@string/host_address_label"
-                    android:textColor="@color/piulink_text_primary"
-                    android:textSize="13sp" />
 
                 <EditText
                     android:id="@+id/hostTextView"
@@ -124,7 +109,8 @@
                     android:layout_height="56dp"
                     android:layout_marginTop="8dp"
                     android:background="@drawable/bg_text_field"
-                    android:hint="@string/host_address_hint"
+                    android:hint="@string/connect_input_hint"
+                    android:layout_marginBottom="2dp"
                     android:imeOptions="actionDone"
                     android:importantForAutofill="no"
                     android:inputType="textUri|textNoSuggestions"
@@ -138,14 +124,6 @@
                     <requestFocus />
                 </EditText>
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="9dp"
-                    android:lineSpacingExtra="2dp"
-                    android:text="@string/host_address_example"
-                    android:textColor="@color/piulink_text_secondary"
-                    android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/addPcButton"
@@ -157,18 +135,29 @@
                     android:focusable="true"
                     android:fontFamily="sans-serif-medium"
                     android:gravity="center"
-                    android:text="@string/add_pc_primary_action"
+                    android:text="@string/connect_auto_action"
                     android:textColor="@color/piulink_on_accent"
                     android:textSize="15sp" />
 
                 <Button
                     android:id="@+id/punchButton"
+                    android:minHeight="48dp"
+                    android:textAllCaps="false"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/home_ink"
+                    android:background="@drawable/bg_home_add"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/invite_punch_action" />
+                    android:visibility="gone"
+                    android:text="@string/connect_p2p_only" />
 
                 <Button
                     android:id="@+id/historyButton"
+                    android:minHeight="48dp"
+                    android:textAllCaps="false"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/home_ink"
+                    android:background="@drawable/bg_home_add"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/connection_history" />
@@ -183,10 +172,10 @@
                     android:focusable="true"
                     android:fontFamily="sans-serif-medium"
                     android:gravity="center"
-                    android:text="@string/open_private_network"
+                    android:text="@string/open_tailscale"
                     android:textColor="@color/piulink_blue"
                     android:textSize="14sp" />
             </LinearLayout>
-        </LinearLayout>
+        </com.limelight.piulink.FormColumn>
     </ScrollView>
 </LinearLayout>

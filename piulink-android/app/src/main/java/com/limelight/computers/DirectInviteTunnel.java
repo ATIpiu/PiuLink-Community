@@ -9,6 +9,7 @@ import com.limelight.utils.NetHelper;
 import android.os.SystemClock;
 import android.util.Base64;
 import com.limelight.LimeLog;
+import com.limelight.R;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.nvstream.http.ComputerDetails.AddressTuple;
 import com.limelight.nvstream.http.LimelightCryptoProvider;
@@ -43,20 +44,36 @@ import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
 
 public final class DirectInviteTunnel {
+    private enum Route {
+        SYSTEM(R.string.route_system_vpn), NO_NETWORK(R.string.invite_vpn_no_network),
+        DIRECT_FAILED(R.string.invite_vpn_punch_failed), BOUND(R.string.route_bound_media);
+        final int label;
+        Route(int label) { this.label = label; }
+    }
+
     static final class Path {
         private final Session session;
         private final String hostId;
         final AddressTuple address;
         final Network defaultNetwork, boundNetwork;
         final boolean preferPhysical;
+        private final Route route;
+        private final long establishedMs = SystemClock.elapsedRealtime();
 
-        private Path(Session session, String hostId, AddressTuple address, Network defaultNetwork, Network boundNetwork, boolean preferPhysical) {
+        boolean retryForExplicitInvite(Context context) {
+            if ((route != Route.NO_NETWORK && route != Route.DIRECT_FAILED) ||
+                    SystemClock.elapsedRealtime() - establishedMs < 30000) return false;
+            return NetHelper.allowedInviteNetwork(context) != null;
+        }
+
+        private Path(Session session, String hostId, AddressTuple address, Network defaultNetwork, Network boundNetwork, boolean preferPhysical, Route route) {
             this.session = session;
             this.hostId = hostId;
             this.address = address;
             this.defaultNetwork = defaultNetwork;
             this.boundNetwork = boundNetwork;
             this.preferPhysical = preferPhysical;
+            this.route = route;
         }
 
         boolean current(Context ctx) {
@@ -86,6 +103,12 @@ public final class DirectInviteTunnel {
         for (Path path : sessions.values()) if (address.equals(path.address.address) && path.session.alive()) return true;
         return false;
     }
+    public static int routeLabel(String address) {
+        for (Path path : sessions.values())
+            if (path.address.address.equals(address) && path.session.alive()) return path.route.label;
+        return R.string.route_system_vpn;
+    }
+
     public static Network boundNetwork(String address) {
         for (Path path : sessions.values())
             if (path.address.address.equals(address) && path.session.alive()) return path.boundNetwork;
@@ -176,6 +199,7 @@ public final class DirectInviteTunnel {
             Network network = NetHelper.allowedInviteNetwork(ctx);
             LinkProperties link = network == null ? null : cm.getLinkProperties(network);
             String config = openConfiguration(ctx, invite, cert, key, listener);
+            Route route = preferPhysical && NetHelper.isActiveNetworkVpn(ctx) ? Route.NO_NETWORK : Route.SYSTEM;
             Session session;
             if (link != null && link.getInterfaceName() != null) {
                 final Network physical = network;
@@ -185,10 +209,12 @@ public final class DirectInviteTunnel {
                             physical.bindSocket(duplicate.getFileDescriptor());
                         }
                     });
+                    route = Route.BOUND;
                 } catch (Exception unavailable) {
                     if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
                     LimeLog.info("PiuLink direct bearer unavailable; retrying the system route");
                     network = null;
+                    route = Route.DIRECT_FAILED;
                     session = Mobile.start(openConfiguration(ctx, invite, cert, key, listener));
                 }
             } else {
@@ -196,11 +222,11 @@ public final class DirectInviteTunnel {
                 session = Mobile.start(config);
             }
             if (Thread.currentThread().isInterrupted()) { session.stop(); throw new InterruptedException(); }
-            Path path = new Path(session, invite.uuid, address, defaultNetwork, network, preferPhysical);
+            Path path = new Path(session, invite.uuid, address, defaultNetwork, network, preferPhysical, route);
             sessions.put(inviteKey, path);
             preferredPaths.put(invite.uuid, path);
             monitor(inviteKey, path);
-            LimeLog.info("PiuLink P2P media route " + (network == null ? "system" : "bound physical network"));
+            LimeLog.info("PiuLink P2P media route " + route.name());
             LimeLog.info("PiuLink P2P ready in " + (SystemClock.elapsedRealtime()-start) + " ms, selected peer " + session.peerAddress());
             return path;
         } catch (InterruptedException cancelled) { throw cancelled; }

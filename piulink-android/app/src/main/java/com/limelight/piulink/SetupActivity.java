@@ -17,6 +17,7 @@ import com.limelight.utils.UiHelper;
 
 /** Resumable preparation guide. Installation is never treated as proof of connectivity. */
 public final class SetupActivity extends Activity {
+    private static final int ADD_COMPUTER = 1;
     private SharedPreferences state;
     private int step;
     private Button primaryAction;
@@ -49,32 +50,29 @@ public final class SetupActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(getColor(R.color.piulink_background));
-        LinearLayout body = new LinearLayout(this);
+        LinearLayout body = new FormColumn(this, null);
         body.setOrientation(LinearLayout.VERTICAL);
         body.setPadding(dp(24), dp(26), dp(24), dp(20));
-        scroll.addView(body);
+        scroll.addView(body, new android.widget.FrameLayout.LayoutParams(-1, -2, android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL));
         text(body, getString(R.string.setup_progress, step + 1), 14);
         text(body, getString(new int[]{R.string.setup_pc_title, R.string.setup_ts_title,
                 R.string.setup_pair_title}[step]), 28);
-        text(body, getString(new int[]{R.string.setup_pc_body, R.string.setup_ts_body,
-                R.string.setup_pair_body}[step]), 16);
+        text(body, getString(new int[]{R.string.setup_pc_body, R.string.guide_remote_routes,
+                R.string.guide_pair_routes}[step]), 16);
         if (step == 0) {
             button(body, R.string.setup_lan_discover, true, v -> showComputers());
             button(body, R.string.setup_pc_ready, v -> advance(1));
         } else if (step == 1) {
             boolean installed = TailscaleLauncher.isInstalled(this);
-            text(body, getString(installed ? R.string.setup_ts_installed : R.string.setup_ts_missing), 16);
-            button(body, installed ? R.string.setup_ts_open : R.string.setup_ts_install, true,
+            button(body, R.string.guide_enter_invite, true, v -> enterAddress());
+            button(body, installed ? R.string.setup_ts_open : R.string.setup_ts_install,
                     v -> TailscaleLauncher.openAppOrPlayStore(this));
-            button(body, R.string.setup_ts_download,
+            if (!installed) button(body, R.string.setup_ts_download,
                     v -> HelpLauncher.launchUrl(this, "https://tailscale.com/download/android"));
             button(body, R.string.setup_ts_next, v -> advance(2));
             button(body, R.string.setup_lan_discover, v -> showComputers());
         } else {
-            button(body, R.string.setup_add_address, true, v -> {
-                startActivities(new Intent[] { computersIntent(), new Intent(this, AddComputerManually.class) });
-                finish();
-            });
+            button(body, R.string.guide_enter_address, true, v -> enterAddress());
             button(body, R.string.setup_show_computers, v -> showComputers());
         }
         if (step > 0) button(body, R.string.setup_previous, v -> advance(step - 1));
@@ -82,6 +80,15 @@ public final class SetupActivity extends Activity {
         setContentView(scroll);
         UiHelper.notifyNewRootView(this);
         if (UiHelper.isTelevision(this) && primaryAction != null) primaryAction.requestFocus();
+    }
+
+    private void enterAddress() {
+        startActivityForResult(new Intent(this, AddComputerManually.class), ADD_COMPUTER);
+    }
+
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request == ADD_COMPUTER && result == RESULT_OK) showComputers();
     }
 
     private Intent computersIntent() {

@@ -6,7 +6,7 @@ PiuLink Android 把已配对电脑的桌面和游戏串流到 Android 手机、�
 
 在局域网里发现或手动添加 Host，完成 PIN 配对后选择桌面或应用。异地可以使用自己的 Tailscale 网络，也可以在兼容版本上粘贴 PiuLink 私有直连邀请。邀请服务协商地址，PiuLink 不提供媒体中转。
 
-Android 0.3.209 正式签名版的应用 ID 为 `labs.atipiu.piulink`，版本码为 229。不确定设备架构时选通用版，确认支持 `arm64-v8a` 时可选 ARM64 专用版。[通用版（推荐）· 57.96 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.209/PiuLink-Android-0.3.209-nonRoot-universal-release.apk) · [ARM64 专用版 · 17.61 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.209/PiuLink-Android-0.3.209-nonRoot-arm64-v8a-release.apk)。
+Android 0.3.222 正式签名版的应用 ID 为 `labs.atipiu.piulink`，版本码为 242。不确定设备架构时选通用版，确认支持 `arm64-v8a` 时可选 ARM64 专用版。[通用版（推荐）· 57.86 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.222/PiuLink-Android-0.3.222-nonRoot-universal-release.apk) · [ARM64 专用版 · 17.60 MB](https://github.com/ATIpiu/PiuLink-Community/releases/download/android-0.3.222/PiuLink-Android-0.3.222-nonRoot-arm64-v8a-release.apk)。
 
 ## 构建
 

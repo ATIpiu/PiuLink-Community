@@ -1,5 +1,7 @@
 package com.limelight.piulink;
 
+import com.limelight.utils.TouchDialog;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
@@ -103,9 +105,10 @@ public final class ConnectionAssistantDialog {
                     R.drawable.bg_status_neutral);
         }
 
-        final AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setView(content)
+        final AlertDialog dialog = new TouchDialog(activity)
+                .setTitle(title.getText()).setView(content)
                 .create();
+        title.setVisibility(View.GONE);
         dialog.setCanceledOnTouchOutside(true);
 
         if (online && paired) {

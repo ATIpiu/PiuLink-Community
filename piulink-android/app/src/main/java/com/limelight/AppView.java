@@ -91,6 +91,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     private int libraryFilterMode = AppGridAdapter.FILTER_ALL;
     private String librarySearchQuery = "";
     private boolean libraryToolsOpen;
+    private android.window.OnBackInvokedCallback searchBack;
     private boolean libraryLoaded;
     private boolean checkingFileAccess;
     private int fileAccessState = R.string.transfer_checking;
@@ -456,12 +457,8 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         } else label.setText(computerName);
         searchInput.setText(librarySearchQuery);
         searchInput.setSelection(searchInput.length());
-        backButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                finish();
-            }
-        });
+        backButton.setOnClickListener(v -> leaveLibraryLevel());
+        findViewById(R.id.resetLibraryFilter).setOnClickListener(v -> leaveLibraryLevel());
         searchInput.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence text, int start, int count, int after) {
@@ -538,6 +535,16 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         }
     }
 
+    private void leaveLibraryLevel() {
+        if (libraryToolsOpen) findViewById(R.id.appLibraryTools).performClick();
+        else finish();
+    }
+
+    @Override public void onBackPressed() {
+        if (libraryToolsOpen) leaveLibraryLevel();
+        else super.onBackPressed();
+    }
+
     private void updateLibraryTools(EditText searchInput, View tools) {
         int visibility = libraryToolsOpen ? View.VISIBLE : View.GONE;
         searchInput.setVisibility(visibility);
@@ -547,6 +554,18 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         filterFavoritesButton.setVisibility(visibility);
         filterRecentButton.setVisibility(visibility);
         tools.setSelected(libraryToolsOpen);
+        tools.setContentDescription(getString(libraryToolsOpen ? R.string.close_library_search : R.string.lunar_library_tools));
+        ((android.widget.ImageButton) tools).setImageResource(libraryToolsOpen ? android.R.drawable.ic_menu_close_clear_cancel : R.drawable.ic_search);
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (libraryToolsOpen && searchBack == null) {
+                searchBack = this::leaveLibraryLevel;
+                getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                        android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, searchBack);
+            } else if (!libraryToolsOpen && searchBack != null) {
+                getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(searchBack);
+                searchBack = null;
+            }
+        }
     }
 
     private void updateFilterSelection() {
@@ -777,6 +796,8 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         boolean showEmptyState = libraryLoaded && appGridAdapter.getCount() == 0;
         appEmptyState.setVisibility(showEmptyState ? View.VISIBLE : View.GONE);
         if (showEmptyState) {
+            findViewById(R.id.resetLibraryFilter).setVisibility(libraryToolsOpen &&
+                    (!librarySearchQuery.isEmpty() || libraryFilterMode != AppGridAdapter.FILTER_ALL) ? View.VISIBLE : View.GONE);
             if (!librarySearchQuery.trim().isEmpty()) {
                 appEmptyTitle.setText(R.string.library_no_search_results_title);
                 appEmptyMessage.setText(R.string.library_no_search_results_message);
@@ -814,6 +835,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
     @Override
     protected void onDestroy() {
+        if (Build.VERSION.SDK_INT >= 33 && searchBack != null) getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(searchBack);
         super.onDestroy();
 
         SpinnerDialog.closeDialogs(this);
@@ -853,15 +875,31 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
         AdapterContextMenuInfo info = (AdapterContextMenuInfo) menuInfo;
         AppObject selectedApp = (AppObject) appGridAdapter.getItem(info.position);
+        menu.setHeaderTitle(selectedApp.isSsh() ? getText(R.string.ssh_title) : selectedApp.app.getAppName());
+        populateAppMenu(menu, selectedApp, info.targetView);
+    }
+
+    private void showAppActions(View anchor, AppObject app) {
+        finishDesktopRequest();
+        Menu menu = new android.widget.PopupMenu(this, anchor).getMenu();
+        populateAppMenu(menu, app, anchor);
+        com.limelight.utils.TouchActions.show(this, app.isSsh() ? getText(R.string.ssh_title) : app.app.getAppName(),
+                menu, id -> {
+                    switch (id) {
+                        case START_OR_RESUME_ID: case START_WITH_QUIT: return R.drawable.ic_play;
+                        case FAVORITE_APP_ID: return R.drawable.ic_star_filled;
+                        case QUIT_ID: return R.drawable.ic_stream_disconnect;
+                        default: return R.drawable.ic_settings;
+                    }
+                }, QUIT_ID, null, START_OR_RESUME_ID, START_WITH_QUIT, FAVORITE_APP_ID, QUIT_ID);
+    }
+
+    private void populateAppMenu(Menu menu, AppObject selectedApp, View anchor) {
         if (selectedApp.isSsh()) {
-            menu.setHeaderTitle(R.string.ssh_title);
             menu.add(Menu.NONE, START_OR_RESUME_ID, 0, R.string.ssh_connect)
                     .setOnMenuItemClickListener(item -> { startApp(selectedApp); return true; });
             return;
         }
-
-        menu.setHeaderTitle(selectedApp.app.getAppName());
-
         if (lastRunningAppId != 0) {
             if (lastRunningAppId == selectedApp.app.getAppId()) {
                 menu.add(Menu.NONE, START_OR_RESUME_ID, 1, getResources().getString(R.string.applist_menu_resume));
@@ -883,7 +921,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
 
         menu.add(Menu.NONE, VIEW_DETAILS_ID, 5, getResources().getString(R.string.applist_menu_details));
 
-        ImageView image = info.targetView.findViewById(R.id.grid_image);
+        ImageView image = anchor.findViewById(R.id.grid_image);
         Drawable drawable = image == null ? null : image.getDrawable();
         Bitmap cover = drawable instanceof BitmapDrawable ? ((BitmapDrawable) drawable).getBitmap() : null;
         if (cover != null) {
@@ -952,7 +990,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                 return true;
 
             case VIEW_DETAILS_ID:
-                Dialog.displayDialog(AppView.this, getResources().getString(R.string.title_details), app.app.toString(), false);
+                Dialog.displayResult(AppView.this, getResources().getString(R.string.title_details), app.app.toString());
                 return true;
 
             case HIDE_APP_ID:
@@ -1080,14 +1118,20 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                 // A tap resumes the same app on touch devices. Long press still exposes its actions.
                 if (!app.isSsh() && lastRunningAppId != 0 &&
                         (lastRunningAppId != app.app.getAppId() || !UiHelper.isTouchscreenClient(AppView.this))) {
-                    openContextMenu(arg1);
+                    if (UiHelper.isTouchscreenClient(AppView.this)) showAppActions(arg1, app);
+                    else openContextMenu(arg1);
                 } else {
                     startApp(app);
                 }
             }
         });
         UiHelper.applyStatusBarPadding(listView);
-        registerForContextMenu(listView);
+        if (UiHelper.isTouchscreenClient(this)) {
+            listView.setOnItemLongClickListener((parent, view, pos, id) -> {
+                showAppActions(view, (AppObject) appGridAdapter.getItem(pos));
+                return true;
+            });
+        } else registerForContextMenu(listView);
         listView.requestFocus();
         refreshLibraryUi();
         restoreTvFocus();

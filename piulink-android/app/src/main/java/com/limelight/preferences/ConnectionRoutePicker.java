@@ -1,5 +1,7 @@
 package com.limelight.preferences;
 
+import com.limelight.utils.TouchDialog;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.graphics.Typeface;
@@ -40,11 +42,7 @@ public final class ConnectionRoutePicker {
         ConnectionRoutePicker picker = new ConnectionRoutePicker(activity, manager, hostId, title, connect);
         picker.render();
         picker.dialog.show();
-        if (picker.dialog.getWindow() != null) {
-            picker.dialog.getWindow().setBackgroundDrawableResource(R.drawable.bg_display_window);
-            int available = activity.getResources().getDisplayMetrics().widthPixels;
-            picker.dialog.getWindow().setLayout(Math.min(available - picker.dp(24), picker.dp(480)), -2);
-        }
+
     }
 
     private ConnectionRoutePicker(Activity activity, ComputerManagerBinder manager, String hostId, int title,
@@ -58,7 +56,7 @@ public final class ConnectionRoutePicker {
         rows.setPadding(dp(16), dp(6), dp(16), dp(8));
         ScrollView scroll = new ScrollView(activity);
         scroll.addView(rows);
-        dialog = new AlertDialog.Builder(activity)
+        dialog = new TouchDialog(activity)
                 .setTitle(title)
                 .setView(scroll).setNegativeButton(android.R.string.cancel, null).create();
     }
@@ -152,7 +150,7 @@ public final class ConnectionRoutePicker {
             LinearLayout area = new LinearLayout(activity);
             area.setPadding(dp(20), dp(6), dp(20), 0);
             area.addView(input, new LinearLayout.LayoutParams(-1,-2));
-            new AlertDialog.Builder(activity).setTitle(R.string.route_rename).setView(area)
+            new TouchDialog(activity).setTitle(R.string.route_rename).setView(area)
                     .setNegativeButton(android.R.string.cancel,null).setPositiveButton(android.R.string.ok,(d,w)->{
                         manager.renameRoute(host.uuid, route.value, input.getText().toString());
                         render();
@@ -160,7 +158,7 @@ public final class ConnectionRoutePicker {
             return true;
         });
         menu.getMenu().add(R.string.route_remove).setOnMenuItemClickListener(item -> {
-            new AlertDialog.Builder(activity).setMessage(activity.getString(R.string.route_remove_prompt, title))
+            new TouchDialog(activity).setMessage(activity.getString(R.string.route_remove_prompt, title))
                     .setNegativeButton(android.R.string.cancel,null).setPositiveButton(R.string.route_remove,(d,w)->{
                         manager.removeRoute(host.uuid,route.value);
                         render();
