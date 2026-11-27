@@ -10,7 +10,7 @@
     <RootNamespace>PiuLink.Client</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\..\..\windows-host\src\PiuLink.Host\Assets\PiuLink.ico</ApplicationIcon>
-    <Version>0.2.37</Version>
+    <Version>0.2.38</Version>
     <Authors>Ryan</Authors>
     <Company>ATIPiu Labs</Company>
     <Product>PiuLink Client</Product>

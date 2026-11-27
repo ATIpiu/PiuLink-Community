@@ -10,7 +10,7 @@ using Microsoft.Win32;
 
 namespace PiuLink.Updates;
 
-internal sealed record UpdateChannel(string Id, string Installed);
+internal sealed record UpdateChannel(string Id, string Installed, string? OriginalInstaller = null);
 internal sealed record UpdateInfo([property: JsonPropertyName("version")] string Version, [property: JsonPropertyName("name")] string Name, [property: JsonPropertyName("bytes")] long Bytes);
 internal sealed record DownloadResult([property: JsonPropertyName("path")] string Path, [property: JsonPropertyName("downloaded")] long Downloaded, [property: JsonPropertyName("reused")] long Reused);
 
@@ -31,7 +31,10 @@ internal static class ReleaseDownload
                     using var product = products.OpenSubKey(id);
                     if (product?.GetValue("DisplayName") as string == "PiuLink Windows" &&
                         product.GetValue("DisplayVersion") is string suiteVersion)
-                        return new("win-suite", suiteVersion);
+                    {
+                        using var variables = product.OpenSubKey("variables");
+                        return new("win-suite", suiteVersion, variables?.GetValue("WixBundleOriginalSource") as string);
+                    }
                 }
             }
             return new(host ? "win-host" : "win-client", version);
@@ -60,7 +63,20 @@ internal static class ReleaseDownload
         string cache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PiuLink", "Updates");
         string oldName = update.Name.Replace(update.Version, channel.Installed, StringComparison.Ordinal);
         string downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", oldName);
-        string seed = previous ?? (File.Exists(downloads) ? downloads : "");
+        string seed = previous ?? "";
+        if (previous == null)
+        {
+            string? original = channel.OriginalInstaller;
+            // Burn records the original full EXE even when it was renamed or saved outside Downloads.
+            // Drive-letter paths on a local disk avoid waking mapped network drives or probing UNC shares.
+            if (OperatingSystem.IsWindows() && original is { Length: > 3 } &&
+                char.IsAsciiLetter(original[0]) && original[1] == ':' && original[2] == Path.DirectorySeparatorChar &&
+                original.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+                new DriveInfo(original[..3]).DriveType == DriveType.Fixed && File.Exists(original))
+                seed = original;
+            else if (File.Exists(downloads))
+                seed = downloads;
+        }
         return JsonSerializer.Deserialize<DownloadResult>(await RunAsync("prepare", channel.Id, channel.Installed, cache, seed))
             ?? throw new IOException("更新包未就绪。");
     }
