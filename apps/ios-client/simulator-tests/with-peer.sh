@@ -23,7 +23,10 @@ EOF
 "$binary" "$scratch/state/sunshine.conf" --creds simtest "$PIULINK_TEST_PASSWORD"
 "$binary" "$scratch/state/sunshine.conf" > "$scratch/host.log" 2>&1 &
 host_pid=$!
-trap 'kill "$host_pid" 2>/dev/null || true' EXIT
+# Keep the source device clock active across AVFoundation capture startup.
+sox --buffer 65536 -q -t coreaudio 'BlackHole 16ch' -n >"$scratch/source-clock.log" 2>&1 &
+source_clock=$!
+trap 'kill "$source_clock" "$host_pid" 2>/dev/null || true' EXIT
 for i in {1..60}; do
   if curl --noproxy '*' -fsS http://127.0.0.1:47989/serverinfo | grep -q 'PiuLink Simulator Host'; then break; fi
   if ! kill -0 "$host_pid" 2>/dev/null; then tail -30 "$scratch/host.log"; exit 1; fi
@@ -32,7 +35,7 @@ done
 curl --noproxy '*' -fsS http://127.0.0.1:47989/serverinfo | grep -q 'PiuLink Simulator Host'
 python3 "$GITHUB_WORKSPACE/apps/ios-client/simulator-tests/pin_helper.py" &
 helper_pid=$!
-trap 'kill "$host_pid" "$helper_pid" 2>/dev/null || true' EXIT
+trap 'kill "$source_clock" "$host_pid" "$helper_pid" 2>/dev/null || true' EXIT
 cd "$test_dir"
 curl -fsSL --retry 3 https://github.com/cameroncooke/AXe/releases/download/v1.0.0/AXe-macOS-v1.0.0.tar.gz -o "$scratch/axe.tgz"
 echo "5d32037aaef3bd8c57b454cf43b40b470c209d5dd2a39ab78eeb7b9c438817f9  $scratch/axe.tgz" | shasum -a 256 -c -
@@ -53,7 +56,7 @@ python3 tones.py quiet "$scratch/negative.raw" "$scratch/negative.format" || neg
 swiftc DesktopProbe.swift -o "$scratch/probe"
 "$scratch/probe" "$scratch/input-received" &
 probe_pid=$!
-trap 'kill "$host_pid" "$helper_pid" "$probe_pid" 2>/dev/null || true' EXIT
+trap 'kill "$source_clock" "$host_pid" "$helper_pid" "$probe_pid" 2>/dev/null || true' EXIT
 set +e
 "$@"
 test_rc=$?
@@ -70,6 +73,7 @@ data=$(xcrun simctl get_app_container booted labs.atipiu.piulink.ios data)
 python3 tones.py pcm "$data/Library/Caches/qa-played.s16" "$data/Library/Caches/qa-played.format" || test_rc=1
 echo "Measuring simulator output bus"
 if ! python3 tones.py check "$scratch/output.raw" "$scratch/format.txt"; then test_rc=1; fi
-xcrun simctl spawn booted log show --style compact --last 4m --predicate 'process == "Moonlight" AND (eventMessage CONTAINS[c] "audio" OR eventMessage CONTAINS[c] "Opus")' | tail -40 || true
-grep -Ei 'display|screen recording|capture|encoder|permission|microphone|audio device|audio sink|client connected|streaming session' "$scratch/host.log" | tail -80 || true
+# Limit simulator diagnostics to sound events without any launch request parameters.
+xcrun simctl spawn booted log show --style compact --last 4m --predicate 'process == "Moonlight" AND (eventMessage CONTAINS[c] "audio" OR eventMessage CONTAINS[c] "Opus")' | grep -Eiv 'https?://|rikey|token|secret|credential' | tail -40 || true
+grep -Ei 'display|screen recording|capture|encoder|permission|microphone|audio sample|audio device|audio sink|client connected|streaming session' "$scratch/host.log" | tail -80 || true
 exit "$test_rc"
