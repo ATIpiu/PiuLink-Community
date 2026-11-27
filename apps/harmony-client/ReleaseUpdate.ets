@@ -16,9 +16,11 @@ export interface HapResult { path: string; downloaded: number; reused: number }
 
 async function get(url: string, limit: number, range: string = ''): Promise<http.HttpResponse> {
   const client = http.createHttp();
+  const headers: Record<string, string> = { 'Accept-Encoding': 'identity' };
+  if (range) headers['Range'] = range;
   try {
     return await client.request(url, { expectDataType: http.HttpDataType.ARRAY_BUFFER,
-      header: range ? { 'Range': range, 'Accept-Encoding': 'identity' } : { 'Accept-Encoding': 'identity' },
+      header: headers,
       usingCache: false, maxLimit: limit, connectTimeout: 20000, readTimeout: 60000 });
   } finally { client.destroy(); }
 }
