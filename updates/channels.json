@@ -1,11 +1,11 @@
 {
   "win-suite": {
-    "version": "0.2.139",
-    "tag": "windows-0.2.139",
-    "name": "PiuLink-Windows-0.2.139-win-x64.exe",
-    "bytes": 125350525,
-    "sha256": "f03b6d24d957aa268bfaa5c60223c153ac0b551d68ac416765256ec1eeeed91c",
-    "mapSha256": "eaa27d8db9139f9b8796be14d7a517d0862d088e1ada3eafba733238c8143000"
+    "version": "0.2.140",
+    "tag": "windows-0.2.140",
+    "name": "PiuLink-Windows-0.2.140-win-x64.exe",
+    "bytes": 125464733,
+    "sha256": "1d4df022493b5691d064fa4860e7e216299c8ef17b4823591616393b519d9d23",
+    "mapSha256": "18d43249bb022bb7b080abec9cd10bb3e8a397c2ef8db7951c281e4477964aab"
   },
   "win-client": {
     "version": "0.2.37",
