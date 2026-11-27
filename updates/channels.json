@@ -134,5 +134,13 @@
     "bytes": 36636788,
     "sha256": "d4150d47726caac45f83d7edf55975497f14ffcc9a5f4306d1347b86851cb74c",
     "mapSha256": "ddf7f11ded006222aee806d49da2c8b5daf83c515b82332a51cc43baf5021666"
+  },
+  "linux-suite": {
+    "version": "0.1.0",
+    "tag": "linux-suite-0.1.0",
+    "name": "piulink-suite_0.1.0-1_amd64.deb",
+    "bytes": 36868336,
+    "sha256": "4101cc0dbd8973aeea72a22a54648d34887069bf5e66ef4fe42aea894ceaf7e5",
+    "mapSha256": "fbc4aa895f72b7cd380bbb0b82ea34d3a43cd30f82b3a99828e65385db69518d"
   }
 }
