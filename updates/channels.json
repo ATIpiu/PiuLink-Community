@@ -24,20 +24,20 @@
     "mapSha256": "f842c679ac3d86eb331f9d8c64ab48f224a79362d99e70b40ab3d83e1cb42ea7"
   },
   "android-client": {
-    "version": "0.3.260",
-    "tag": "rust-2026.11.28",
-    "name": "PiuLink-Android-0.3.260-nonRoot-universal-release.apk",
-    "bytes": 59775946,
-    "sha256": "77e773511a5e3b0fe6e1614da4d43730f5f817e599ee5f9d13d1bfff768df5cf",
-    "mapSha256": "390b97537f754d364479da7df4b743422e0d3932ae355b407fba01bb7db7371f"
+    "version": "0.3.264",
+    "tag": "android-0.3.264",
+    "name": "PiuLink-Android-0.3.264-nonRoot-universal-release.apk",
+    "bytes": 59798238,
+    "sha256": "55ace6f1fbe74c8774a5d27ac6ab6cc214acc80ffe25b8b2c4ac0eb99b80f087",
+    "mapSha256": "fa2b95cc350151da87288eda89684c2358c92d040a27a85037a90e03192c6b0f"
   },
   "android-arm64": {
-    "version": "0.3.225",
-    "tag": "android-0.3.225",
-    "name": "PiuLink-Android-0.3.225-nonRoot-arm64-v8a-release.apk",
-    "bytes": 17667563,
-    "sha256": "c67c1e3d7d6c9306a5a1fe95fd51446c9bd1921a5d5dfb89c4644a88082de638",
-    "mapSha256": "f6db72ef507ddba609198d6edf4910e81d7af9a92015a830a6e191852ef45f57"
+    "version": "0.3.264",
+    "tag": "android-0.3.264",
+    "name": "PiuLink-Android-0.3.264-nonRoot-arm64-v8a-release.apk",
+    "bytes": 18082815,
+    "sha256": "d01a23f79cb68da6890c59474efa598d7841ae5a1fdf0215604b43bf3136cc7f",
+    "mapSha256": "2ac34649fe2537787a5ee0a8600dfbb5645c7b35801a8dd677812b82d41cee44"
   },
   "mac-arm64": {
     "version": "0.1.12",
