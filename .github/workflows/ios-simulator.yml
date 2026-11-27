@@ -67,7 +67,6 @@ jobs:
           command -v xcodegen || brew install xcodegen
           xcodegen generate
           device=$(xcrun simctl list devices booted -j | python3 -c 'import sys,json; print(next(d["udid"] for ds in json.load(sys.stdin)["devices"].values() for d in ds if d["state"]=="Booted"))')
-          if [[ "$GITHUB_REF_NAME" == codex/ios-peer-qa ]]; then exit 0; fi
           xcodebuild -quiet test -scheme Checks -skip-testing:Checks/ClientChecks/testPairingAndApplicationLibrary -destination "id=$device" -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/Controls.xcresult"
       - name: Pair with an isolated GameStream host
         if: success() || failure()
