@@ -48,7 +48,7 @@ try {
     }
     $file = "PiuLink-Windows-$version-win-x64.exe"
     $buildOut = Join-Path $stage 'bundle'
-    & dotnet build $project -c Release -o $buildOut "-p:IntermediateOutputPath=$stage/obj/" "-p:SuiteVersion=$version" "-p:HostMsi=$HostMsi" "-p:ClientMsi=$ClientMsi" @cache -p:NuGetAudit=false
+    & dotnet build $project -c Release -o $buildOut "-p:IntermediateOutputPath=$stage/obj/" "-p:ResumeBuildDir=$stage/native" "-p:CMakeExe=$((Get-Command cmake.exe -CommandType Application).Source)" "-p:SuiteVersion=$version" "-p:HostMsi=$HostMsi" "-p:ClientMsi=$ClientMsi" @cache -p:NuGetAudit=false
     if ($LASTEXITCODE) { throw 'Windows suite build failed.' }
     Copy-Item -LiteralPath (Join-Path $buildOut $file) -Destination (Join-Path $out $file)
 } finally {

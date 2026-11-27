@@ -4,6 +4,7 @@
           UpgradeCode="{F64CE4C2-4931-47CE-91CA-4E3760AA1CA5}"
           IconSourceFile="../windows-host/src/PiuLink.Host/Assets/PiuLink.ico">
     <BootstrapperApplication>
+      <Payload SourceFile="$(var.ResumeDll)" bal:BAFunctions="yes" />
       <bal:WixStandardBootstrapperApplication Theme="hyperlinkLicense"
           LicenseUrl="https://github.com/ATIpiu/PiuLink-Community/blob/main/LICENSE.md"
           SuppressOptionsUI="yes" />

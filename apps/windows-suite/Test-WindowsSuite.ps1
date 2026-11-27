@@ -19,6 +19,15 @@ $ba = Join-Path $work 'ba'
 & $wix burn extract $Bundle -o $payload -oba $ba
 if ($LASTEXITCODE) { throw 'Cannot extract the suite.' }
 [xml]$manifest = Get-Content -Raw -LiteralPath (Join-Path $ba 'manifest.xml')
+$registration = $manifest.SelectSingleNode("//*[local-name()='Registration']")
+if ([version]$registration.Version -ge [version]'0.2.140') {
+    [xml]$application = Get-Content -Raw -LiteralPath (Join-Path $ba 'BootstrapperApplicationData.xml')
+    $callbacks = @($application.SelectNodes("//*[local-name()='WixBalBAFunctions']"))
+    if ($callbacks.Count -ne 1 -or $callbacks[0].FilePath -ne 'PiuLinkSuiteResume.dll' -or
+        !(Test-Path -LiteralPath (Join-Path $ba 'PiuLinkSuiteResume.dll') -PathType Leaf)) {
+        throw 'Suite restart callback missing from the bootstrapper application.'
+    }
+}
 $chain = @($manifest.SelectNodes("//*[local-name()='Chain']/*[local-name()='MsiPackage']"))
 if (($chain.Id -join ',') -cne 'Host,Client') { throw 'Unexpected installation chain.' }
 $attached = $manifest.SelectNodes("/*/*[local-name()='Payload']")

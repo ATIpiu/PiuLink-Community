@@ -17,3 +17,7 @@
 ```powershell
 ./apps/windows-suite/Test-WindowsSuite.ps1 -Bundle <Suite.exe> -HostMsi <Host.msi> -ClientMsi <Client.msi> -WorkDirectory <新目录>
 ```
+
+从整合版 0.2.140 起，构建环境需要 CMake、Visual Studio 2022 的 MSVC x64 工具和 Windows SDK。还原项目时会取得与 WiX 6 配套的引导程序头文件。
+
+升级或修复时，安装器在替换各组件前记录当前 Windows 会话中正在运行的已安装 Host 或 Client。完成替换后，如果 Windows 重启管理器尚未恢复相应进程，就由桌面会话重新启动它。Host 回到托盘。原先未运行的组件不会启动，卸载不会触发恢复。这样也可以从尚未注册 Windows 应用重启的旧版本升级。
