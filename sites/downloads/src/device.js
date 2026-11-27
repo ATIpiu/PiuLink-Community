@@ -16,6 +16,8 @@ const platformNames = {
   macOS: "macos",
   Linux: "linux",
   Android: "android",
+  OpenHarmony: "harmony",
+  "HarmonyOS NEXT": "harmony",
 };
 
 export function recommendDevice(userAgent, touch = 0, hints = {}) {
@@ -47,7 +49,7 @@ export function recommendDevice(userAgent, touch = 0, hints = {}) {
       file.format +
       (id === "macos" ? " · 未经 Mac 真机验证" : ""),
   });
-  if (id === "android") return choice(packages[0]);
+  if (id === "android" || id === "harmony") return choice(packages[0]);
   const cpu = (hints.architecture || "").toLowerCase();
   const bits = hints.bitness;
   const arm64 =

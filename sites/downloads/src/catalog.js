@@ -133,16 +133,36 @@ export const platforms = [
         role: "mobile",
         description:
           "适用于 iOS / iPadOS 15 及以上。下载后须自行签名才能安装。",
-        version: "0.1.3",
+        version: "0.1.4",
         arch: "ARM64",
         format: "IPA",
-        bytes: 7042434,
-        url: published("updates-preview-2026.11.27", "PiuLink-iOS-0.1.3-arm64-unsigned.ipa"),
+        bytes: 7044329,
+        url: published("mobile-preview-2026.11.27", "PiuLink-iOS-0.1.4-arm64-unsigned.ipa"),
       },
     ],
-    testNote: appleTestNote,
+    testNote: "iPhone 模拟器已验证桌面画面、声音和键鼠输入。实体 iPhone 和 iPad 尚未实测。",
     note: "此 IPA 由 Xcode 构建，未签名。也可以从源码构建并使用自己的开发团队签名。",
-    source: repository + "/tree/7cc2883/apps/ios-client",
+    source: repository + "/tree/mobile-preview-2026.11.27/apps/ios-client",
+  },
+  {
+    id: "harmony",
+    name: "鸿蒙",
+    packages: [
+      {
+        id: "harmony-client",
+        title: "HarmonyOS NEXT 原生控制端",
+        role: "mobile",
+        description: "在同一局域网内添加电脑，使用 PIN 配对后即可打开桌面。",
+        version: "0.1.2",
+        arch: "ARM64 / x86_64",
+        format: "HAP",
+        bytes: 36578160,
+        url: published("mobile-preview-2026.11.27", "PiuLink-HarmonyOS-0.1.2-unsigned.hap"),
+      },
+    ],
+    testNote: "DevEco Studio 手机模拟器已验证桌面画面、声音和输入。实体设备尚未实测。",
+    note: "此 HAP 用于开发验证，可在模拟器安装。真机安装需要与设备匹配的签名和调试授权。",
+    source: repository + "/tree/mobile-preview-2026.11.27/apps/harmony-client",
   },
   {
     id: "linux",
@@ -202,6 +222,7 @@ export const platforms = [
 ];
 
 export function platformFor(userAgent, touchPoints = 0) {
+  if (/OpenHarmony|HarmonyOS NEXT/i.test(userAgent)) return "harmony";
   if (/Android/i.test(userAgent)) return "android";
   if (
     /iPhone|iPad|iPod/i.test(userAgent) ||

@@ -35,7 +35,8 @@ Windows 安装包均为未签名公开预览版。Host 内置串流引擎，系�
 | Android 手机、平板、电视 | 桌面和游戏串流、键鼠、触控、手柄。手机和平板另有桌面快捷栏、文件互传、麦克风回传和 SSH 终端。 |
 | Linux Host / Client | 控制端提供 amd64 和 arm64 的 DEB 及便携压缩包，需另装 Moonlight Qt。Ubuntu 26.04 amd64 被控端也提供 DEB 及压缩包。 |
 | macOS | 0.1.7 支持邀请链接 P2P 打洞。未在 Mac 真机上验证。当前提供未签名、未公证的预览包，依赖 Moonlight.app。 |
-| iOS / iPadOS | 0.1.1 支持邀请链接 P2P 打洞。下载页提供 Xcode 构建的 ARM64 未签名 IPA，支持 iOS / iPadOS 15 及以上。安装到设备前需自行签名，尚未在 iPhone 或 iPad 上实测。 |
+| iOS / iPadOS | 0.1.4 提供 ARM64 未签名 IPA，支持 iOS / iPadOS 15 及以上。iPhone 模拟器完成桌面影音和输入验证；真机安装前需自行签名。 |
+| HarmonyOS NEXT | 原生客户端 0.1.2 提供 ARM64 / x86_64 未签名 HAP。支持局域网 PIN 配对，已在 DevEco Studio 手机模拟器验证桌面影音和输入。 |
 
 主播目前预算有限，手头没有用于实测的苹果设备。
 

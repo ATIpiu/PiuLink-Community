@@ -48,6 +48,7 @@ function ArcLayer({ front }) {
 const orientations = {
   windows: 0,
   android: 0.072,
+  harmony: 0.072,
   macos: -0.068,
   ios: -0.068,
   linux: 0.135,

@@ -82,7 +82,7 @@ export function Icon({ name, size = 20 }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      {strokes[name]}
+      {strokes[name === "harmony" ? "mobile" : name]}
     </svg>
   );
 }

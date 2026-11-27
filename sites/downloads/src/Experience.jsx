@@ -366,6 +366,15 @@ function Downloads({ selected, setSystem }) {
 
 const updates = [
   {
+    title: "iOS 0.1.4 和鸿蒙原生 0.1.2",
+    tag: "mobile-preview-2026.11.27",
+    date: "2026-11-27",
+    changes: [
+      "iOS 保留应用内更新，修复了带封面的应用卡片名称；鸿蒙调整了 x86 手机模拟器的 4K 自动码率上限。",
+      "两个客户端均已在手机模拟器上完成桌面串流、音频输出和键鼠输入验证。下载页提供未签名 IPA 与 HAP。",
+    ],
+  },
+  {
     title: "Windows 整合版 0.2.140 · 升级后自动恢复 Host",
     tag: "windows-0.2.140",
     date: "2026-11-27",
