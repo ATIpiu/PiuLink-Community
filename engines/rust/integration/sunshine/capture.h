@@ -10,6 +10,7 @@ struct PlCaptureOps {
     bool (*push)(void*, bool);
     int (*release)(void*);
 };
+int32_t pl_dxgi_duplicate(void*,void*,const void*,uint32_t,void(*)(),void**);
 int pl_dxgi_acquire(void*,bool*,uint32_t,void*,void**,int32_t*);
 int pl_dxgi_release(void*,bool*,int32_t*);
 PlCaptureRate pl_capture_rate(PlCaptureRate,PlCaptureRate,uint32_t,uint32_t);

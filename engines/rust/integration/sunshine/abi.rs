@@ -103,3 +103,6 @@ mod texture;
 #[path = "../wire/enet.rs"]
 mod enet;
 mod nv_init;
+
+#[cfg(windows)]
+mod windows_video;
