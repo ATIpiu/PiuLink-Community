@@ -1,11 +1,11 @@
 {
   "win-suite": {
-    "version": "0.2.142",
-    "tag": "windows-0.2.142",
-    "name": "PiuLink-Windows-0.2.142-win-x64.exe",
-    "bytes": 125086287,
-    "sha256": "1f9577dca97c3feb62c416e4e0a4966fbe2eb9898a02f708ac26f038f84e5598",
-    "mapSha256": "2a3d96b2692a1618e3ab78292597f104f5287b5df86270e526a3d5e24a23f429"
+    "version": "0.2.143",
+    "tag": "windows-0.2.143",
+    "name": "PiuLink-Windows-0.2.143-win-x64.exe",
+    "bytes": 119465991,
+    "sha256": "71da81d95662aa903e21d040ebd874edb81281f534b87682e1620e9a77067b32",
+    "mapSha256": "45dc0eaf7125006333d2eedc86d2c1b80d3328745979e2aa8e64e08b58c90d88"
   },
   "win-client": {
     "version": "0.2.41",
@@ -16,12 +16,12 @@
     "mapSha256": "ef5fb9e4840cb04cfc364d9bec5b0ca7569ffae07a97d1231211150d957bd084"
   },
   "win-host": {
-    "version": "0.2.138",
-    "tag": "rust-2026.11.28",
-    "name": "PiuLink-Host-0.2.138-win-x64-preview.msi",
-    "bytes": 105287346,
-    "sha256": "973e659c15ad9de6f041cda81dfce3c9675433f7fb297257b224a4217a4383a6",
-    "mapSha256": "f842c679ac3d86eb331f9d8c64ab48f224a79362d99e70b40ab3d83e1cb42ea7"
+    "version": "0.2.143",
+    "tag": "windows-0.2.143",
+    "name": "PiuLink-Host-0.2.143-win-x64-preview.msi",
+    "bytes": 93675606,
+    "sha256": "49252d5ea5fac02bc24615ca9097845b0d57e613b7fea9a560c79febfc2935d8",
+    "mapSha256": "d665c399aae64d6974ebb2ec02f98eea4628c89d6c2bf6e175d6e07fff05fb36"
   },
   "android-client": {
     "version": "0.3.264",
