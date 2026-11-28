@@ -68,6 +68,12 @@ jobs:
             if ((Get-Item "$engine/$engineName").VersionInfo.OriginalFilename -ne $engineName) { throw 'Incorrect engine PE metadata' }
             $diagnostic = Get-Item "$engine/tools/dxgi-info.exe"
             if ($diagnostic.Length -gt 1MB) { throw 'Unexpected graphics diagnostic size' }
+            if ([version]$env:SUITE_VERSION -ge [version]'0.2.144') {
+              $vs = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+              $dumpbin = Get-ChildItem "$vs/VC/Tools/MSVC/*/bin/Hostx64/x64/dumpbin.exe" | Select-Object -Last 1
+              $imports = & $dumpbin.FullName /nologo /dependents $diagnostic.FullName
+              if ($LASTEXITCODE -or !($imports -match 'dxgi\.dll') -or ($imports -match '(VCRUNTIME|MSVCP)\d+.*\.dll')) { throw 'Unexpected DXGI runtime dependencies' }
+            }
             & $diagnostic.FullName
             if ($LASTEXITCODE) { throw 'Installed graphics diagnostic failed' }
           }
