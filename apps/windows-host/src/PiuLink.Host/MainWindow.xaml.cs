@@ -1608,7 +1608,7 @@ public partial class MainWindow : Window
             SunshineSessionStateText.Text = "—";
             SunshineSessionStatusText.Text = "PiuLink could not inspect the current Sunshine session.";
             EndSunshineSessionButton.Visibility = Visibility.Collapsed;
-            SunshineControlStatusText.Text = DescribeSunshineFailure(exception);
+            ShowEngineFailure(SunshineControlStatusText, exception);
             SunshineControlStatusText.Foreground = ResourceBrush("ErrorBrush");
             PairingStatusText.Text = "Repair PiuLink secure control first.";
             PairingStatusText.Foreground = ResourceBrush("MutedBrush");
@@ -2177,7 +2177,7 @@ public partial class MainWindow : Window
             _displayState = null;
             InventoryDisplayList.ItemsSource = null;
             DisplayInventoryStatusText.Text = "Unavailable";
-            DisplayInventoryStatusDetail.Text = DescribeSunshineFailure(exception);
+            ShowEngineFailure(DisplayInventoryStatusDetail, exception);
             DisplayInventoryStatusDot.Background = ResourceBrush("ErrorBrush");
             DisplayApplyStatusText.Text = "PiuLink could not read Sunshine display settings.";
             DisplayApplyStatusText.Foreground = ResourceBrush("ErrorBrush");
@@ -2381,7 +2381,7 @@ public partial class MainWindow : Window
             {
                 _displayInventoryRefreshAttempted = false;
                 VddStatusText.Text = "Virtual display refresh will retry";
-                VddStatusDetail.Text = DescribeSunshineFailure(exception);
+                ShowEngineFailure(VddStatusDetail, exception);
                 DisplayApplyStatusText.Text = "PiuLink could not refresh Sunshine yet. It will retry safely.";
                 DisplayApplyStatusText.Foreground = ResourceBrush("WarningBrush");
                 await _log.WriteAsync($"Sunshine display inventory refresh failed: {DescribeExceptionForLog(exception)}");
@@ -2503,7 +2503,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            DisplayApplyStatusText.Text = DescribeSunshineFailure(exception);
+            ShowEngineFailure(DisplayApplyStatusText, exception);
             DisplayApplyStatusText.Foreground = ResourceBrush("ErrorBrush");
             await _log.WriteAsync($"Applying Sunshine display routing failed: {DescribeExceptionForLog(exception)}");
         }
@@ -3349,7 +3349,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            PairingStatusText.Text = DescribeSunshineFailure(exception);
+            ShowEngineFailure(PairingStatusText, exception);
             PairingStatusText.Foreground = ResourceBrush("ErrorBrush");
             await _log.WriteAsync($"Sunshine pairing failed: {exception.GetType().Name}");
         }
@@ -3424,7 +3424,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            SunshineSessionStatusText.Text = DescribeSunshineFailure(exception);
+            ShowEngineFailure(SunshineSessionStatusText, exception);
             SunshineSessionStatusText.Foreground = ResourceBrush("ErrorBrush");
             await _log.WriteAsync($"Ending the retained Sunshine application failed: {DescribeExceptionForLog(exception)}");
         }
@@ -3729,7 +3729,7 @@ public partial class MainWindow : Window
         catch (Exception exception)
         {
             _sunshineConfigurationLoaded = false;
-            SunshineConfigurationStatusText.Text = DescribeSunshineFailure(exception);
+            ShowEngineFailure(SunshineConfigurationStatusText, exception);
             SunshineConfigurationStatusText.Foreground = ResourceBrush("ErrorBrush");
             await _log.WriteAsync($"Reading complete Sunshine configuration failed: {DescribeExceptionForLog(exception)}");
         }
@@ -3813,7 +3813,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            SunshineConfigurationStatusText.Text = DescribeSunshineFailure(exception);
+            ShowEngineFailure(SunshineConfigurationStatusText, exception);
             SunshineConfigurationStatusText.Foreground = ResourceBrush("ErrorBrush");
             await _log.WriteAsync($"Saving complete Sunshine configuration failed: {DescribeExceptionForLog(exception)}");
         }
@@ -3825,21 +3825,22 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string DescribeSunshineFailure(Exception exception) => exception switch
+    private static void ShowEngineFailure(TextBlock target, Exception exception)
     {
-        HttpRequestException { StatusCode: HttpStatusCode.Unauthorized } =>
-            "Sunshine rejected PiuLink's device credential. Run secure setup again.",
-        HttpRequestException { StatusCode: HttpStatusCode.Forbidden } =>
-            "Sunshine refused this local request. Check the administrator account.",
-        HttpRequestException { InnerException: IOException } =>
-            "Sunshine's local secure connection did not complete. Restart secure control and try again.",
-        HttpRequestException =>
-            "PiuLink could not reach Sunshine on this PC. Make sure the service is running.",
-        TaskCanceledException =>
-            "Sunshine did not respond in time. Make sure the service is running.",
-        ArgumentException argumentException => argumentException.Message,
-        _ => "Sunshine returned an unexpected response. See the local PiuLink log for details."
-    };
+        if (exception is ArgumentException argument) {
+            target.Text = UiText(argument.Message);
+            return;
+        }
+        var key = exception switch {
+            HttpRequestException { StatusCode: HttpStatusCode.Unauthorized } => "Engine.AuthDenied",
+            HttpRequestException { StatusCode: HttpStatusCode.Forbidden } => "Engine.Forbidden",
+            HttpRequestException { InnerException: IOException } => "Engine.Tls",
+            HttpRequestException => "Engine.Unreachable",
+            TaskCanceledException => "Engine.Timeout",
+            _ => "Engine.Unexpected"
+        };
+        BindMessage(target, TextBlock.TextProperty, key);
+    }
 
     private void OpenTailscale_Click(object sender, RoutedEventArgs e)
     {
