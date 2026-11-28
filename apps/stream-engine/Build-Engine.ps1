@@ -86,8 +86,15 @@ try {
     Move-Item -LiteralPath (Join-Path $outputPath 'tools/sunshinesvc.exe') -Destination (Join-Path $outputPath 'tools/PiuLink.Engine.Service.exe') -Force
     $diagnosticManifest = Join-Path $repoRoot 'engines/rust/integration/dxgi-info/Cargo.toml'
     $diagnosticTarget = Join-Path $buildPath 'piulink-dxgi'
-    & cargo build --release --locked --target x86_64-pc-windows-msvc --manifest-path $diagnosticManifest --target-dir $diagnosticTarget
-    if ($LASTEXITCODE) { throw 'Rust DXGI diagnostic build failed.' }
+    # The standalone Host must run this utility on Windows without a VC++ redistributable.
+    $previousRustFlags = $env:RUSTFLAGS
+    try {
+        $env:RUSTFLAGS = "$previousRustFlags -Ctarget-feature=+crt-static".Trim()
+        & cargo build --release --locked --target x86_64-pc-windows-msvc --manifest-path $diagnosticManifest --target-dir $diagnosticTarget
+        if ($LASTEXITCODE) { throw 'Rust DXGI diagnostic build failed.' }
+    } finally {
+        $env:RUSTFLAGS = $previousRustFlags
+    }
     Copy-Item -LiteralPath (Join-Path $diagnosticTarget 'x86_64-pc-windows-msvc/release/dxgi-info.exe') -Destination (Join-Path $outputPath 'tools/dxgi-info.exe') -Force
     $images = Join-Path $outputPath 'assets/web/images'
     $web = Split-Path -Parent $images
