@@ -10,11 +10,13 @@ pub struct Resources {
     initialize: Driver,
     register_event: Driver,
     create_buffer: Driver,
+    unregister_event: Driver,
 }
 #[repr(C)]
 pub struct ResourceResult {
     stage: i32,
     error: i32,
+    rollback_error: i32,
 }
 #[no_mangle]
 pub unsafe extern "C" fn pl_nv_initialize(r: &Resources) -> ResourceResult {
@@ -28,10 +30,23 @@ pub unsafe extern "C" fn pl_nv_initialize(r: &Resources) -> ResourceResult {
         }
         let error = f(r.encoder, data);
         if error != 0 {
-            return ResourceResult { stage, error };
+            let rollback_error = if stage == 3 && !r.event.is_null() {
+                (r.unregister_event)(r.encoder, r.event)
+            } else {
+                0
+            };
+            return ResourceResult {
+                stage,
+                error,
+                rollback_error,
+            };
         }
     }
-    ResourceResult { stage: 0, error: 0 }
+    ResourceResult {
+        stage: 0,
+        error: 0,
+        rollback_error: 0,
+    }
 }
 
 #[repr(C)]
@@ -112,5 +127,44 @@ mod tests {
             (p.bitrate, p.vbv, p.refs, p.rfi),
             (21000000, 420000, 8, true)
         );
+    }
+}
+
+#[cfg(test)]
+mod lifecycle {
+    use super::*;
+    use std::cell::RefCell;
+    thread_local! { static CALLS: RefCell<Vec<usize>> = const { RefCell::new(Vec::new()) }; }
+    unsafe extern "system" fn execute(_: *mut c_void, p: *mut c_void) -> i32 {
+        CALLS.with(|c| c.borrow_mut().push(p as usize));
+        if p as usize == 3 {
+            8
+        } else {
+            0
+        }
+    }
+    unsafe extern "system" fn rollback(_: *mut c_void, _: *mut c_void) -> i32 {
+        CALLS.with(|c| c.borrow_mut().push(4));
+        0
+    }
+    #[test]
+    fn rolls_back_only_acquired_async_events() {
+        let mut r = Resources {
+            encoder: 1usize as _,
+            config: 1usize as _,
+            event: 2usize as _,
+            buffer: 3usize as _,
+            initialize: execute,
+            register_event: execute,
+            create_buffer: execute,
+            unregister_event: rollback,
+        };
+        for (event, expected) in [(2usize, vec![1, 2, 3, 4]), (0, vec![1, 3]), (3, vec![1, 3])] {
+            r.event = event as _;
+            CALLS.with(|c| c.borrow_mut().clear());
+            let result = unsafe { pl_nv_initialize(&r) };
+            assert_eq!(result.error, 8);
+            CALLS.with(|c| assert_eq!(*c.borrow(), expected));
+        }
     }
 }

@@ -243,6 +243,8 @@ from record_adapter import host as integrate_rtsp_record
 rtsp.write_text(integrate_rtsp_record(integrate_announce(code, rtsp.parent), rtsp.parent, wire))
 from hardening import host as harden_host
 harden_host(overlay / "src")
+from windows_video import integrate as integrate_windows_video
+integrate_windows_video(overlay / "src")
 cargo = shutil.which("cargo") or str(Path.home() / ".cargo/bin/cargo.exe")
 rust_target = root / "target/nvenc"
 subprocess.run([cargo, "build", "--manifest-path", here / "Cargo.toml", "--release",
@@ -251,7 +253,7 @@ dll = out / "piulink_nvenc_rate.dll"
 shutil.copy2(rust_target / "release" / dll.name, dll)
 exports = sorted(set(re.findall(r'fn (pl_rate_\w+)\(', (here / "abi.rs").read_text())))
 exports += ["pl_fec_info", "pl_fec_blocks", "pl_fec_read", "pl_video_encode", "pl_video_recover", "pl_audio_encode", "pl_audio_recover", "pl_frame_layout", "pl_write_header", "pl_read_header", "pl_packetized_size", "pl_packetize", "pl_write_key", "pl_read_key", "pl_rtsp_parse", "pl_rtsp_serialize", "pl_pointer_read", "pl_scroll_delta", "pl_batch_input", "pl_pad_read", "pl_audio_data", "pl_audio_parity", "pl_audio_iv", "pl_pacing_init", "pl_pacing_due", "pl_pacing_end", "pl_video_source", "pl_video_shard", "pl_valid_input", "pl_setup_kind", "pl_host_new", "pl_host_free", "pl_host_begin", "pl_host_publish", "pl_host_state", "pl_host_wait", "pl_host_stop", "pl_host_finish", "pl_host_active", "pl_opus_encode_stream", "pl_udp_send", "pl_capture_rate", "pl_capture_run", "pl_dxgi_acquire", "pl_dxgi_release", "pl_encode_frame", "pl_nv_invalidate", "pl_announce", "pl_announced_bitrate", "pl_wasapi_sample", "pl_rtsp_record", "pl_video_cipher_new", "pl_video_cipher_free", "pl_video_cipher_seal", "pl_opus_crypt", "pl_control_record", "pl_avcodec_encode", "pl_wgc_start", "pl_wgc_free", "pl_wgc_cursor", "pl_wgc_release", "pl_wgc_next"]
-exports += ["pl_nv_initialize", "pl_nv_plan", "pl_enet_dispatch", "pl_convert_texture", "pl_https_launch", "pl_pair_new", "pl_pair_free", "pl_pair_fresh", "pl_pair_begin", "pl_pair_challenge", "pl_pair_proof", "pl_pair_finish"]
+exports += ["pl_dxgi_plan_frame", "pl_nv_close", "pl_dxgi_duplicate", "pl_nv_input_texture", "pl_nv_supports_codec", "pl_nv_initialize", "pl_nv_plan", "pl_enet_dispatch", "pl_convert_texture", "pl_https_launch", "pl_pair_new", "pl_pair_free", "pl_pair_fresh", "pl_pair_begin", "pl_pair_challenge", "pl_pair_proof", "pl_pair_finish"]
 definition = out / "rate.def"
 definition.write_text("LIBRARY piulink_nvenc_rate.dll\nEXPORTS\n" + "\n".join(exports))
 library = out / "rate.dll.a"
@@ -299,6 +301,8 @@ udp_unit, = [e for e in db if Path(e["file"]).as_posix().endswith("/src/platform
 dependents.add(udp_unit["output"])
 capture_unit, = [e for e in db if Path(e["file"]).as_posix().endswith("/src/platform/windows/display_base.cpp")]
 dependents.add(capture_unit["output"])
+native_input, = [entry for entry in db if Path(entry["file"]).as_posix().endswith("/src/nvenc/nvenc_d3d11_native.cpp")]
+dependents.add(native_input["output"])
 entries = [entry for entry in db if entry["output"] in dependents]
 if len(entries) != len(dependents):
     raise RuntimeError("Incomplete compile database")

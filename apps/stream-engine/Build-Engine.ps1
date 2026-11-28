@@ -3,6 +3,7 @@ param(
     [string]$SourceDirectory,
     [string]$MsysRoot,
     [string]$OutputDirectory,
+    [string]$FfmpegDirectory,
     [switch]$ConfigureOnly,
     [switch]$PublicPreview
 )
@@ -16,6 +17,9 @@ if (!$OutputDirectory) { $OutputDirectory = Join-Path $repoRoot "artifacts/strea
 $sourcePath = [IO.Path]::GetFullPath($SourceDirectory)
 $MsysRoot = [IO.Path]::GetFullPath($MsysRoot)
 $outputPath = [IO.Path]::GetFullPath($OutputDirectory)
+if ($FfmpegDirectory) {
+    $FfmpegDirectory = (Resolve-Path -LiteralPath $FfmpegDirectory -ErrorAction Stop).Path.Replace('\', '/')
+}
 $cmake = Join-Path $MsysRoot 'ucrt64/bin/cmake.exe'
 if (!(Test-Path -LiteralPath $cmake)) { throw 'Install the upstream MSYS2 UCRT64 build dependencies first; see README.md.' }
 if (!(Test-Path -LiteralPath $sourcePath)) {
@@ -69,6 +73,8 @@ try {
     }
     $brandAssets = Join-Path $repoRoot 'assets/brand/exports'
     $engineIcon = (Resolve-Path -LiteralPath (Join-Path $brandAssets 'windows/piulink-host.ico')).Path.Replace('\', '/')
+    # Do not carry an SDK from an earlier custom build into the next default build.
+    $configureFlags += if ($FfmpegDirectory) { "-DFFMPEG_PREPARED_BINARIES:PATH=$FfmpegDirectory" } else { '-UFFMPEG_PREPARED_BINARIES' }
     & $cmake -S $sourcePath -B $buildPath -G Ninja @configureFlags -DBUILD_DOCS=OFF -DBUILD_TESTS=OFF -DSUNSHINE_ENABLE_TRAY=OFF -DSUNSHINE_PUBLISHER_NAME=PiuLink "-DSUNSHINE_ICON_PATH=$engineIcon"
     if ($LASTEXITCODE) { throw 'Engine configure failed.' }
     if ($ConfigureOnly) { return }
@@ -76,7 +82,8 @@ try {
     if ($LASTEXITCODE) { throw 'Engine build failed.' }
     & $cmake --install $buildPath --prefix $outputPath
     if ($LASTEXITCODE) { throw 'Engine staging failed.' }
-    $rustOutput = Join-Path $buildPath 'piulink-rust-release'
+    # The Rust builder requires its source overlay to live outside the input tree.
+    $rustOutput = "$outputPath-rust-build"
     $python = if ($env:PYTHON) { $env:PYTHON } else { 'python' }
     & $python (Join-Path $repoRoot 'engines/rust/integration/sunshine/build.py') $sourcePath (Join-Path $MsysRoot 'ucrt64/bin') --output $rustOutput
     if ($LASTEXITCODE) { throw 'Rust Host media build failed.' }
