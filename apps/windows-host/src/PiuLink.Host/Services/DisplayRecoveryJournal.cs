@@ -212,6 +212,23 @@ internal static class DisplayRecoveryJournal
         } catch { preparationLock.Dispose(); throw; }
     }
 
+    private const string GuardianMutexName = @"Local\PiuLink.DisplayRecovery.Agent";
+    private static long _nextGuardianWake;
+
+    internal static void WakeGuardianIfMissing()
+    {
+        lock (StateGate) {
+            var now = Environment.TickCount64;
+            if (!Pending || now < _nextGuardianWake) return;
+            _nextGuardianWake = now + 2000;
+            if (Mutex.TryOpenExisting(GuardianMutexName, out var running)) {
+                running.Dispose();
+                return;
+            }
+            EnsureGuardian();
+        }
+    }
+
     public static void EnsureGuardian()
     {
         var start = new ProcessStartInfo(Environment.ProcessPath!) {
@@ -405,7 +422,7 @@ internal static class DisplayRecoveryJournal
         Mutex? mutex = null;
         var primary = false;
         for (int attempt = 0; attempt < 6; attempt++) {
-            mutex = new Mutex(true, @"Local\PiuLink.DisplayRecovery.Agent", out primary);
+            mutex = new Mutex(true, GuardianMutexName, out primary);
             if (primary) break;
             mutex.Dispose();
             mutex = null;

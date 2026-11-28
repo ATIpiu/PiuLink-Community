@@ -1950,7 +1950,7 @@ public partial class MainWindow : Window
                 // Recovery belongs to the previous session, not the newly selected mode.
                 if (_gatherWindowsApplied) {
                     _gatherWindowsTarget = null; _gatherWindowsApplied = false;
-                    GatherWindowsStatus.Text = "串流已结束，正在恢复窗口布局。";
+                    GatherWindowsStatus.Text = WindowRestorePendingMessage;
                     RetryGatherWindowsButton.Visibility = Visibility.Collapsed;
                 }
                 // Also keep an idle baseline when a client skips an unchanged routing request.
@@ -1958,6 +1958,10 @@ public partial class MainWindow : Window
                 var restored = WindowPlacementService.ObserveSessionDesktop(desktop.PhysicalOnly, desktop.Layout);
                 // Do not move windows while Sunshine is changing resolution or disabling monitors.
                 if (!desktop.PhysicalOnly || WindowPlacementService.SessionRestorePending) return;
+                if (GatherWindowsStatus.Text == WindowRestorePendingMessage)
+                    GatherWindowsStatus.Text = restored.Failed > 0
+                        ? $"窗口布局恢复完成，{restored.Failed} 个窗口未能移动。"
+                        : "窗口布局恢复完成。";
                 if (restored.Moved > 0 || restored.Failed > 0)
                 {
                     await LogWindowResultAsync("window.session_restore", $"Session window restore completed. Restored={restored.Moved}; Failed={restored.Failed}", restored.Failed);
@@ -2591,6 +2595,7 @@ public partial class MainWindow : Window
     }
 
     private string? _gatherWindowsTarget;
+    private const string WindowRestorePendingMessage = "串流已结束，正在恢复窗口布局。";
     private bool _gatherWindowsApplied;
 
     private async Task<bool> ApplyRemoteDisplaySelectionAsync(
@@ -2640,14 +2645,29 @@ public partial class MainWindow : Window
             // Only repeat the read; no lease or display mutation has been made here.
             SunshineDisplayPreparation preparation;
             var probeDeadline = Environment.TickCount64 + 5000;
+            var recoveredRelease = false;
             for (;;) {
-                if (DisplayRecoveryJournal.Read() is { Phase: "Restoring" }) throw new DisplayRecoveryInProgressException();
+                var observed = DisplayRecoveryJournal.Read();
+                if (observed is { Phase: "Restoring" }) {
+                    DisplayRecoveryJournal.WakeGuardianIfMissing();
+                    throw new DisplayRecoveryInProgressException();
+                }
                 try {
                     preparation = await _sunshineApi.GetDisplayPreparationAsync(credential.Username, credential.Secret, cancellationToken);
-                    break;
                 } catch (HttpRequestException error) when (error.StatusCode == null && Environment.TickCount64 < probeDeadline) {
                     await Task.Delay(200, cancellationToken);
+                    continue;
                 }
+                if (recoveredRelease || observed is null ||
+                    !PhysicalDisplayRecoveryPolicy.CanRestoreReleasedSession(observed.Phase, preparation.ActiveStreams != 0,
+                        preparation.CurrentApplicationId != 0)) break;
+                // The last client released its lease. Finish that exact transaction under the
+                // recovery writer lock, then read the display inventory again before selecting.
+                if (!await DisplayRecoveryJournal.RestoreAsync(observed: observed, requireIdleApplication: true)) {
+                    DisplayRecoveryJournal.WakeGuardianIfMissing();
+                    throw new DisplayRecoveryInProgressException();
+                }
+                recoveredRelease = true;
             }
             if (preparation.ActiveStreams != 0) return false;
             var retained = preparation.CurrentApplicationId != 0;
@@ -2676,8 +2696,10 @@ public partial class MainWindow : Window
                 pending.ExpiresAt > DateTimeOffset.UtcNow) return true;
             var switching = !retained && !exclusive && target is { IsVirtual: false } &&
                 DisplayRecoveryJournal.CanSwitch(pending, owner) && pending!.Desktop.StreamBounds?.ContainsKey(target.DeviceId) == true;
-            if (pending is not null && !switching && !(retained && DisplayRecoveryJournal.CanResume(pending, owner)))
+            if (pending is not null && !switching && !(retained && DisplayRecoveryJournal.CanResume(pending, owner))) {
+                DisplayRecoveryJournal.WakeGuardianIfMissing();
                 throw new DisplayRecoveryInProgressException();
+            }
             var sameRetainedRoute = pending?.PreparedDeviceId is { } previousDevice
                 ? string.Equals(previousDevice, deviceId, StringComparison.OrdinalIgnoreCase) && pending.Exclusive == exclusive
                 : settingsMatch;
