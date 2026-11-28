@@ -74,7 +74,7 @@ extern "C" PlFrameActions pl_dxgi_plan_frame(bool, bool, bool, bool, bool);
     code = code[:begin] + """    if (encoder) {
       NV_ENC_EVENT_PARAMS event {NV_ENC_EVENT_PARAMS_VER};
       event.completionEvent = async_event_handle;
-      const PlNvCleanup resources {encoder, output_bitstream, async_event_handle ? &event : nullptr, registered_input_buffer,
+      const PlNvCleanup resources {encoder, output_bitstream, output_bitstream && async_event_handle ? &event : nullptr, registered_input_buffer,
         nvenc->nvEncDestroyBitstreamBuffer, nvenc->nvEncUnregisterAsyncEvent, nvenc->nvEncUnregisterResource, nvenc->nvEncDestroyEncoder};
       int errors[4] {};
       pl_nv_close(&resources, errors);

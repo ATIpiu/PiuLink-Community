@@ -8,8 +8,8 @@ def integrate(src):
     code = code[:start] + """struct PlNvPlan { uint32_t bitrate, vbv, refs, rows, cols; bool rfi; };
 extern "C" bool pl_nv_plan(int,int,int,int,int,bool,bool,int,PlNvPlan*);
 using PlNvDriver = int32_t (NVENCAPI *)(void *,void *);
-struct PlNvResources { void *encoder, *config, *event, *buffer; PlNvDriver initialize, register_event, create_buffer; };
-struct PlNvResult { int32_t stage, error; };
+struct PlNvResources { void *encoder, *config, *event, *buffer; PlNvDriver initialize, register_event, create_buffer, unregister_event; };
+struct PlNvResult { int32_t stage, error, rollback_error; };
 extern "C" PlNvResult pl_nv_initialize(const PlNvResources *);
 
 """ + code[start:]
@@ -39,8 +39,10 @@ extern "C" PlNvResult pl_nv_initialize(const PlNvResources *);
     PlNvResources resources {encoder, &init_params, async_event_handle ? &event : nullptr, &buffer,
         reinterpret_cast<PlNvDriver>(nvenc->nvEncInitializeEncoder),
         reinterpret_cast<PlNvDriver>(nvenc->nvEncRegisterAsyncEvent),
-        reinterpret_cast<PlNvDriver>(nvenc->nvEncCreateBitstreamBuffer)};
+        reinterpret_cast<PlNvDriver>(nvenc->nvEncCreateBitstreamBuffer),
+        reinterpret_cast<PlNvDriver>(nvenc->nvEncUnregisterAsyncEvent)};
     const auto result = pl_nv_initialize(&resources);
+    if (result.rollback_error) BOOST_LOG(error) << "Rust NVENC async event rollback failed: " << result.rollback_error;
     if (nvenc_failed(static_cast<NVENCSTATUS>(result.error))) {
       BOOST_LOG(error) << "Rust NVENC initialization stage " << result.stage << ": " << last_nvenc_error_string;
       return false;
