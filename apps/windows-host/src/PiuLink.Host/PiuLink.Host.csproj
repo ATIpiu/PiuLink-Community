@@ -14,7 +14,7 @@
          Establish DPI awareness in the manifest before WPF creates any HWND. -->
     <NoWarn>$(NoWarn);WFAC010</NoWarn>
     <ApplicationIcon>Assets\PiuLink.ico</ApplicationIcon>
-    <Version>0.2.138</Version>
+    <Version>0.2.140</Version>
     <Authors>Ryan</Authors>
     <Company>ATIPiu Labs</Company>
     <Product>PiuLink Host</Product>
@@ -50,8 +50,31 @@
     <Error Condition="!Exists('$(PiuLinkEngineDirectory)\sunshine.exe') Or !Exists('$(PiuLinkEngineDirectory)\tools\sunshinesvc.exe') Or !Exists('$(PiuLinkEngineDirectory)\piulink-engine.json')" Text="The embedded engine must be a complete staged PiuLink engine build." />
   </Target>
   <ItemGroup Condition="'$(PiuLinkEngineDirectory)' != ''">
-    <Content Include="$(PiuLinkEngineDirectory)\**\*" Exclude="$(PiuLinkEngineDirectory)\config\**;$(PiuLinkEngineDirectory)\**\*.log" Link="engine\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../../../assets/brand/exports/windows/desktop*.png" Link="engine/assets/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(PiuLinkEngineDirectory)\**\*" Exclude="$(PiuLinkEngineDirectory)\config\**;$(PiuLinkEngineDirectory)\-symbols\**;$(PiuLinkEngineDirectory)\**\*.log;$(PiuLinkEngineDirectory)\assets\desktop.png;$(PiuLinkEngineDirectory)\assets\desktop-alt.png" Link="engine\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup Condition="'$(PiuLinkEngineDirectory)' != ''">
+    <_EngineWebText Include="$(PiuLinkEngineDirectory)\assets\web\*.html" WebPath="%(Filename)%(Extension)" />
+    <_EngineWebText Include="$(PiuLinkEngineDirectory)\assets\web\assets\Navbar-*.js" WebPath="assets\%(Filename)%(Extension)" />
+    <_EngineWebText Include="$(PiuLinkEngineDirectory)\assets\web\assets\createLucideIcon-*.js" WebPath="assets\%(Filename)%(Extension)" />
+    <_EngineWebText Include="$(PiuLinkEngineDirectory)\assets\web\assets\welcome-*.js" WebPath="assets\%(Filename)%(Extension)" />
+    <_EngineWebText Include="$(PiuLinkEngineDirectory)\assets\web\assets\locale\*.json" WebPath="assets\locale\%(Filename)%(Extension)" />
+    <Content Remove="@(_EngineWebText);$(PiuLinkEngineDirectory)\assets\web\images\logo-sunshine-*.png;$(PiuLinkEngineDirectory)\assets\web\images\sunshine.ico" />
+    <Content Remove="$(PiuLinkEngineDirectory)\assets\web\images\sunshine-playing*;$(PiuLinkEngineDirectory)\assets\web\images\sunshine-pausing*;$(PiuLinkEngineDirectory)\assets\web\images\sunshine-locked*" />
+    <Content Include="../../../../assets/brand/exports/windows/engine-tray/*" Link="engine/assets/web/images/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../../../assets/brand/exports/web/piulink-16.png" Link="engine/assets/web/images/logo-sunshine-16.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../../../assets/brand/exports/web/piulink-45.png" Link="engine/assets/web/images/logo-sunshine-45.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../../../assets/brand/exports/windows/piulink-host.ico" Link="engine/assets/web/images/sunshine.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="PrepareManagementWebBrand" BeforeTargets="AssignTargetPaths" Condition="'@(_EngineWebText)' != ''">
+    <PropertyGroup>
+      <_WebStage>$(IntermediateOutputPath)piulink-web</_WebStage>
+    </PropertyGroup>
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\..\installers\Stage-WebBrand.ps1&quot; -WebRoot &quot;$(PiuLinkEngineDirectory)\assets\web&quot; -OutputDirectory &quot;$(_WebStage)&quot;" />
+    <ItemGroup>
+      <Content Include="$(_WebStage)\%(_EngineWebText.WebPath)" Link="engine\assets\web\%(_EngineWebText.WebPath)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
   <ItemGroup Condition="'$(PiuLinkEngineDirectory)' == ''">
     <Content Include="..\..\installers\manifests\sunshine-windows-x64.json"
              Link="third_party\sunshine\manifest.json"

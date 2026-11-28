@@ -1,6 +1,4 @@
 export const repository = "https://github.com/ATIpiu/PiuLink-Community";
-const appleTestNote =
-  "博主的钱包还没解锁苹果全家桶，Mac、iPhone 和 iPad 都没做过真机实测。";
 export const edition = {
   date: "2026-11-28",
   displayDate: "2026.11.28",
@@ -24,11 +22,11 @@ export const platforms = [
         title: "整合版（推荐）",
         role: "windows",
         description: "内含 Rust 主机引擎与控制端，可从同一台电脑发送或接收串流。",
-        version: "0.2.141",
+        version: "0.2.142",
         arch: "x64",
         format: "EXE",
-        bytes: 134219825,
-        url: published("rust-2026.11.28", "PiuLink-Windows-0.2.141-win-x64.exe"),
+        bytes: 125086287,
+        url: published("windows-0.2.142", "PiuLink-Windows-0.2.142-win-x64.exe"),
       },
       {
         id: "win-client",
@@ -85,43 +83,8 @@ export const platforms = [
   {
     id: "macos",
     name: "macOS",
-    packages: [
-      {
-        id: "mac-arm64",
-        title: "控制端",
-        role: "client",
-        description: "适用于搭载 Apple M 系列芯片的 Mac。",
-        version: "0.1.12",
-        arch: "Apple 芯片",
-        format: "ZIP",
-        bytes: 46930148,
-        url: published("unix-harmony-updates-2026.11.27", "PiuLink-Mac-0.1.12-osx-arm64-unsigned.zip"),
-      },
-      {
-        id: "mac-x64",
-        title: "控制端",
-        role: "client",
-        description: "适用于搭载 Intel 处理器的 Mac。",
-        version: "0.1.12",
-        arch: "Intel x64",
-        format: "ZIP",
-        bytes: 49000041,
-        url: published("unix-harmony-updates-2026.11.27", "PiuLink-Mac-0.1.12-osx-x64-unsigned.zip"),
-      },
-      {
-        id: "mac-universal",
-        title: "通用控制端",
-        role: "client",
-        description: "不确定 Mac 的芯片时，选这个双架构包。",
-        version: "0.1.12",
-        arch: "Apple 芯片 / Intel",
-        format: "ZIP",
-        bytes: 93851162,
-        url: published("unix-harmony-updates-2026.11.27", "PiuLink-Mac-0.1.12-universal-unsigned.zip"),
-      },
-    ],
-    testNote: "本轮没有 macOS Rust 安装包。下列下载来自旧主线。" + appleTestNote,
-    note: "需要 macOS 12 或更高版本及 Moonlight.app。预览包未经开发者签名或公证。",
+    packages: [],
+    note: "macOS Rust 安装包暂未发布。",
   },
   {
     id: "ios",

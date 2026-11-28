@@ -8,7 +8,7 @@ $engine = (Resolve-Path -LiteralPath $EngineDirectory).Path
 $strip = (Resolve-Path -LiteralPath (Join-Path $MsysRoot 'ucrt64/bin/strip.exe')).Path
 # Keep the complete, symbol-bearing executable indexed by the shipped binary's hash.
 # The sibling directory is private build output and is never harvested by the MSI.
-$archive = "$engine-symbols"
+$archive = $engine.TrimEnd('\', '/') + '-symbols'
 foreach ($relative in 'sunshine.exe','tools/dxgi-info.exe','tools/audio-info.exe','tools/sunshinesvc.exe') {
     $source = Get-Item -LiteralPath (Join-Path $engine $relative)
     if ((Get-AuthenticodeSignature -LiteralPath $source.FullName).Status -ne 'NotSigned') { continue }

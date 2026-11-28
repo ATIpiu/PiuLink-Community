@@ -39,22 +39,19 @@ export function recommendDevice(userAgent, touch = 0, hints = {}) {
   const id = platformNames[hints.platform] || platformFor(userAgent, touch);
   if (!id) return standIn("当前设备", "请选择目标平台");
   const { name, packages } = systems[id];
+  if (packages.length === 0) return standIn(name, "当前平台暂无安装包");
   const choice = (file) => ({
     id,
     name,
     file,
-    detail:
-      file.arch +
-      " · " +
-      file.format +
-      (id === "macos" ? " · 未经 Mac 真机验证" : ""),
+    detail: file.arch + " · " + file.format,
   });
   if (id === "android" || id === "harmony") return choice(packages[0]);
   const cpu = (hints.architecture || "").toLowerCase();
   const bits = hints.bitness;
   const arm64 =
     /aarch64|arm64/i.test(userAgent) ||
-    (cpu === "arm" && (bits === "64" || id === "macos"));
+    (cpu === "arm" && bits === "64");
   const x64 =
     /x86_64|amd64|x64|win64|wow64/i.test(userAgent) ||
     (cpu === "x86" && bits === "64") ||
@@ -62,18 +59,11 @@ export function recommendDevice(userAgent, touch = 0, hints = {}) {
   const is32 =
     (bits === "32" && !hints.wow64 && !arm64 && !x64) ||
     (/i[3-6]86|armv[5-8]l/i.test(userAgent) && !x64 && !arm64);
-  if (is32 && id !== "macos") return standIn(name, "当前仅提供 64 位安装包");
+  if (is32) return standIn(name, "当前仅提供 64 位安装包");
   if (id === "windows") {
     if (arm64 || cpu === "arm")
       return standIn("Windows ARM", "当前提供 x64 安装包");
     return choice(packages.find((item) => item.id === "win-suite"));
-  }
-  if (id === "macos") {
-    if (arm64) return choice(packages[0]);
-    // Safari on Apple Silicon may also advertise an Intel Mac. Only trust
-    // explicit browser-provided architecture here, otherwise use both runtimes.
-    if (cpu === "x86" && bits === "64") return choice(packages[1]);
-    return choice(packages.find((item) => item.id === "mac-universal"));
   }
   if (/riscv|ppc|powerpc|s390|mips|loongarch/i.test(cpu + " " + userAgent))
     return standIn(name, "当前提供 x64 和 ARM64 安装包");

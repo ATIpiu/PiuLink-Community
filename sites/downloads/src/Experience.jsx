@@ -367,6 +367,15 @@ function Downloads({ selected, setSystem }) {
 
 const updates = [
   {
+    title: "Windows 整合版 0.2.142",
+    tag: "windows-0.2.142",
+    date: "2026-11-28",
+    changes: [
+      "Windows x64 整合版包含 Host 0.2.140 和 Client 0.2.41。主机管理页、引擎图标与托盘使用 PiuLink 标识。",
+      "已安装公开整合版 0.2.141 的用户可在应用内检查更新。使用四段版本号的旧开发版请从官网下载整合包。",
+    ],
+  },
+  {
     title: "Android 0.3.264 · 串流底部快捷键栏",
     tag: "android-0.3.264",
     date: "2026-11-28",

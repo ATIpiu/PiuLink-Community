@@ -67,7 +67,9 @@ try {
         $gccFlags = $mappings -join ' '
         $configureFlags = @("-DCMAKE_C_FLAGS=$gccFlags", "-DCMAKE_CXX_FLAGS=$gccFlags")
     }
-    & $cmake -S $sourcePath -B $buildPath -G Ninja @configureFlags -DBUILD_DOCS=OFF -DBUILD_TESTS=OFF -DSUNSHINE_ENABLE_TRAY=OFF -DSUNSHINE_PUBLISHER_NAME=PiuLink
+    $brandAssets = Join-Path $repoRoot 'assets/brand/exports'
+    $engineIcon = (Resolve-Path -LiteralPath (Join-Path $brandAssets 'windows/piulink-host.ico')).Path.Replace('\', '/')
+    & $cmake -S $sourcePath -B $buildPath -G Ninja @configureFlags -DBUILD_DOCS=OFF -DBUILD_TESTS=OFF -DSUNSHINE_ENABLE_TRAY=OFF -DSUNSHINE_PUBLISHER_NAME=PiuLink "-DSUNSHINE_ICON_PATH=$engineIcon"
     if ($LASTEXITCODE) { throw 'Engine configure failed.' }
     if ($ConfigureOnly) { return }
     & $cmake --build $buildPath --parallel 8
@@ -80,6 +82,14 @@ try {
     if ($LASTEXITCODE) { throw 'Rust Host media build failed.' }
     foreach ($file in 'sunshine.exe', 'piulink_nvenc_rate.dll') {
         Copy-Item -LiteralPath (Join-Path $rustOutput $file) -Destination (Join-Path $outputPath $file) -Force
+    }
+    $images = Join-Path $outputPath 'assets/web/images'
+    $web = Split-Path -Parent $images
+    & "$repoRoot/apps/windows-host/installers/Stage-WebBrand.ps1" -WebRoot $web -OutputDirectory $web
+    Get-ChildItem -LiteralPath (Join-Path $brandAssets 'windows/engine-tray') -File | Copy-Item -Destination $images -Force
+    Copy-Item -LiteralPath $engineIcon -Destination (Join-Path $images 'sunshine.ico') -Force
+    foreach ($size in 16, 45) {
+        Copy-Item -LiteralPath (Join-Path $brandAssets "web/piulink-$size.png") -Destination (Join-Path $images "logo-sunshine-$size.png") -Force
     }
     & "$PSScriptRoot/Save-EngineSymbols.ps1" -EngineDirectory $outputPath -MsysRoot $MsysRoot
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'upstream.json') -Destination (Join-Path $outputPath 'piulink-engine.json')
