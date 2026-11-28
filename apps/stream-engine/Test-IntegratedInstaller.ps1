@@ -36,7 +36,7 @@ $view.Execute()
 $files = @()
 while ($record = $view.Fetch()) { $files += ($record.StringData(1) -split '\|')[-1] }
 $view.Close()
-$requiredFiles = @('sunshine.exe', 'sunshinesvc.exe', 'piulink-engine.json', 'PiuLink.ShareTarget.exe', 'PiuLink.Share.msix', 'Register-ShareTarget.ps1')
+$requiredFiles = @('PiuLink.Engine.exe', 'PiuLink.Engine.Service.exe', 'dxgi-info.exe', 'piulink-engine.json', 'PiuLink.ShareTarget.exe', 'PiuLink.Share.msix', 'Register-ShareTarget.ps1')
 if ($RequireCli) { $requiredFiles += @('piulink-host.exe', 'piulink-host.dll', 'piulink-host.deps.json', 'piulink-host.runtimeconfig.json') }
 if ($driverFree -and ($LayoutOnly -or ($files -match '\.(sys|cat|inf)$'))) {
     throw 'A driver-free installer must not contain drivers or use the layout-only mode.'
@@ -45,7 +45,7 @@ if ($nativeMicrophone) { $requiredFiles += @('PiuLinkMic.sys','PiuLinkMic.inf','
 foreach ($required in $requiredFiles) {
     if (@($files | Where-Object { $_ -eq $required }).Count -ne 1) { throw "Expected one embedded $required" }
 }
-if (@($files | Where-Object { $_ -match 'Sunshine-Windows.*\.msi|sunshine\.(conf|log)|sunshine_state\.json|^credentials$' }).Count) {
+if (@($files | Where-Object { $_ -match '^sunshine(svc)?\.exe$|Sunshine-Windows.*\.msi|sunshine\.(conf|log)|sunshine_state\.json|^credentials$' }).Count) {
     throw 'Installer contains a nested installer or runtime configuration.'
 }
 $view = $database.OpenView('SELECT `Name`, `DisplayName` FROM `ServiceInstall`')

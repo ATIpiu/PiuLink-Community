@@ -56,9 +56,21 @@ jobs:
           $root = Join-Path $env:ProgramFiles 'ATIPiu Labs'
           $engine = "$root/PiuLink Host/engine"
           $manifest = Get-Content "$engine/piulink-engine.json" -Raw | ConvertFrom-Json
+          $engineName = $manifest.windowsExecutable ?? "sunshine.exe"
+          if ($engineName -notin "PiuLink.Engine.exe","sunshine.exe") { throw "Unknown Windows engine executable" }
           if ((Get-FileHash "$engine/piulink_nvenc_rate.dll").Hash -ne $manifest.rustDllSha256 -or
-              (Get-FileHash "$engine/sunshine.exe").Hash -ne $manifest.rustEngineSha256 -or
+              (Get-FileHash "$engine/$engineName").Hash -ne $manifest.rustEngineSha256 -or
               !(Test-Path "$root/PiuLink Client/moonlight-qt/PiuLink-Stream.exe")) { throw 'Installed streaming components missing or changed' }
+          if ($engineName -eq "PiuLink.Engine.exe") {
+            $service = Get-CimInstance Win32_Service -Filter "Name='SunshineService'"
+            $wrapper = Join-Path $engine 'tools/PiuLink.Engine.Service.exe'
+            if (!$service -or $service.PathName.Trim('"') -ne [IO.Path]::GetFullPath($wrapper) -or !(Test-Path $wrapper)) { throw 'Incorrect engine service registration' }
+            if ((Get-Item "$engine/$engineName").VersionInfo.OriginalFilename -ne $engineName) { throw 'Incorrect engine PE metadata' }
+            $diagnostic = Get-Item "$engine/tools/dxgi-info.exe"
+            if ($diagnostic.Length -gt 1MB) { throw 'Unexpected graphics diagnostic size' }
+            & $diagnostic.FullName
+            if ($LASTEXITCODE) { throw 'Installed graphics diagnostic failed' }
+          }
           $suite = Get-ItemProperty 'HKLM:/Software/Microsoft/Windows/CurrentVersion/Uninstall/*','HKLM:/Software/Wow6432Node/Microsoft/Windows/CurrentVersion/Uninstall/*' -ErrorAction SilentlyContinue | Where-Object DisplayName -eq 'PiuLink Windows'
           if ($suite.DisplayVersion -ne $env:SUITE_VERSION) { throw 'Wrong suite registration' }
           "$((Get-FileHash $exe).Hash.ToLowerInvariant())  $($exe.Name)" | Set-Content -Encoding utf8NoBOM dist/SHA256SUMS-compact.txt

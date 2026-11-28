@@ -14,7 +14,7 @@
          Establish DPI awareness in the manifest before WPF creates any HWND. -->
     <NoWarn>$(NoWarn);WFAC010</NoWarn>
     <ApplicationIcon>Assets\PiuLink.ico</ApplicationIcon>
-    <Version>0.2.140</Version>
+    <Version>0.2.143</Version>
     <Authors>Ryan</Authors>
     <Company>ATIPiu Labs</Company>
     <Product>PiuLink Host</Product>
@@ -47,7 +47,7 @@
     <PiuLinkEngineDirectory Condition="'$(PiuLinkEngineDirectory)' == ''"></PiuLinkEngineDirectory>
   </PropertyGroup>
   <Target Name="ValidateEmbeddedEngine" BeforeTargets="PrepareForBuild" Condition="'$(PiuLinkEngineDirectory)' != ''">
-    <Error Condition="!Exists('$(PiuLinkEngineDirectory)\sunshine.exe') Or !Exists('$(PiuLinkEngineDirectory)\tools\sunshinesvc.exe') Or !Exists('$(PiuLinkEngineDirectory)\piulink-engine.json')" Text="The embedded engine must be a complete staged PiuLink engine build." />
+    <Error Condition="!Exists('$(PiuLinkEngineDirectory)\PiuLink.Engine.exe') Or !Exists('$(PiuLinkEngineDirectory)\tools\PiuLink.Engine.Service.exe') Or !Exists('$(PiuLinkEngineDirectory)\piulink-engine.json')" Text="The embedded engine must be a complete staged PiuLink engine build." />
   </Target>
   <ItemGroup Condition="'$(PiuLinkEngineDirectory)' != ''">
     <Content Include="../../../../assets/brand/exports/windows/desktop*.png" Link="engine/assets/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

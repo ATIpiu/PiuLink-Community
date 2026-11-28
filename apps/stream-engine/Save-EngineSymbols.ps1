@@ -9,7 +9,7 @@ $strip = (Resolve-Path -LiteralPath (Join-Path $MsysRoot 'ucrt64/bin/strip.exe')
 # Keep the complete, symbol-bearing executable indexed by the shipped binary's hash.
 # The sibling directory is private build output and is never harvested by the MSI.
 $archive = $engine.TrimEnd('\', '/') + '-symbols'
-foreach ($relative in 'sunshine.exe','tools/dxgi-info.exe','tools/audio-info.exe','tools/sunshinesvc.exe') {
+foreach ($relative in 'PiuLink.Engine.exe','tools/audio-info.exe','tools/PiuLink.Engine.Service.exe') {
     $source = Get-Item -LiteralPath (Join-Path $engine $relative)
     if ((Get-AuthenticodeSignature -LiteralPath $source.FullName).Status -ne 'NotSigned') { continue }
     $temporary = $source.FullName + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'

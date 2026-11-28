@@ -2,7 +2,7 @@
   "repository": "https://github.com/LizardByte/Sunshine.git",
   "tag": "v2026.516.143833",
   "commit": "14ffa6fdaa53f7b51512be2b3d24f3939695403c",
-  "engineVersion": "2026.516.143833-piulink.18",
+  "engineVersion": "2026.516.143833-piulink.19",
   "protocolVersion": 2,
   "releaseReady": false,
   "patches": [
@@ -21,7 +21,8 @@
     "patches/0015-engine-bugfixes.patch",
     "patches/0016-live-video-resolution.patch",
     "patches/0017-live-stream-framerate.patch",
-    "patches/0018-retain-live-bitrate-on-encoder-rebuild.patch"
+    "patches/0018-retain-live-bitrate-on-encoder-rebuild.patch",
+    "patches/0019-piulink-windows-engine-name.patch"
   ],
   "dependencyPatches": [
     {
@@ -32,5 +33,6 @@
       "directory": "third-party/Simple-Web-Server",
       "patch": "patches/0008-tls-peer-metadata.patch"
     }
-  ]
+  ],
+  "windowsExecutable": "PiuLink.Engine.exe"
 }

@@ -1,0 +1,10 @@
+# PiuLink Windows 0.2.143 公开预览
+
+Windows x64 整合版包含 Host 0.2.143、piulink.19 引擎和 Client 0.2.41。
+
+- Windows 主机串流进程使用 `PiuLink.Engine.exe`，服务程序使用 `PiuLink.Engine.Service.exe`。安装器、防火墙、服务启动、显示恢复监视与 NVIDIA 应用配置均使用新文件名。为兼容旧版升级，Windows 服务内部标识仍为 `SunshineService`。
+- 管理页的 `tools/dxgi-info.exe` 仍可用于查询显卡和显示器。Rust 实现直接调用 Windows DXGI，大小从 20,570,624 字节降到 116,224 字节。本机新旧诊断输出的 40 行逐行一致。
+- Host 和 Client 使用相同的直连助手，整合包可以对它去重。首次安装离线小包包含完整的 Host、Client 和运行库。已有公开整合版可在应用内检查更新。
+- 当前 Windows 引擎是 Rust 与 C/C++ 的组合。Rust 实现参与实时码率控制、媒体封包、接收端整帧重组和丢包恢复。主机进程仍链接原生采集、编解码和平台集成代码。桌面管理界面和客户端渲染组件也计入整合包体积。
+
+在本机独立配对的 Windows 会话中，PiuLink 客户端以 720p30 连接新引擎。主机创建 HEVC NVENC 编码器，客户端收到音频，渲染的三次颜色变化与测试窗口匹配。该测试使用独立的配对与配置目录。

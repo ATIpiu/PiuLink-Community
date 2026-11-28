@@ -7,7 +7,7 @@ public sealed class FirewallProbe(IProcessRunner processRunner)
 {
     public async Task<ComponentHealth> CheckAsync(CancellationToken cancellationToken = default)
     {
-        const string command = "$filters = Get-NetFirewallApplicationFilter -ErrorAction SilentlyContinue | Where-Object { $_.Program -like '*sunshine.exe' }; $rules = foreach ($filter in $filters) { Get-NetFirewallRule -AssociatedNetFirewallApplicationFilter $filter -ErrorAction SilentlyContinue }; $rules | Where-Object { $_.Enabled -eq 'True' -and $_.Direction -eq 'Inbound' -and $_.Action -eq 'Allow' } | Select-Object -ExpandProperty DisplayName -Unique | ConvertTo-Json -Compress";
+        const string command = "$filters = Get-NetFirewallApplicationFilter -ErrorAction SilentlyContinue | Where-Object { $_.Program -like '*PiuLink.Engine.exe' -or $_.Program -like '*sunshine.exe' }; $rules = foreach ($filter in $filters) { Get-NetFirewallRule -AssociatedNetFirewallApplicationFilter $filter -ErrorAction SilentlyContinue }; $rules | Where-Object { $_.Enabled -eq 'True' -and $_.Direction -eq 'Inbound' -and $_.Action -eq 'Allow' } | Select-Object -ExpandProperty DisplayName -Unique | ConvertTo-Json -Compress";
         ProcessResult result;
         try
         {

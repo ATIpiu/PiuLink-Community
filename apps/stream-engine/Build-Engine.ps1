@@ -80,9 +80,15 @@ try {
     $python = if ($env:PYTHON) { $env:PYTHON } else { 'python' }
     & $python (Join-Path $repoRoot 'engines/rust/integration/sunshine/build.py') $sourcePath (Join-Path $MsysRoot 'ucrt64/bin') --output $rustOutput
     if ($LASTEXITCODE) { throw 'Rust Host media build failed.' }
-    foreach ($file in 'sunshine.exe', 'piulink_nvenc_rate.dll') {
-        Copy-Item -LiteralPath (Join-Path $rustOutput $file) -Destination (Join-Path $outputPath $file) -Force
-    }
+    Move-Item -LiteralPath (Join-Path $outputPath 'sunshine.exe') -Destination (Join-Path $outputPath 'PiuLink.Engine.exe') -Force
+    Copy-Item -LiteralPath (Join-Path $rustOutput 'sunshine.exe') -Destination (Join-Path $outputPath 'PiuLink.Engine.exe') -Force
+    Copy-Item -LiteralPath (Join-Path $rustOutput 'piulink_nvenc_rate.dll') -Destination $outputPath -Force
+    Move-Item -LiteralPath (Join-Path $outputPath 'tools/sunshinesvc.exe') -Destination (Join-Path $outputPath 'tools/PiuLink.Engine.Service.exe') -Force
+    $diagnosticManifest = Join-Path $repoRoot 'engines/rust/integration/dxgi-info/Cargo.toml'
+    $diagnosticTarget = Join-Path $buildPath 'piulink-dxgi'
+    & cargo build --release --locked --target x86_64-pc-windows-msvc --manifest-path $diagnosticManifest --target-dir $diagnosticTarget
+    if ($LASTEXITCODE) { throw 'Rust DXGI diagnostic build failed.' }
+    Copy-Item -LiteralPath (Join-Path $diagnosticTarget 'x86_64-pc-windows-msvc/release/dxgi-info.exe') -Destination (Join-Path $outputPath 'tools/dxgi-info.exe') -Force
     $images = Join-Path $outputPath 'assets/web/images'
     $web = Split-Path -Parent $images
     & "$repoRoot/apps/windows-host/installers/Stage-WebBrand.ps1" -WebRoot $web -OutputDirectory $web
@@ -92,7 +98,9 @@ try {
         Copy-Item -LiteralPath (Join-Path $brandAssets "web/piulink-$size.png") -Destination (Join-Path $images "logo-sunshine-$size.png") -Force
     }
     & "$PSScriptRoot/Save-EngineSymbols.ps1" -EngineDirectory $outputPath -MsysRoot $MsysRoot
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'upstream.json') -Destination (Join-Path $outputPath 'piulink-engine.json')
+    $pin | Add-Member -Force NoteProperty rustEngineSha256 ((Get-FileHash (Join-Path $outputPath $pin.windowsExecutable)).Hash.ToLowerInvariant())
+    $pin | Add-Member -Force NoteProperty rustDllSha256 ((Get-FileHash (Join-Path $outputPath 'piulink_nvenc_rate.dll')).Hash.ToLowerInvariant())
+    $pin | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 (Join-Path $outputPath 'piulink-engine.json')
     Write-Output "Development engine staged at $outputPath. No installed service was changed."
 } finally {
     Pop-Location

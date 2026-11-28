@@ -1,0 +1,92 @@
+--- a/src/platform/windows/windows.rc
++++ b/src/platform/windows/windows.rc
+@@ -19,10 +19,11 @@
+         BLOCK "040904E4"
+         BEGIN
+             VALUE "CompanyName",      TOSTRING(PROJECT_VENDOR)
+-            VALUE "FileDescription",  TOSTRING(PROJECT_NAME)
++            VALUE "FileDescription",  "PiuLink Streaming Engine"
+             VALUE "FileVersion",      TOSTRING(PROJECT_VERSION)
+-            VALUE "InternalName",     TOSTRING(PROJECT_NAME)
+-            VALUE "ProductName",      TOSTRING(PROJECT_NAME)
++            VALUE "InternalName",     "PiuLink.Engine"
++            VALUE "OriginalFilename", "PiuLink.Engine.exe"
++            VALUE "ProductName",      "PiuLink"
+             VALUE "ProductVersion",   TOSTRING(PROJECT_VERSION)
+             VALUE "LegalCopyright",   "https://raw.githubusercontent.com/LizardByte/Sunshine/master/LICENSE"
+         END
+--- a/tools/sunshinesvc.cpp
++++ b/tools/sunshinesvc.cpp
+@@ -15,6 +15,7 @@
+ 
+ SERVICE_STATUS_HANDLE service_status_handle;
+ SERVICE_STATUS service_status;
++std::wstring engine_path;
+ HANDLE stop_event;
+ HANDLE session_change_event;
+ 
+@@ -266,7 +267,7 @@
+     UpdateProcThreadAttribute(startup_info.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_JOB_LIST, &job_handle, sizeof(job_handle), nullptr, nullptr);
+ 
+     PROCESS_INFORMATION process_info;
+-    if (!CreateProcessAsUserW(console_token, L"Sunshine.exe", nullptr, nullptr, nullptr, TRUE, CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT, nullptr, nullptr, (LPSTARTUPINFOW) &startup_info, &process_info)) {
++    if (!CreateProcessAsUserW(console_token, engine_path.c_str(), nullptr, nullptr, nullptr, TRUE, CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT, nullptr, nullptr, (LPSTARTUPINFOW) &startup_info, &process_info)) {
+       CloseHandle(console_token);
+       CloseHandle(job_handle);
+       continue;
+@@ -364,7 +365,10 @@
+       *last_sep = 0;
+     }
+   }
+-  SetCurrentDirectoryW(module_path);
++  if (!SetCurrentDirectoryW(module_path)) {
++    return GetLastError();
++  }
++  engine_path = std::wstring(module_path) + L"\\PiuLink.Engine.exe";
+ 
+   // Trigger our ServiceMain()
+   return StartServiceCtrlDispatcher(service_table);
+--- a/src/platform/windows/nvprefs/driver_settings.cpp
++++ b/src/platform/windows/nvprefs/driver_settings.cpp
+@@ -11,7 +11,7 @@
+ namespace {
+ 
+   const auto sunshine_application_profile_name = L"SunshineStream";
+-  const auto sunshine_application_path = L"sunshine.exe";
++  const auto sunshine_application_path = L"PiuLink.Engine.exe";
+ 
+   void nvapi_error_message(NvAPI_Status status) {
+     NvAPI_ShortString message = {};
+--- a/src_assets/windows/misc/firewall/add-firewall-rule.bat
++++ b/src_assets/windows/misc/firewall/add-firewall-rule.bat
+@@ -4,7 +4,7 @@
+ for %%I in ("%~dp0\..") do set "ROOT_DIR=%%~fI"
+ 
+ set RULE_NAME=Sunshine
+-set PROGRAM_BIN="%ROOT_DIR%\sunshine.exe"
++set PROGRAM_BIN="%ROOT_DIR%\PiuLink.Engine.exe"
+ 
+ rem Add the rule
+ netsh advfirewall firewall add rule name=%RULE_NAME% dir=in action=allow protocol=tcp program=%PROGRAM_BIN% enable=yes
+--- a/src_assets/windows/misc/sunshine-setup.ps1
++++ b/src_assets/windows/misc/sunshine-setup.ps1
+@@ -372,7 +372,7 @@
+         Write-LogMessage -Message "$Emoji $Description" -Level "Step"
+     }
+ 
+-    $SunshinePath = Join-Path $RootDir "sunshine.exe"
++    $SunshinePath = Join-Path $RootDir "PiuLink.Engine.exe"
+ 
+     if (Test-Path $SunshinePath) {
+         Write-LogMessage -Message "Executing: $SunshinePath $Arguments" -Level "Information"
+--- a/src_assets/windows/misc/service/install-service.bat
++++ b/src_assets/windows/misc/service/install-service.bat
+@@ -5,7 +5,7 @@
+ for %%I in ("%~dp0\..") do set "ROOT_DIR=%%~fI"
+ 
+ set SERVICE_NAME=SunshineService
+-set "SERVICE_BIN=%ROOT_DIR%\tools\sunshinesvc.exe"
++set "SERVICE_BIN=%ROOT_DIR%\tools\PiuLink.Engine.Service.exe"
+ set "SERVICE_CONFIG_DIR=%LOCALAPPDATA%\LizardByte\Sunshine"
+ set "SERVICE_CONFIG_FILE=%SERVICE_CONFIG_DIR%\service_start_type.txt"
+ 

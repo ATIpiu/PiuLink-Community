@@ -81,24 +81,24 @@
           <Files Include="$(var.PublishDir)\**">
             <Exclude Files="$(var.PublishDir)\**\*.pdb" />
             <?if $(var.EmbeddedEngine) = 1 ?>
-            <Exclude Files="$(var.PublishDir)\engine\tools\sunshinesvc.exe" />
+            <Exclude Files="$(var.PublishDir)\engine\tools\PiuLink.Engine.Service.exe" />
             <?endif?>
           </Files>
           <?if $(var.EmbeddedEngine) = 1 ?>
           <Directory Id="ENGINEFOLDER" Name="engine">
             <Directory Id="ENGINETOOLSFOLDER" Name="tools">
-              <Component Id="PiuLinkStreamServiceComponent" Guid="7F0CD44D-EBC1-4579-B74A-924F42F25C81">
-                <File Id="PiuLinkStreamServiceBinary" Source="$(var.PublishDir)\engine\tools\sunshinesvc.exe" KeyPath="yes" />
+              <Component Id="PiuLinkStreamServiceComponent" Guid="F157D21C-AD28-495E-B21A-8234016EC899">
+                <File Id="PiuLinkStreamServiceBinary" Source="$(var.PublishDir)\engine\tools\PiuLink.Engine.Service.exe" KeyPath="yes" />
                 <ServiceInstall Id="PiuLinkStreamServiceInstall" Name="SunshineService" DisplayName="PiuLink Streaming Engine" Description="PiuLink managed desktop streaming engine, based on Sunshine." Type="ownProcess" Start="auto" ErrorControl="normal" Account="LocalSystem" />
                 <ServiceControl Id="PiuLinkStreamServiceControl" Name="SunshineService" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
-                <firewall:FirewallException Id="EnginePairingTls" Name="PiuLink stream pairing TLS" Program="[ENGINEFOLDER]sunshine.exe" Port="47984" Protocol="tcp" Profile="all" Scope="any" />
-                <firewall:FirewallException Id="EngineDiscovery" Name="PiuLink stream discovery" Program="[ENGINEFOLDER]sunshine.exe" Port="47989" Protocol="tcp" Profile="all" Scope="any" />
-                <firewall:FirewallException Id="EngineMdnsDiscovery" Name="PiuLink local network discovery" Program="[ENGINEFOLDER]sunshine.exe" Port="5353" Protocol="udp" Profile="all" Scope="localSubnet" />
-                <firewall:FirewallException Id="EngineSession" Name="PiuLink stream session" Program="[ENGINEFOLDER]sunshine.exe" Port="48010" Protocol="tcp" Profile="all" Scope="any" />
-                <firewall:FirewallException Id="EngineVideo" Name="PiuLink video" Program="[ENGINEFOLDER]sunshine.exe" Port="47998" Protocol="udp" Profile="all" Scope="any" />
-                <firewall:FirewallException Id="EngineControl" Name="PiuLink stream control" Program="[ENGINEFOLDER]sunshine.exe" Port="47999" Protocol="udp" Profile="all" Scope="any" />
-                <firewall:FirewallException Id="EngineAudio" Name="PiuLink audio" Program="[ENGINEFOLDER]sunshine.exe" Port="48000" Protocol="udp" Profile="all" Scope="any" />
-                <firewall:FirewallException Id="EngineMicrophone" Name="PiuLink microphone" Program="[ENGINEFOLDER]sunshine.exe" Port="48002" Protocol="udp" Profile="all" Scope="any" />
+                <firewall:FirewallException Id="EnginePairingTls" Name="PiuLink stream pairing TLS" Program="[ENGINEFOLDER]PiuLink.Engine.exe" Port="47984" Protocol="tcp" Profile="all" Scope="any" />
+                <firewall:FirewallException Id="EngineDiscovery" Name="PiuLink stream discovery" Program="[ENGINEFOLDER]PiuLink.Engine.exe" Port="47989" Protocol="tcp" Profile="all" Scope="any" />
+                <firewall:FirewallException Id="EngineMdnsDiscovery" Name="PiuLink local network discovery" Program="[ENGINEFOLDER]PiuLink.Engine.exe" Port="5353" Protocol="udp" Profile="all" Scope="localSubnet" />
+                <firewall:FirewallException Id="EngineSession" Name="PiuLink stream session" Program="[ENGINEFOLDER]PiuLink.Engine.exe" Port="48010" Protocol="tcp" Profile="all" Scope="any" />
+                <firewall:FirewallException Id="EngineVideo" Name="PiuLink video" Program="[ENGINEFOLDER]PiuLink.Engine.exe" Port="47998" Protocol="udp" Profile="all" Scope="any" />
+                <firewall:FirewallException Id="EngineControl" Name="PiuLink stream control" Program="[ENGINEFOLDER]PiuLink.Engine.exe" Port="47999" Protocol="udp" Profile="all" Scope="any" />
+                <firewall:FirewallException Id="EngineAudio" Name="PiuLink audio" Program="[ENGINEFOLDER]PiuLink.Engine.exe" Port="48000" Protocol="udp" Profile="all" Scope="any" />
+                <firewall:FirewallException Id="EngineMicrophone" Name="PiuLink microphone" Program="[ENGINEFOLDER]PiuLink.Engine.exe" Port="48002" Protocol="udp" Profile="all" Scope="any" />
               </Component>
             </Directory>
           </Directory>

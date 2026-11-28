@@ -7,6 +7,8 @@ public static class ExecutableLocator
         FindOnPath("tailscale.exe"));
 
     public static string? FindSunshine() => FindFirst(
+        Path.Combine(AppContext.BaseDirectory, "engine", "PiuLink.Engine.exe"),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ATIPiu Labs", "PiuLink Host", "engine", "PiuLink.Engine.exe"),
         Path.Combine(AppContext.BaseDirectory, "engine", "sunshine.exe"),
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ATIPiu Labs", "PiuLink Host", "engine", "sunshine.exe"),
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Sunshine", "sunshine.exe"),

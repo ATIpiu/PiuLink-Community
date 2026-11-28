@@ -446,7 +446,7 @@ internal static class DisplayRecoveryJournal
                     }
                     catch (Exception) { }
                 }
-                var processes = Process.GetProcessesByName("sunshine");
+                var processes = Process.GetProcessesByName("PiuLink.Engine").Concat(Process.GetProcessesByName("sunshine")).ToArray();
                 var engineDead = processes.Length == 0;
                 foreach (var process in processes) process.Dispose();
                 if (active == true) {
