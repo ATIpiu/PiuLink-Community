@@ -369,6 +369,16 @@ function Downloads({ selected, setSystem }) {
 
 const updates = [
   {
+    title: "Windows 整合版 0.2.144",
+    tag: "windows-0.2.144",
+    date: "2026-11-28",
+    changes: [
+      "主机串流进程和服务程序已采用 PiuLink 文件名。整合版包含 Host 0.2.144 和 Client 0.2.41。",
+      "显卡诊断工具改用 Rust 调用 Windows DXGI，从 19.62 MiB 缩至 209 KiB，保留原有显卡与显示器信息。",
+      "首次安装小包为 95.17 MB，包含完整离线组件。已有公开整合版可以在应用内更新。",
+    ],
+  },
+  {
     title: "Windows 整合版 0.2.142",
     tag: "windows-0.2.142",
     date: "2026-11-28",
