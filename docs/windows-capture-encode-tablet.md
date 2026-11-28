@@ -34,3 +34,20 @@ The candidate saves 67,159 bytes against the rebuilt control and 88,839 bytes ag
 | --- | --- |
 | PiuLink.Engine.exe | `70b3b3c517da49fa2fa78c48c1136042ed296cc90aad9d636c48552caa635b99` |
 | piulink_nvenc_rate.dll | `228054e8f51aa75b569548787838073c2b4b54168eabfe8b111f43e471d96d32` |
+
+## Windows engine download-size experiment
+
+The host's default encoder selection disables CPU AV1 behind `ENABLE_BROKEN_AV1_ENCODER`. The pinned FFmpeg SDK still registers libsvtav1 and pulls SVT-AV1 into the executable. The control link map attributed 7,277,744 bytes of linked sections to that library, 6,568,376 to x265, and 2,276,664 to x264.
+
+The experiment rebuilt the pinned FFmpeg 8.1.1 codec registration unit with the SDK's configuration and the same codec order, dropping only libsvtav1. It then linked the same host objects without the SVT archive. For a dependency build, configure the pinned build-deps FFmpeg project with `-DBUILD_FFMPEG_SVT_AV1=OFF` and pass its installed SDK directory to `apps/stream-engine/Build-Engine.ps1 -FfmpegDirectory <sdk>`. Omitting that argument restores the default SDK. The SDK selection and cache reset were checked separately from the experimental relink.
+
+| Measurement in bytes | Capture candidate | Without software AV1 |
+| --- | ---: | ---: |
+| Windows engine EXE | 36,615,680 | 29,311,488 |
+| Windows x64 integrated first-install download | 95,076,659 | 92,628,687 |
+
+The two bundles had the same 2,051 installed paths. Only the engine executable and its manifest changed. Offline reconstruction reproduced the lean candidate bundle's SHA-256. A Windows client streamed from the lean engine over loopback using NVENC AV1, libx264 and libx265. The host reported the selected encoder after connection and each client showed the three desktop test colors. The software HEVC session logged an unmet IDR request in both the control and candidate builds. This experiment did not repeat the tablet test or measure long-session performance.
+
+## Display recovery on reconnect
+
+An authenticated Windows client streamed from an isolated host and released its display lease. The QA setup simulated an unavailable recovery worker in its own mutex namespace. On the old host, eight consecutive selection requests returned HTTP 409 over 4.329 seconds and the journal still said `Aborted`. With the change, the first request returned HTTP 200 after 3.000 seconds and the journal recorded the new request as `Ready`. These timings cover display preparation after disconnect. A retained application or live stream still prevents eager recovery.
