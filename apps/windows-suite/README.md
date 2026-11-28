@@ -1,6 +1,6 @@
 # Windows 整合版
 
-整合版在 Windows x64 上一次安装 PiuLink Host 和 PiuLink Client。需要单一角色时，可以单独下载对应的 MSI。
+整合版在 Windows x64 上一次安装 PiuLink Host 和 PiuLink Client。首次安装、升级和本机安装验收统一使用整合版 EXE。Host 和 Client 的 MSI 仅用于构建和校验整合包。
 
 先构建公开预览版 Host MSI 和 x64 Client MSI，再从仓库根目录运行以下命令。
 

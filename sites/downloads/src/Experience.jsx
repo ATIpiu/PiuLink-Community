@@ -369,6 +369,16 @@ function Downloads({ selected, setSystem }) {
 
 const updates = [
   {
+    title: "Windows 整合版 0.2.145",
+    tag: "windows-0.2.145",
+    date: "2026-11-28",
+    changes: [
+      "远程唤醒提示和本机引擎控制跟随所选显示语言切换。",
+      "修复上次会话已结束后，重新串流仍反复等待恢复显示布局的问题。",
+      "Windows 统一提供整合版。首次安装小包为 92.65 MB，包含控制端和被控端。",
+    ],
+  },
+  {
     title: "Windows 整合版 0.2.144",
     tag: "windows-0.2.144",
     date: "2026-11-28",

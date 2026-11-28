@@ -13,8 +13,6 @@ REPO = "ATIpiu/PiuLink-Community"
 VERSION = r"(?P<v>\d+\.\d+\.\d+)"
 FORMATS = {
     "win-suite": rf"PiuLink-Windows-{VERSION}-win-x64\.exe",
-    "win-host": rf"PiuLink-Host-{VERSION}-win-x64-preview\.msi",
-    "win-client": rf"PiuLink-Client-{VERSION}-win-x64\.msi",
     "android-client": rf"PiuLink-Android-{VERSION}-nonRoot-universal-release\.apk",
     "android-arm64": rf"PiuLink-Android-{VERSION}-nonRoot-arm64-v8a-release\.apk",
     "harmony-client": rf"PiuLink-HarmonyOS-{VERSION}-unsigned\.hap",
@@ -76,6 +74,10 @@ def main(tag):
                     raise ValueError(f"GitHub digest mismatch for {name}")
                 record = json.loads(subprocess.check_output([builder, file, dist/"maps", version, tag]))
                 channels[channel] = harmony_compatible_map(record, dist/"maps") if channel == "harmony-client" else record
+                if channel == "win-suite":
+                    # Earlier standalone installations still request their original channel.
+                    for legacy in ("win-host", "win-client"):
+                        channels[legacy] = record
                 break
     # Keep previous maps available to downloads that are already in progress.
     new = catalog.with_suffix(".tmp")
