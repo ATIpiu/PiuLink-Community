@@ -20,7 +20,6 @@ WizardStyle=modern
 
 [Files]
 Source: "{#Archive}"; DestDir: "{tmp}"; DestName: "media.7z"; Flags: nocompression ignoreversion
-Source: "{tmp}\media.7z"; DestDir: "{tmp}\media"; Flags: external extractarchive recursesubdirs ignoreversion
 
 [Run]
 Filename: "{localappdata}\PiuLink\Installers\{#Original}"; Description: "Open PiuLink Windows Setup"; Flags: postinstall nowait skipifsilent
@@ -34,6 +33,9 @@ begin
   if Step <> ssPostInstall then Exit;
   Media := ExpandConstant('{tmp}\media');
   Bundle := ExpandConstant('{localappdata}\PiuLink\Installers\{#Original}');
+  WizardForm.StatusLabel.Caption := 'Unpacking PiuLink Windows...';
+  ForceDirectories(Media);
+  ExtractArchive(ExpandConstant('{tmp}\media.7z'), Media, '', True, nil);
   WizardForm.StatusLabel.Caption := 'Preparing the verified PiuLink Windows installer...';
   if not Exec(Media + '\RestoreBundle.exe', AddQuotes(Bundle), Media, SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
     RaiseException('Could not restore and verify the installer. The full EXE is available on the download page.');
