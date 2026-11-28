@@ -1,0 +1,89 @@
+name: Publish verified compact Windows installer
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing public Windows suite version
+        required: true
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    env:
+      SUITE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Download the canonical installer and verify GitHub's digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          if ($env:SUITE_VERSION -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid suite version' }
+          $file = "PiuLink-Windows-$env:SUITE_VERSION-win-x64.exe"
+          $tag = "windows-$env:SUITE_VERSION"
+          $release = gh release view $tag --json assets,isDraft | ConvertFrom-Json
+          $asset = $release.assets | Where-Object name -eq $file
+          if (!$asset -or $release.isDraft) { throw 'Canonical public release missing' }
+          gh release download $tag -p $file -D canonical
+          if ($LASTEXITCODE -or ('sha256:' + (Get-FileHash "canonical/$file").Hash) -ne $asset.digest) { throw 'Canonical digest mismatch' }
+      - name: Build the offline first-install EXE
+        shell: pwsh
+        run: |
+          $setup = "$env:RUNNER_TEMP/inno-6.7.3.exe"
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' -OutFile $setup
+          if ((Get-FileHash $setup).Hash -ne '9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732') { throw 'Unexpected compiler installer' }
+          $dir = "$env:RUNNER_TEMP/inno"
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT','/NORESTART','/CURRENTUSER',"/DIR=$dir" -Wait -PassThru
+          if ($p.ExitCode) { throw 'Compiler installation failed' }
+          $iscc = "$dir/ISCC.exe"
+          ./apps/windows-suite/first-install/Build-FirstInstall.ps1 -Bundle (Get-ChildItem canonical/*.exe).FullName -WorkDirectory "$env:RUNNER_TEMP/first-install-build" -OutputDirectory dist -Iscc $iscc
+      - name: Verify a fresh install with the network disabled for the installer processes
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist/*-compact.exe
+          $original = Get-ChildItem canonical/*.exe
+          $restored = Join-Path $env:LOCALAPPDATA "PiuLink/Installers/$($original.Name)"
+          if (Test-Path $restored) { throw 'Expected an empty installer cache' }
+          New-NetFirewallRule -DisplayName 'PiuLink compact offline test' -Direction Outbound -Action Block -Program $exe.FullName | Out-Null
+          $p = Start-Process $exe.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($p.ExitCode -or (Get-FileHash $restored).Hash -ne (Get-FileHash $original).Hash) { throw 'Offline reconstruction failed' }
+          if ($exe.Length -ge $original.Length) { throw 'Compact distribution is larger than the original' }
+          New-NetFirewallRule -DisplayName 'PiuLink suite offline test' -Direction Outbound -Action Block -Program $restored | Out-Null
+          $p = Start-Process $restored -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru
+          if ($p.ExitCode -notin 0,3010) { throw "Fresh install failed: $($p.ExitCode)" }
+          $root = Join-Path $env:ProgramFiles 'ATIPiu Labs'
+          $engine = "$root/PiuLink Host/engine"
+          $manifest = Get-Content "$engine/piulink-engine.json" -Raw | ConvertFrom-Json
+          if ((Get-FileHash "$engine/piulink_nvenc_rate.dll").Hash -ne $manifest.rustDllSha256 -or
+              (Get-FileHash "$engine/sunshine.exe").Hash -ne $manifest.rustEngineSha256 -or
+              !(Test-Path "$root/PiuLink Client/moonlight-qt/PiuLink-Stream.exe")) { throw 'Installed streaming components missing or changed' }
+          $suite = Get-ItemProperty 'HKLM:/Software/Microsoft/Windows/CurrentVersion/Uninstall/*','HKLM:/Software/Wow6432Node/Microsoft/Windows/CurrentVersion/Uninstall/*' -ErrorAction SilentlyContinue | Where-Object DisplayName -eq 'PiuLink Windows'
+          if ($suite.DisplayVersion -ne $env:SUITE_VERSION) { throw 'Wrong suite registration' }
+          "$((Get-FileHash $exe).Hash.ToLowerInvariant())  $($exe.Name)" | Set-Content -Encoding utf8NoBOM dist/SHA256SUMS-compact.txt
+          "Fresh download: $($exe.Length) bytes. Canonical installer: $($original.Length) bytes." >> $env:GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compact-windows
+          path: dist/
+          retention-days: 3
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: compact-windows
+          path: dist
+      - name: Attach the verified first-install distribution to the existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUITE_VERSION: ${{ inputs.version }}
+        run: |
+          cd dist
+          sha256sum --check SHA256SUMS-compact.txt
+          curl --fail --location --silent --show-error https://codeload.github.com/wixtoolset/wix/zip/refs/tags/v6.0.0 --output WiX-6.0.0-source.zip
+          gh release upload "windows-$SUITE_VERSION" --repo "$GITHUB_REPOSITORY" *.exe SHA256SUMS-compact.txt WiX-6.0.0-source.zip
