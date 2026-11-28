@@ -194,6 +194,8 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromSeconds(3)
         };
         _windowRecoveryTimer.Tick += WindowRecoveryTimer_Tick;
+        Activated += (_, _) => RefreshSystemLanguage();
+        SystemEvents.UserPreferenceChanged += SystemLanguagePreferenceChanged;
         SystemEvents.DisplaySettingsChanging += SessionDisplaySettingsChanging;
         _sessionGuardianTimer = new DispatcherTimer
         {
@@ -244,6 +246,7 @@ public partial class MainWindow : Window
         {
             LocalizationService.Instance.LanguageChanged -= Localization_LanguageChanged;
             _windowRecoveryTimer.Stop();
+            SystemEvents.UserPreferenceChanged -= SystemLanguagePreferenceChanged;
             SystemEvents.DisplaySettingsChanging -= SessionDisplaySettingsChanging;
             _sessionGuardianTimer.Stop();
             _pendingDisplaySettingsTimer.Stop();
@@ -315,8 +318,30 @@ public partial class MainWindow : Window
             HostPreferences.AutoPairLan,
             HostPreferences.AutoPairTailnet);
 
-    private void Localization_LanguageChanged(object? sender, EventArgs e) =>
+    private void Localization_LanguageChanged(object? sender, EventArgs e)
+    {
         ApplyLiteralLocalization();
+        UpdatePageHeader(_currentPage);
+    }
+
+    private void RefreshSystemLanguage()
+    {
+        if (LocalizationService.Instance.SelectedCode == "system")
+            LocalizationService.Instance.SetLanguage("system");
+    }
+
+    private void SystemLanguagePreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category is UserPreferenceCategory.Locale or UserPreferenceCategory.General)
+            Dispatcher.InvokeAsync(RefreshSystemLanguage);
+    }
+
+    private static void BindMessage(FrameworkElement target, DependencyProperty property, string key, string? format = null)
+    {
+        target.SetBinding(property, new System.Windows.Data.Binding($"[{key}]") {
+            Source = LocalizationService.Instance, Mode = BindingMode.OneWay, StringFormat = format
+        });
+    }
 
     private void ApplyLiteralLocalization()
     {
@@ -476,11 +501,10 @@ public partial class MainWindow : Window
 
         var sunshineInstalled = snapshot.Sunshine.State != ComponentState.Missing;
         SunshineNativeStatusDot.Background = StateBrush(snapshot.Sunshine.State);
-        SunshineNativeStatusText.Text = UiText(sunshineInstalled ? "Detected" : "Not installed");
+        BindMessage(SunshineNativeStatusText, TextBlock.TextProperty, sunshineInstalled ? "Engine.Detected" : "Engine.Absent");
         SunshineNativeStatusText.Foreground = StateBrush(snapshot.Sunshine.State);
-        SunshineNativeStatusDetail.Text = UiText(sunshineInstalled
-            ? "Sunshine is available locally. Connect below to manage it inside PiuLink."
-            : "Sunshine was not found. Install the verified bundled component below without leaving PiuLink.");
+        BindMessage(SunshineNativeStatusDetail, TextBlock.TextProperty,
+            sunshineInstalled ? "Engine.Present" : "Engine.Missing");
         SunshineInstallCard.Visibility = sunshineInstalled
             ? Visibility.Collapsed
             : Visibility.Visible;
@@ -492,7 +516,7 @@ public partial class MainWindow : Window
             SubmitPairingPinButton.IsEnabled = false;
             SunshineAppsCountText.Text = "—";
             SunshineClientsCountText.Text = "—";
-            SunshineControlStatusText.Text = "Install Sunshine above before connecting to its local API.";
+            BindMessage(SunshineControlStatusText, TextBlock.TextProperty, "Engine.Missing");
         }
 
         UpdateSunshineInstallButton();
@@ -1055,7 +1079,6 @@ public partial class MainWindow : Window
 
         HostPreferences.Language = languageCode;
         LocalizationService.Instance.SetLanguage(languageCode);
-        UpdatePageHeader(_currentPage);
     }
 
     private void OpenDiagnostics_Click(object sender, RoutedEventArgs e)
@@ -1149,10 +1172,13 @@ public partial class MainWindow : Window
         PageSubtitle.Visibility = target == HostPage.Overview ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    private int _wakeInspection;
+
     private async Task LoadWakeOnLanStatusAsync()
     {
-        WakeOnLanStatusTitle.Text = UiText("Checking Wake-on-LAN…");
-        WakeOnLanStatusDetail.Text = UiText("Inspecting active network adapters and Windows wake permissions.");
+        var inspection = ++_wakeInspection;
+        BindMessage(WakeOnLanStatusTitle, TextBlock.TextProperty, "Wake.Check");
+        BindMessage(WakeOnLanStatusDetail, TextBlock.TextProperty, "Wake.Inspect");
         WakeOnLanAdapterList.Children.Clear();
 
         WakeOnLanStatus status;
@@ -1162,29 +1188,25 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            WakeOnLanStatusTitle.Text = UiText("Wake-on-LAN inspection failed");
-            WakeOnLanStatusDetail.Text = UiText(exception.Message);
+            if (inspection != _wakeInspection) return;
+            BindMessage(WakeOnLanStatusTitle, TextBlock.TextProperty, "Wake.Failed");
+            BindMessage(WakeOnLanStatusDetail, TextBlock.TextProperty, "Wake.Error");
             await _log.WriteAsync($"Wake-on-LAN inspection failed: {exception.GetType().Name}");
             return;
         }
 
+        if (inspection != _wakeInspection) return;
+        var errorKey = status.Error == "Windows power-device detection timed out." ? "Wake.Timeout" : "Wake.Error";
         if (!status.HasCandidate)
         {
-            WakeOnLanStatusTitle.Text = UiText("No active Ethernet or Wi-Fi adapter found");
-            WakeOnLanStatusDetail.Text = UiText(status.Error ??
-                "Connect this PC to the network, then refresh the Wake-on-LAN page.");
-            AddWakeOnLanEmptyState();
+            BindMessage(WakeOnLanStatusTitle, TextBlock.TextProperty, status.Error is null ? "Wake.Empty" : "Wake.Failed");
+            BindMessage(WakeOnLanStatusDetail, TextBlock.TextProperty, status.Error is null ? "Wake.Connect" : errorKey);
             return;
         }
 
-        WakeOnLanStatusTitle.Text = UiText(status.HasArmedAdapter
-            ? "Windows allows this PC to wake"
-            : "Wake-on-LAN needs adapter setup");
-        WakeOnLanStatusDetail.Text = UiText(status.HasArmedAdapter
-            ? "At least one active adapter is armed for wake events. Copy its MAC address for the client."
-            : status.PowerQuerySucceeded
-                ? "No active adapter is currently armed. Open Device Manager and enable Magic Packet wake."
-                : status.Error ?? "PiuLink could not read Windows wake permissions.");
+        BindMessage(WakeOnLanStatusTitle, TextBlock.TextProperty, status.HasArmedAdapter ? "Wake.Ready" : "Wake.Setup");
+        BindMessage(WakeOnLanStatusDetail, TextBlock.TextProperty,
+            status.HasArmedAdapter ? "Wake.ReadyHint" : status.PowerQuerySucceeded ? "Wake.SetupHint" : errorKey);
 
         foreach (var adapter in status.Adapters)
         {
@@ -1213,35 +1235,37 @@ public partial class MainWindow : Window
             FontSize = 14,
             FontWeight = FontWeights.SemiBold
         });
-        details.Children.Add(new TextBlock
+        var addresses = new TextBlock
         {
-            Text = $"{adapter.MacAddress}  ·  " +
-                   (adapter.Ipv4Addresses.Count == 0
-                       ? UiText("No IPv4 address")
-                       : string.Join(", ", adapter.Ipv4Addresses)),
             FontFamily = new System.Windows.Media.FontFamily("Cascadia Mono, Consolas"),
             Foreground = ResourceBrush("MutedBrush"),
             FontSize = 12,
             Margin = new Thickness(0, 4, 0, 0)
-        });
-        details.Children.Add(new TextBlock
+        };
+        if (adapter.Ipv4Addresses.Count == 0)
+            BindMessage(addresses, TextBlock.TextProperty, "Wake.NoIP", adapter.MacAddress + "  ·  {0}");
+        else
+            addresses.Text = adapter.MacAddress + "  ·  " + string.Join(", ", adapter.Ipv4Addresses);
+        details.Children.Add(addresses);
+        var permission = new TextBlock
         {
-            Text = UiText(adapter.IsWakeArmed ? "Wake armed" : "Wake permission not detected"),
             Foreground = adapter.IsWakeArmed
                 ? ResourceBrush("SuccessBrush")
                 : ResourceBrush("WarningBrush"),
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 4, 0, 0)
-        });
+        };
+        BindMessage(permission, TextBlock.TextProperty, adapter.IsWakeArmed ? "Wake.Armed" : "Wake.Unarmed");
+        details.Children.Add(permission);
 
         var copyButton = new System.Windows.Controls.Button
         {
-            Content = UiText("Copy MAC"),
             Tag = adapter.MacAddress,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(16, 0, 0, 0)
         };
+        BindMessage(copyButton, ContentControl.ContentProperty, "Wake.Copy");
         copyButton.Click += CopyWakeMac_Click;
         Grid.SetColumn(copyButton, 1);
         grid.Children.Add(details);
@@ -1250,25 +1274,14 @@ public partial class MainWindow : Window
         WakeOnLanAdapterList.Children.Add(border);
     }
 
-    private void AddWakeOnLanEmptyState()
-    {
-        WakeOnLanAdapterList.Children.Add(new TextBlock
-        {
-            Text = UiText("No suitable active adapter is available."),
-            Foreground = ResourceBrush("MutedBrush"),
-            FontSize = 13,
-            Margin = new Thickness(0, 4, 0, 4)
-        });
-    }
-
     private async void CopyWakeMac_Click(object sender, RoutedEventArgs e)
     {
         if (sender is System.Windows.Controls.Button { Tag: string macAddress } && macAddress != "Unavailable")
         {
             var result = await DesktopClipboard.CopyAsync(this, macAddress);
             if (result != CopyResult.Canceled)
-                ((System.Windows.Controls.Button)sender).Content = LocalizationService.Instance.TranslateLiteral(
-                    result == CopyResult.Copied ? "Copied" : "Copy failed. Retry");
+                BindMessage((System.Windows.Controls.Button)sender, ContentControl.ContentProperty,
+                    result == CopyResult.Copied ? "Wake.Copied" : "Wake.CopyFailed");
         }
     }
 
@@ -1508,15 +1521,15 @@ public partial class MainWindow : Window
     private async Task<bool> ProvisionSunshineControlAsync(bool automatic)
     {
         SetSunshineControlsBusy(isBusy: true);
-        SunshineConnectButton.Content = "Connecting…";
-        SunshineControlStatusText.Text = automatic
-            ? "Finishing the local streaming connection…"
-            : "Approve the administrator prompt once to link Sunshine with PiuLink.";
+        BindMessage(SunshineConnectButton, ContentControl.ContentProperty, "Engine.Connecting");
+        BindMessage(SunshineControlStatusText, TextBlock.TextProperty, automatic ? "Engine.Connecting" : "Engine.Approve");
         SunshineControlStatusText.Foreground = ResourceBrush("PrimaryBrush");
         try
         {
             var result = await _sunshineManagedIdentity.ProvisionAsync();
-            SunshineControlStatusText.Text = result.Message;
+            BindMessage(SunshineControlStatusText, TextBlock.TextProperty,
+                result.Succeeded ? "Engine.Connected" : result.Cancelled ? "Engine.Canceled" : "Engine.SetupFailed");
+            if (!result.Succeeded) await _log.WriteAsync(result.Message);
             SunshineControlStatusText.Foreground = result.Succeeded
                 ? ResourceBrush("SuccessBrush")
                 : result.Cancelled ? ResourceBrush("WarningBrush") : ResourceBrush("ErrorBrush");
@@ -1529,7 +1542,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            SunshineControlStatusText.Text = "PiuLink could not initialize secure Sunshine control.";
+            BindMessage(SunshineControlStatusText, TextBlock.TextProperty, "Engine.SetupFailed");
             SunshineControlStatusText.Foreground = ResourceBrush("ErrorBrush");
             await _log.WriteAsync($"PiuLink-managed Sunshine identity setup failed: {exception.GetType().Name}");
             return false;
@@ -1555,7 +1568,7 @@ public partial class MainWindow : Window
         if (credential is null)
         {
             _sunshineAuthenticated = false;
-            SunshineControlStatusText.Text = "Set up secure control once. PiuLink will manage the device credential for you.";
+            BindMessage(SunshineControlStatusText, TextBlock.TextProperty, "Engine.Credentials");
             SunshineControlStatusText.Foreground = ResourceBrush("WarningBrush");
             PairingStatusText.Text = "Set up PiuLink control first.";
             SetSunshineControlsBusy(isBusy: false);
@@ -1565,7 +1578,7 @@ public partial class MainWindow : Window
         _sunshineCredential = credential;
 
         SetSunshineControlsBusy(isBusy: true);
-        SunshineControlStatusText.Text = "Connecting to Sunshine on this PC…";
+        BindMessage(SunshineControlStatusText, TextBlock.TextProperty, "Engine.Connecting");
         SunshineControlStatusText.Foreground = ResourceBrush("MutedBrush");
 
         try
@@ -1579,7 +1592,7 @@ public partial class MainWindow : Window
                     _virtualApplicationsRegistered = true;
                 } catch (Exception error) { await _log.WriteAsync("Retired virtual app cleanup deferred: " + DescribeExceptionForLog(error)); }
             }
-            SunshineControlStatusText.Text = "Connected locally. Sunshine is now managed inside PiuLink.";
+            BindMessage(SunshineControlStatusText, TextBlock.TextProperty, "Engine.Connected");
             SunshineControlStatusText.Foreground = ResourceBrush("SuccessBrush");
             PairingStatusText.Text = "Ready for a four-digit PIN from a PiuLink client.";
             PairingStatusText.Foreground = ResourceBrush("MutedBrush");
@@ -1950,7 +1963,7 @@ public partial class MainWindow : Window
                 // Recovery belongs to the previous session, not the newly selected mode.
                 if (_gatherWindowsApplied) {
                     _gatherWindowsTarget = null; _gatherWindowsApplied = false;
-                    GatherWindowsStatus.Text = WindowRestorePendingMessage;
+                    BindMessage(GatherWindowsStatus, TextBlock.TextProperty, "Layout.Restoring");
                     RetryGatherWindowsButton.Visibility = Visibility.Collapsed;
                 }
                 // Also keep an idle baseline when a client skips an unchanged routing request.
@@ -1958,10 +1971,8 @@ public partial class MainWindow : Window
                 var restored = WindowPlacementService.ObserveSessionDesktop(desktop.PhysicalOnly, desktop.Layout);
                 // Do not move windows while Sunshine is changing resolution or disabling monitors.
                 if (!desktop.PhysicalOnly || WindowPlacementService.SessionRestorePending) return;
-                if (GatherWindowsStatus.Text == WindowRestorePendingMessage)
-                    GatherWindowsStatus.Text = restored.Failed > 0
-                        ? $"窗口布局恢复完成，{restored.Failed} 个窗口未能移动。"
-                        : "窗口布局恢复完成。";
+                if (GatherWindowsStatus.Text == LocalizationService.Instance["Layout.Restoring"])
+                    BindMessage(GatherWindowsStatus, TextBlock.TextProperty, restored.Failed > 0 ? "Layout.Partial" : "Layout.Restored");
                 if (restored.Moved > 0 || restored.Failed > 0)
                 {
                     await LogWindowResultAsync("window.session_restore", $"Session window restore completed. Restored={restored.Moved}; Failed={restored.Failed}", restored.Failed);
@@ -2595,7 +2606,6 @@ public partial class MainWindow : Window
     }
 
     private string? _gatherWindowsTarget;
-    private const string WindowRestorePendingMessage = "串流已结束，正在恢复窗口布局。";
     private bool _gatherWindowsApplied;
 
     private async Task<bool> ApplyRemoteDisplaySelectionAsync(
@@ -3408,7 +3418,7 @@ public partial class MainWindow : Window
             await Task.Delay(TimeSpan.FromMilliseconds(500));
             var overview = await GetSunshineOverviewWithRetryAsync(credential);
             RenderSunshineOverview(overview);
-            SunshineControlStatusText.Text = "The previous session ended. Sunshine is ready for a new app.";
+            BindMessage(SunshineControlStatusText, TextBlock.TextProperty, "Engine.SessionEnded");
             SunshineControlStatusText.Foreground = ResourceBrush("SuccessBrush");
             await _log.WriteAsync("Ended a retained Sunshine application through the local native API.");
         }
@@ -3500,13 +3510,8 @@ public partial class MainWindow : Window
     {
         var sunshineInstalled = _snapshot is not null &&
                                 _snapshot.Sunshine.State != ComponentState.Missing;
-        SunshineConnectButton.Content = isBusy
-            ? "Connecting…"
-            : _sunshineAuthenticated
-                ? "Connected"
-                : _sunshineCredential is null
-                    ? "Set up secure control"
-                    : "Repair connection";
+        BindMessage(SunshineConnectButton, ContentControl.ContentProperty, isBusy ? "Engine.Connecting"
+            : _sunshineAuthenticated ? "Engine.Linked" : _sunshineCredential is null ? "Engine.Setup" : "Engine.Repair");
         SunshineConnectButton.IsEnabled = !isBusy && sunshineInstalled && !_sunshineAuthenticated;
     }
 

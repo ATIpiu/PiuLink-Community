@@ -347,7 +347,7 @@
                                   Background="{StaticResource SubtleBrush}"
                                   Margin="0,0,8,0"
                                   VerticalAlignment="Center" />
-                          <TextBlock Text="SUNSHINE" Style="{StaticResource EyebrowStyle}" VerticalAlignment="Center" />
+                          <TextBlock Text="{i18n:Loc Engine.Control}" Style="{StaticResource EyebrowStyle}" VerticalAlignment="Center" />
                         </StackPanel>
                       </Grid>
                       <TextBlock x:Name="SunshineStatus"
@@ -621,9 +621,9 @@
                   <local:HostArtwork x:Name="StreamingHostStatusIcon" Symbol="StreamingHost" Width="25" Height="25"/>
                 </Border>
                 <StackPanel Grid.Column="1" Margin="12,0,18,0" VerticalAlignment="Center">
-                  <TextBlock Text="Native Sunshine control" FontSize="16" FontWeight="SemiBold" />
+                  <TextBlock Text="{i18n:Loc Engine.Control}" FontSize="16" FontWeight="SemiBold" />
                   <TextBlock x:Name="SunshineNativeStatusDetail"
-                             Text="Checking the local streaming service…"
+                             Text="{i18n:Loc Status.Checking}"
                              Foreground="{StaticResource MutedBrush}"
                              FontSize="12"
                              TextWrapping="Wrap"
@@ -715,17 +715,17 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,28,0">
 
-                  <TextBlock Text="Enter the Moonlight PIN" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
+                  <TextBlock Text="{i18n:Loc Engine.Pin}" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
                   <TextBlock Text="Start pairing on PiuLink Android or Windows Client, then enter the four-digit PIN shown there."
                              Style="{StaticResource BodyMutedStyle}"
                              TextWrapping="Wrap"
                              Margin="0,5,0,0" />
                   <TextBlock x:Name="PairingStatusText"
-                             Text="Connect to Sunshine first."
+                             Text="{i18n:Loc Engine.RequireConnection}"
                              Style="{StaticResource BodyMutedStyle}"
                              TextWrapping="Wrap"
                              Margin="0,13,0,0" />
-                  <TextBlock Text="首次串流配对请在本机输入客户端显示的 PIN。已配对设备使用保存的证书重新连接。"
+                  <TextBlock Text="{i18n:Loc Engine.PinHint}"
                              Style="{StaticResource BodyMutedStyle}"
                              TextWrapping="Wrap"
                              Margin="22,5,0,0" />
@@ -758,25 +758,25 @@
               <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
 
-                  <TextBlock Text="PiuLink-managed Sunshine" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
-                  <TextBlock Text="You sign in only to PiuLink. A device-only control credential is generated automatically and protected by Windows Credential Manager; it is not a second user account."
+                  <TextBlock Text="{i18n:Loc Engine.Manage}" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,0" />
+                  <TextBlock Text="{i18n:Loc Engine.Credentials}"
                              Style="{StaticResource BodyMutedStyle}"
                              TextWrapping="Wrap"
                              Margin="0,5,0,14" />
 
                   <WrapPanel Margin="0,16,0,0">
                     <Button x:Name="SunshineConnectButton"
-                            Content="Set up secure control"
+                            Content="{i18n:Loc Engine.Setup}"
                             Style="{StaticResource PrimaryButtonStyle}"
                             Click="ConnectSunshine_Click" />
                     <Button x:Name="SunshineRefreshButton"
-                            Content="Refresh"
+                            Content="{i18n:Loc Common.Refresh}"
                             Margin="10,0,0,0"
                             IsEnabled="False"
                             Click="RefreshSunshineControl_Click" />
                   </WrapPanel>
                   <TextBlock x:Name="SunshineControlStatusText"
-                             Text="PiuLink connects only to https://localhost:47990. No browser window is opened."
+                             Text="{i18n:Loc Engine.Local}"
                              Style="{StaticResource BodyMutedStyle}"
                              TextWrapping="Wrap"
                              Margin="0,13,0,0" />
@@ -784,7 +784,7 @@
               </Border>
               <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
-                  <TextBlock Text="SUNSHINE" Style="{StaticResource EyebrowStyle}" />
+                  <TextBlock Text="{i18n:Loc Engine.Control}" Style="{StaticResource EyebrowStyle}" />
                   <TextBlock Text="Host summary" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,18" />
                   <Border Background="{StaticResource RaisedPanelBrush}" CornerRadius="14" Padding="16" Margin="0,0,0,10">
                     <Grid>
@@ -1063,7 +1063,7 @@
                             IsEnabled="False"
                             Click="ApplyDisplaySettings_Click" />
                     <Button x:Name="RefreshDisplaysButton"
-                            Content="Refresh"
+                            Content="{i18n:Loc Common.Refresh}"
                             Margin="9,0,0,0"
                             Click="RefreshDisplays_Click" />
                   </WrapPanel>
@@ -1312,18 +1312,18 @@
                 </Border>
                 <StackPanel Grid.Column="1" Margin="12,0,18,0" VerticalAlignment="Center">
                   <TextBlock x:Name="WakeOnLanStatusTitle"
-                             Text="Checking Wake-on-LAN…"
+                             Text="{i18n:Loc Wake.Check}"
                              FontSize="16"
                              FontWeight="SemiBold" />
                   <TextBlock x:Name="WakeOnLanStatusDetail"
-                             Text="PiuLink is inspecting active network adapters and Windows wake permissions."
+                             Text="{i18n:Loc Wake.Inspect}"
                              Foreground="{StaticResource MutedBrush}"
                              FontSize="12"
                              TextWrapping="Wrap"
                              Margin="0,3,0,0" />
                 </StackPanel>
                 <Button Grid.Column="2"
-                        Content="Refresh"
+                        Content="{i18n:Loc Common.Refresh}"
                         VerticalAlignment="Center"
                         Click="RefreshWakeOnLan_Click" />
               </Grid>
@@ -1332,10 +1332,10 @@
             <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
               <StackPanel>
 
-                <TextBlock Text="Network adapter and MAC address"
+                <TextBlock Text="{i18n:Loc Wake.Adapters}"
                            Style="{StaticResource SectionTitleStyle}"
                            Margin="0,6,0,0" />
-                <TextBlock Text="Use the MAC address in the PiuLink client or another trusted Wake-on-LAN sender. Wired Ethernet is usually the most reliable."
+                <TextBlock Text="{i18n:Loc Wake.AdapterHint}"
                            Style="{StaticResource BodyMutedStyle}"
                            TextWrapping="Wrap"
                            Margin="0,5,0,14" />
@@ -1349,14 +1349,14 @@
                   <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
 
-                      <TextBlock Text="Allow Magic Packet wake"
+                      <TextBlock Text="{i18n:Loc Wake.Magic}"
                                  Style="{StaticResource SectionTitleStyle}"
                                  Margin="0,6,0,0" />
-                      <TextBlock Text="In the adapter's Power Management and Advanced tabs, enable wake by Magic Packet. The exact labels depend on the driver."
+                      <TextBlock Text="{i18n:Loc Wake.MagicHint}"
                                  Style="{StaticResource BodyMutedStyle}"
                                  TextWrapping="Wrap"
                                  Margin="0,5,0,14" />
-                      <Button Content="Open Device Manager"
+                      <Button Content="{i18n:Loc Wake.DeviceManager}"
                               HorizontalAlignment="Left"
                               Click="OpenWakeDeviceManager_Click" />
                     </StackPanel>
@@ -1364,14 +1364,14 @@
                   <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
 
-                      <TextBlock Text="Keep wake available while off"
+                      <TextBlock Text="{i18n:Loc Wake.Shutdown}"
                                  Style="{StaticResource SectionTitleStyle}"
                                  Margin="0,6,0,0" />
-                      <TextBlock Text="If wake works from sleep but not shutdown, review Fast Startup and enable Wake-on-LAN in BIOS/UEFI. PiuLink does not change firmware automatically."
+                      <TextBlock Text="{i18n:Loc Wake.ShutdownHint}"
                                  Style="{StaticResource BodyMutedStyle}"
                                  TextWrapping="Wrap"
                                  Margin="0,5,0,14" />
-                      <Button Content="Open Power Options"
+                      <Button Content="{i18n:Loc Wake.Power}"
                               HorizontalAlignment="Left"
                               Click="OpenWakePowerOptions_Click" />
                     </StackPanel>
