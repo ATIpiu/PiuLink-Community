@@ -19,14 +19,15 @@ export const platforms = [
     packages: [
       {
         id: "win-suite",
-        title: "整合版（推荐）",
+        title: "整合版（首次安装）",
         role: "windows",
-        description: "内含 Rust 主机引擎与控制端，可从同一台电脑发送或接收串流。",
+        description: "含完整 Host 和 Client。小包在本机还原并校验安装文件，首次安装无需补下载组件。",
         version: "0.2.142",
         arch: "x64",
         format: "EXE",
-        bytes: 125086287,
-        url: published("windows-0.2.142", "PiuLink-Windows-0.2.142-win-x64.exe"),
+        bytes: 95963533,
+        url: published("windows-0.2.142", "PiuLink-Windows-0.2.142-win-x64-compact.exe"),
+        standard: { format: "EXE", bytes: 125086287, url: published("windows-0.2.142", "PiuLink-Windows-0.2.142-win-x64.exe") },
       },
       {
         id: "win-client",

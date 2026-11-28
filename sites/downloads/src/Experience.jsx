@@ -208,6 +208,8 @@ function ProductFilm({ player }) {
 }
 
 function PackageRow({ item, platform }) {
+  const alternate = item.portable || item.standard;
+  const alternateLabel = item.portable ? "便携压缩包" : "标准安装包";
   const size =
     item.bytes >= 1048576
       ? (item.bytes / 1048576).toFixed(1) + " MiB"
@@ -235,14 +237,14 @@ function PackageRow({ item, platform }) {
           </span>
           <span>下载 {item.format}</span>
         </a>
-        {item.portable && (
+        {alternate && (
           <a
             className="portable-link"
-            href={item.portable.url}
+            href={alternate.url}
             download
-            aria-label={`下载 ${platform} ${item.title} ${item.arch} 便携压缩包`}
+            aria-label={`下载 ${platform} ${item.title} ${item.arch} ${alternateLabel}`}
           >
-            便携压缩包 · {item.portable.format}
+            {alternateLabel} · {item.portable ? alternate.format : (alternate.bytes / 1048576).toFixed(1) + " MiB"}
           </a>
         )}
       </div>
@@ -371,6 +373,7 @@ const updates = [
     tag: "windows-0.2.142",
     date: "2026-11-28",
     changes: [
+      "首次安装默认下载离线小包，在本机还原出相同的完整安装程序。已有版本可以继续使用应用内增量更新。",
       "Windows x64 整合版包含 Host 0.2.140 和 Client 0.2.41。主机管理页、引擎图标与托盘使用 PiuLink 标识。",
       "已安装公开整合版 0.2.141 的用户可在应用内检查更新。使用四段版本号的旧开发版请从官网下载整合包。",
     ],

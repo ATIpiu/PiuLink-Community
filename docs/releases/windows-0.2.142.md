@@ -1,8 +1,12 @@
 # Windows x64 整合版 0.2.142
 
-[下载 Windows x64 整合安装包](https://github.com/ATIpiu/PiuLink-Community/releases/download/windows-0.2.142/PiuLink-Windows-0.2.142-win-x64.exe)
+[首次安装小包](https://github.com/ATIpiu/PiuLink-Community/releases/download/windows-0.2.142/PiuLink-Windows-0.2.142-win-x64-compact.exe) · [标准整合安装包](https://github.com/ATIpiu/PiuLink-Community/releases/download/windows-0.2.142/PiuLink-Windows-0.2.142-win-x64.exe)
 
 本版将已在 Windows 上验证的 Host 0.2.140、Client 0.2.41 和 piulink.18 Rust 集成引擎打入同一份公开预览安装包。上一份公开整合版 0.2.141 内置 Host 0.2.138。新版统一了主机管理页、引擎文件和托盘的 PiuLink 标识。安装包为 125,086,287 字节。
+
+**首次安装**
+
+Windows x64 新用户可下载 **95.96 MB（91.52 MiB）** 的首次安装小包，比标准包少下载 29.12 MB（23.3%）。Host、Client 与运行库均已包含，安装时会占用额外的临时磁盘空间，在本机还原并校验完整 EXE，随后打开常规安装界面。标准安装包可以跳过还原步骤。已在全新的 Windows x64 运行器上还原并实际安装，校验通过。首装小包的 SHA-256 在发布附件 `SHA256SUMS-compact.txt` 中，所用 WiX 工具的源码见同页 `WiX-6.0.0-source.zip`。
 
 **如何更新**
 
